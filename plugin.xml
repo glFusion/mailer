@@ -1,0 +1,10 @@
+<plugin>
+    <id>mailer</id>
+    <name>Mailer</name>
+    <description>Provides visitors the ability to subscribe to site announcements and other mailings.</description>
+    <version>0.0.4</version>
+    <glfusionversion>1.7.8</glfusionversion>
+    <phpversion>7.2.0</phpversion>
+    <url>http://www.leegarner.com</url>
+    <maintainer>Lee Garner</maintainer>
+</plugin>

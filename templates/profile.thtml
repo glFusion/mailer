@@ -1,0 +1,11 @@
+{# begin {templatelocation} #}
+<tr>
+  <td style="width:100px;">
+    <label for="emailfromuser">{$LANG_MLR['user_edit_checkbox_label']}:</label>
+  </td>
+  <td>
+    <input type="checkbox" id="mailer_subscribe" 
+        name="mailer_subscribe" {mailer_checked} {xhtml}>
+  </td>
+</tr>
+{# end {templatelocation} #}

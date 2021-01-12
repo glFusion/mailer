@@ -1,0 +1,80 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<!-- $Id: config.html 38 2012-03-17 16:17:22Z root $ -->
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1" />
+  <link href="../../../docs/docstyle.css" type="text/css" rel="stylesheet" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>Mailer Plugin - glFusion CMS</title>
+</head>
+
+<body style="direction: ltr;">
+<div id="gl_container_fluid">
+  <div id="gl_header"><span style="color: rgb(255, 255, 255); float: left; padding-left: 10px; padding-top: 5px; vertical-align: middle;">glFusion Documentation Project
+  </span><a style="float: right; padding-right: 10px; padding-top: 5px; vertical-align: middle;" href="http://www.glfusion.org/wiki/doku.php">glFusion Wiki</a>
+</div>
+<div id="gl_wrapper">
+<div class="body-container">
+<h1><a name="mailer_plugin" id="mailer_plugin">Mailer Plugin</a></h1>
+
+<div class="level1">
+<p>The Mailer Plugin allows site visitors to subscribe to announcements and other communications.  This serves as a one-way mailing list.  Unlike the built-in "Mail Users" function, non-members can also subscribe to mailings.</p>
+<h1><a name="mailer_plugin_configuration_options" id="mailer_plugin_configuration_options">Mailer Plugin Configuration Options</a></h1>
+
+<table class="inline">
+  <tbody>
+    <tr>
+      <th class="col0 leftalign" colspan="2">Main Settings</th>
+    </tr>
+
+    <tr class="row0">
+      <th class="col0 leftalign">Option </th>
+      <th class="col1 leftalign">Description </th>
+    </tr>
+
+    <tr class="row0">
+      <td valign="top" class="col0 leftalign"><a name="desc_confirm_period"></a>Limit for subscribers to confirm</td>
+      <td class="col1 leftalign">
+        Enter the number of days to wait for a subscriber to confirm their subscription.  Subscriptions left unconfirmed after this period will be automatically deleted.  Enter zero for no limit.
+      </td>
+    </tr>
+
+    <tr class="row0">
+      <td valign="top" class="col0 leftalign"><a name="desc_exp_days"></a>Default days to keep messages</td>
+      <td class="col1 leftalign">
+        Enter the number of days that mailers will be retained by default.  Each mailer may have its own retention value.  Mailers older than this number of days will be automatically deleted.  Enter zero to disable purging.
+      </td>
+    </tr>
+
+    <tr>
+      <th class="col0 leftalign" colspan="2">Mail Queue Settings</th>
+    </tr>
+
+    <tr class="row0">
+      <th class="col0 leftalign">Option </th>
+      <th class="col1 leftalign">Description </th>
+    </tr>
+
+    <tr class="row0">
+      <td valign="top" class="col0 leftalign"><a name="desc_max_per_run"></a>Max. items mailed at once</td>
+      <td class="col1 leftalign">
+        Enter the maximum number of messages to be sent in one batch.  Zero indicates that all queued messages will be sent.  This is intended to help compliance with outbound mail restrictions.
+      </td>
+    </tr>
+
+    <tr class="row0">
+      <td valign="top" class="col0 leftalign"><a name="desc_queue_interval"></a>Delay between queue processing</td>
+      <td class="col1 leftalign">
+        Enter the number of seconds between mailings.  The emails are sent during glFusion's cron process, so this value should be greater than that interval to be meaningful.  Zero indicates that up to the maximum number of messages will be sent with each scheduled task run.
+      </td>
+    </tr>
+
+  </tbody>
+</table>
+<p></p>
+</div>
+</div>
+</div>
+</div>
+</body>
+</html>

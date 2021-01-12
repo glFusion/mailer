@@ -1,0 +1,5 @@
+<p>You, or someone else, has subscribed to the newsletter from {site_name} using your email address.</p>
+<p>If you wish to receive these newsletters, then you need to confirm your subscription by visiting <a href="{pi_url}/index.php?view=confirm&email={email}&token={token}">{pi_url}/index.php?view=confirm&email={email}&token={token}</a></p>
+<p>This confirmation link is only valid for {confirm_period} days</p>
+<p>&nbsp;</p>
+<p>If you wish to *permanently* block your email from our mailing list, you may do so by visiting <a href="{pi_url}/index.php?view=bl&email={email}&token={token}">{pi_url}/index.php?view=bl&email={email}&token={token}</a></p>

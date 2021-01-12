@@ -1,0 +1,15 @@
+{# begin {templatelocation} #}
+<!--<div style="width:220px;">-->
+<form id="MLR_form_small" onsubmit="storeAddress(this);return false;">
+  <fieldset>
+    <legend>{block_text_small}</legend>
+      <p>
+        <input type="text" name="address" id="address" size="20" maxlength="128" {xhtml}>
+        <br {xhtml}>
+        <input type="submit" value="{block_button_text}" {xhtml}>
+      </p>
+      <p id="mlr_sub_response">&nbsp;</p>
+  </fieldset>
+</form>
+<!--</div>-->
+{# end {templatelocation} #}

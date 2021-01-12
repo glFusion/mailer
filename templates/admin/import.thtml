@@ -1,0 +1,20 @@
+{# begin {templatelocation} #}
+<form action="{site_admin_url}/plugins/mailer/index.php" method="post">
+  <textarea name="import_list" 
+    style="width:100%;height:290px;overflow:scroll;font-size:12px;" 
+    onfocus="if(this.value == '{lang_import_temp_text}'){this.value = '';}" 
+    onblur="if(this.value == ''){this.value = '{lang_import_temp_text}';}"
+    >{lang_import_temp_text}</textarea>
+  <input type="text" maxlength="2" size="2" name="delimiter" 
+    id="delimiter" value=","{xhtml}>
+  <label for="delimiter">{lang_delimiter}</label>
+  <input type="checkbox" name="blacklist" id="blacklist" value="1"{xhtml}>
+  <label for="blacklist">{lang_blacklist}</label>
+  <br{xhtml}><br{xhtml}>
+  <input type="submit" value="{$LANG_MLR['import']}" name="import"{xhtml}>
+  &nbsp;
+  <input type="submit" value="{$LANG_ADMIN['cancel']}" 
+    name="cancel_import"{xhtml}>
+  <input type="hidden" name="{gltoken_name}" value="{gltoken}"{xhtml}>
+</form>
+{# end {templatelocation} #}

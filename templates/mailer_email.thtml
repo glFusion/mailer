@@ -1,0 +1,11 @@
+{content}
+<p>&nbsp;</p>
+{!if show_unsub}
+<hr>
+<p>
+{$LANG_MLR['trouble_viewing']}: <a href="{pi_url}/index.php?page={mlr_id}">{pi_url}/index.php?page={mlr_id}</a>
+</p>
+<p>
+{$LANG_MLR[unsubscribe]}: <a href="{pi_url}/index.php?view=unsub&email={email}&token={token}&mlr_id={mlr_id}">{pi_url}/index.php?view=unsub&email={email}&token={token}&mlr_id={mlr_id}</a>
+</p>
+{!endif}

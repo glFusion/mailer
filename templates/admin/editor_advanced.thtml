@@ -1,0 +1,171 @@
+{# begin {templatelocation} #}
+<noscript>
+  <div class="pluginAlert" style="border:1px dashed #ccc;text-align:center;margin-top:10px;padding:15px;">{$LANG24[77]}</div>
+</noscript>
+<script type="text/javascript">
+    // Setup editor path for FCKeditor JS Functions
+    glfusionEditorBasePath = "{site_url}/fckeditor/";
+</script>
+<script type="text/JavaScript" src="{site_url}/mailer/js/mailer_fckeditor.js"></script>
+
+<form id="mailerform" action="{site_admin_url}/plugins/mailer/index.php" 
+    method="post" onsubmit='set_postcontent();'>
+<p>
+  <label for="mlr_title">{$LANG_MLR['title']}:</label>
+  <input id="mlr_title" type="text" size="48" maxlength="255" name="mlr_title" 
+        value="{mlr_title}"{xhtml}>
+</p>
+
+<p>
+  <label for="mlr_format">{$LANG_MLR['pageformat']}:</label>
+  <select id="mlr_format" name="mlr_format">
+    <option value="3" {block3_sel}>{$LANG_MLR['bothblocks']}</option>
+    <option value="1" {block1_sel}>{$LANG_MLR['leftblocks']}</option>
+    <option value="2" {block0_sel}>{$LANG_MLR['rightblocks']}</option>
+    <option value="0" {block0_sel}>{$LANG_MLR['noblocks']}</option>
+  </select>
+</p>
+
+<p>
+  <label for="sel_editmode">{$LANG24[4]}:</label>
+  <select id="sel_editmode" name="postmode" {change_editormode}>
+    {post_options}
+  </select>
+</p>
+
+<p>
+  <label for="mlr_id">{$LANG_MLR['id']}:</label>
+  <input type="text" dir="ltr" name="mlr_id" size="40" maxlength="40" 
+        value="{mlr_id}"{xhtml}>
+</p>
+
+<p>
+  <label for="example_url">{$LANG_MLR['url']}:</label>
+  <span id="example_url">{example_url}</span>
+</p>
+
+<p>
+  <label for="expires">{$LANG_MLR['expires_in']}:</label>
+  <input id="expires" type="text" dir="ltr" name="exp_days" 
+        size="6" maxlength="6" value="{exp_days}"{xhtml}>
+</p>
+
+<div id="sel_toolbar" style="clear:both;display:{show_adveditor};">
+    <label for="fckeditor_toolbar_selector">{$LANG24[70]}:</label>
+    <select id="fckeditor_toolbar_selector" name="fckeditor_toolbar_selector" 
+        onchange="changeToolbar(this.value);">
+      <option value="editor-toolbar1">{$LANG24[71]}</option>
+      <option value="editor-toolbar2">{$LANG24[72]}</option>
+      <option value="editor-toolbar3" selected="selected">{$LANG24[73]}</option>
+      <option value="Default">{$LANG24[75]}</option>
+    </select>
+  </div>
+
+<div id="advanced_editarea" style="clear:both;display:{show_adveditor};">
+    <div style="margin-top:10px;border:1px solid #CCC;">
+      <img src="{layout_url}/images/expand.png" title="{$LANG24[67]}" alt=""
+        onclick="changeHTMLTextAreaSize('mlr_content','larger');"{xhtml}>
+      <img src="{layout_url}/images/collapse.png" title="{$LANG24[68]}" alt=""
+        onclick="changeHTMLTextAreaSize('mlr_content','smaller');"{xhtml}>
+      <textarea id="mlr_content" name="mlr_content" cols="80" rows="44">{mlr_content}</textarea>
+      <div class="warningsmall" style="padding:10px;">{lang_allowedhtml}</div>
+    </div>
+  </div>
+
+<div id="html_editarea" style="clear:both;display:{show_htmleditor};">
+  <img src="{layout_url}/images/expand.png" title="{$LANG24[67]}" alt=""
+        onclick="changeTextAreaSize('html_content','larger');"{xhtml}>
+  <img src="{layout_url}/images/collapse.png" title="{$LANG24[68]}" alt=""
+        onclick="changeTextAreaSize('html_content','smaller');"{xhtml}>
+  <textarea id="html_content" name="mlr_content" cols="45" rows="12" 
+        style="width:100%" wrap="virtual">{mlr_content}</textarea>
+  <div class="warningsmall" style="padding:10px;">{lang_allowedhtml}</div>
+</div>
+
+<p>
+  <label for="mlr_uid">{$LANG_MLR['writtenby']}:</label>
+  <span id="mlr_uid">{name}
+    <input type="hidden" name="mlr_uid" value="{mlr_uid}"{xhtml}>
+  </span>
+</p>
+
+<p>
+  <label for="mlr_date">{$LANG_MLR['date']}:</label>
+  <span id="mlr_date">{mlr_formateddate}</span>
+</p>
+
+<p>
+  <label for="mlr_inblock">{$LANG_MLR['inblock_msg']}</label>
+  <input id="mlr_inblock" type="checkbox" name="mlr_inblock"
+        value="1" {inblock_checked}{xhtml}>&nbsp;{$LANG_MLR['inblock_info']}
+</p>
+
+<p>
+  <label for="mlr_help">{$LANG_ADMIN['help_url']}</label>
+  <input id="mlr_help" type="text" name="mlr_help"
+          value="{mlr_help}" size="50"{xhtml}>&nbsp;{$LANG21[51]}<br {xhtml}>
+          {$LANG21[52]}
+</p>
+
+<fieldset>
+<legend>{$LANG_ACCESS['accessrights']}</legend> 
+<p>
+  <label for="owner">{$LANG_ACCESS['owner']}:</label
+  <span id="owner">
+    {owner_name}<input type="hidden" name="owner_id" value="{owner_id}"{xhtml}>
+  </span>
+</p>
+
+<p>
+  <label for="group">{$LANG_ACCESS['group']}:</label
+  <span id="group">{group_dropdown}</span>
+</p>
+
+<p>
+  <label for="perm_blk">{$LANG_ACCESS['permissions']}</label>
+  <span id="perm_blk">{permissions_editor}</span>
+</p>
+
+</fieldset>
+
+<fieldset>
+<legend>{$LANG_MLR['send']}</legend>
+<p>
+    <input type="checkbox" id="mlr_sendnow" name="mlr_sendnow" 
+        onclick="document.getElementById('mlr_sendtest').checked=false;"{xhtml}>
+    {$LANG_MLR['sendnow']}
+    &nbsp;&nbsp;
+    <input type="hidden" name="mlr_sent_time" value="{mlr_sent_time}"{xhtml}>
+    {$LANG_MLR['last_sent']}: {mlr_sent_time_formated}
+    <br {xhtml}>
+    <input type="checkbox" id="mlr_sendtest" name="mlr_sendtest" 
+        onclick="document.getElementById('mlr_sendnow').checked=false;"{xhtml}>
+    {$LANG_MLR['sendtest']}
+</p>
+</fieldset>
+
+<p>
+  <label for="hits"><b>{$LANG_MLR['hits']}</b>:</label>
+  <input id="hits" type="hidden" name="mlr_hits" value="{mlr_hits}"{xhtml}>
+        {mlr_hits_formatted}
+</p>
+
+<p>&nbsp;</p>
+
+<p>
+  <label for="buttons"></label>
+  <span id="buttons">
+    <input type="submit" name="mlr_save" value="{$LANG_ADMIN['save']}" {xhtml}>
+    <input type="submit" name="mlr_cancel" 
+            value="{$LANG_ADMIN['cancel']}" {xhtml}>
+    {!if candelete}
+      <input type="submit" name="mlr_delete" value="{$LANG_ADMIN['delete']}"
+            onclick="return confirm('{$MESSAGE[76]}');" {xhtml}>
+    {!endif}
+  </span>
+</p>
+<input type="hidden" name="mlr_old_id" value="{mlr_old_id}"{xhtml}>
+<input type="hidden" name="{gltoken_name}" value="{gltoken}"{xhtml}>
+</form>
+{# end {templatelocation} #}
+
