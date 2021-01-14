@@ -51,8 +51,7 @@ function service_queueMessage_mailer($args, &$output, &$svc_msg)
 
     // Create the mail item, overriding permissions, expiration and
     // disabling the unsubscribe link (which is meaningless here).
-    USES_mailer_class_mailer();
-    $M = new Mailer();
+    $M = new Mailer\Models\Mailer();
     $M->mlr_title = $subject;
     $M->mlr_content = $message;
     $M->owner_id = 2;
@@ -66,27 +65,11 @@ function service_queueMessage_mailer($args, &$output, &$svc_msg)
         $M->show_unsub = 0;
     }
     $M->Save();
-    $mlr_id = $M->mlr_id;
-    if (empty($mlr_id)) {
-        // could happen if there's a database error
-        return PLG_RET_ERROR;
-    }
 
     // Now queue the message for delivery
-    $values = array();
-    foreach ($addr as $email) {
-        $values[] = "('$mlr_id', '" . DB_escapeString($email) . "')";
+    if (!$M->queueIt($addr)) {
+        return PLG_RET_ERROR;
+    } else {
+        return PLG_RET_OK;
     }
-    if (!empty($values)) {
-        $values = implode(',', $values);
-        $sql = "INSERT INTO {$_TABLES['mailer_queue']}
-                (mlr_id, email)
-            VALUES $values";
-        DB_query($sql, 1);
-        if (DB_error()) {
-            $svc_msg = 'Database error inserting into queue';
-            return PLG_RET_ERROR;
-        }
-    }
-    return PLG_RET_OK;
 }

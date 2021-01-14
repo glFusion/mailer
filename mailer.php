@@ -28,15 +28,8 @@ global $_DB_table_prefix;
 $_TABLES['mailer']          = $_DB_table_prefix . 'mailer';
 $_TABLES['mailer_emails']   = $_DB_table_prefix . 'mailer_emails';
 $_TABLES['mailer_queue']    = $_DB_table_prefix . 'mailer_queue';
+$_TABLES['mailer_txn']      = $_DB_table_prefix . 'mailer_txn';
 
-/**
- * Global configuration array
- * @global  array $_MLR_CONF
- */
-global $_MLR_CONF;
-$_MLR_CONF['pi_name']            = 'mailer';
-$_MLR_CONF['pi_version']         = '0.0.4';
-$_MLR_CONF['gl_version']         = '1.2.0';
-$_MLR_CONF['pi_url']             = 'http://www.leegarner.com';
-$_MLR_CONF['pi_display_name']    = 'Mailer';
+Mailer\Config::set('pi_version', '0.0.4');
+Mailer\Config::set('gl_version', '1.7.8');
 

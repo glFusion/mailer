@@ -20,78 +20,323 @@ if (!defined ('GVERSION')) {
     die('This file can not be used on its own!');
 }
 
-global $_MLR_DEFAULT;
-$_MLR_DEFAULT = array(
-    'displayblocks' =>  3,          // show left & right blocks
-    'filter_html'   =>  0,
-    'censor'        =>  1,
-    'confirm_period' => 3,          // Days allowed for confirmations
-    'max_per_run'   =>  100,        // Max mailings done at once
-    'queue_interval' => 1800,       // Time in seconds between runs
-    'exp_days'      =>  60,         // default expiration
-    'email_from'    =>  'noreply_mail', // noreply_mail or site_email
-    'def_register_sub' => 1,        // New registrats will subscribe
-    'del_user_unsub' => 1,          // Unsubscribe deleted users?
-    'default_perms' =>  array(3, 2, 2, 2),
+/** @var global config data */
+global $mailerConfigData;
+$mailerConfigData = array(
+    array(
+        'name' => 'sg_main',
+        'default_value' => NULL,
+        'type' => 'subgroup',
+        'subgroup' => 0,
+        'fieldset' => 0,
+        'selection_array' => NULL,
+        'sort' => 0,
+        'set' => true,
+        'group' => 'mailer',
+    ),
+    array(
+        'name' => 'fs_main',
+        'default_value' => NULL,
+        'type' => 'fieldset',
+        'subgroup' => 0,
+        'fieldset' => 0,
+        'selection_array' => NULL,
+        'sort' => 0,
+        'set' => true,
+        'group' => 'mailer',
+    ),
+    array(
+        'name' => 'provider',
+        'default_value' => 'Internal',
+        'type' => 'select',
+        'subgroup' => 0,
+        'fieldset' => 0,
+        'selection_array' => 5,
+        'sort' => 10,
+        'set' => true,
+        'group' => 'mailer',
+    ),
+    array(
+        'name' => 'def_register_sub',
+        'default_value' => 1,
+        'type' => 'select',
+        'subgroup' => 0,
+        'fieldset' => 0,
+        'selection_array' => 4,
+        'sort' => 90,
+        'set' => true,
+        'group' => 'mailer',
+    ),
+    array(
+        'name' => 'del_user_unsub',
+        'default_value' => 1,
+        'type' => 'select',
+        'subgroup' => 0,
+        'fieldset' => 0,
+        'selection_array' => 0,
+        'sort' => 100,
+        'set' => true,
+        'group' => 'mailer',
+    ),
+    array(
+        'name' => 'dbl_optin_members',
+        'default_value' => 1,
+        'type' => 'select',
+        'subgroup' => 0,
+        'fieldset' => 0,
+        'selection_array' => 0,
+        'sort' => 110,
+        'set' => true,
+        'group' => 'mailer',
+    ),
+    array(
+        'name' => 'log_level',
+        'default_value' => 300,
+        'type' => 'select',
+        'subgroup' => 0,
+        'fieldset' => 0,
+        'selection_array' => 0,
+        'sort' => 120,
+        'set' => true,
+        'group' => 'mailer',
+    ),
+
+    // Internal queue options
+    array(
+        'name' => 'fs_internal',
+        'default_value' => NULL,
+        'type' => 'fieldset',
+        'subgroup' => 0,
+        'fieldset' => 5,
+        'selection_array' => NULL,
+        'sort' => 5,
+        'set' => true,
+        'group' => 'mailer',
+    ),
+    array(
+        'name' => 'displayblocks',
+        'default_value' => 3,
+        'type' => 'select',
+        'subgroup' => 0,
+        'fieldset' => 5,
+        'selection_array' => 13,
+        'sort' => 10,
+        'set' => true,
+        'group' => 'mailer',
+    ),
+    array(
+        'name' => 'filter_html',
+        'default_value' => 0,
+        'type' => 'select',
+        'subgroup' => 0,
+        'fieldset' => 5,
+        'selection_array' => 0,
+        'sort' => 20,
+        'set' => true,
+        'group' => 'mailer',
+    ),
+    array(
+        'name' => 'censor',
+        'default_value' => 0,
+        'type' => 'select',
+        'subgroup' => 0,
+        'fieldset' => 0,
+        'selection_array' => 0,
+        'sort' => 30,
+        'set' => true,
+        'group' => 'mailer',
+    ),
+    array(
+        'name' => 'queue_interval',
+        'default_value' => 1800,
+        'type' => 'text',
+        'subgroup' => 0,
+        'fieldset' => 5,
+        'selection_array' => 0,
+        'sort' => 40,
+        'set' => true,
+        'group' => 'mailer',
+    ),
+    array(
+        'name' => 'email_from',
+        'default_value' => 'noreply_email',
+        'type' => 'select',
+        'subgroup' => 0,
+        'fieldset' => 5,
+        'selection_array' => 14,
+        'sort' => 50,
+        'set' => true,
+        'group' => 'mailer',
+    ),
+    array(
+        'name' => 'exp_days',
+        'default_value' => 60,
+        'type' => 'text',
+        'subgroup' => 0,
+        'fieldset' => 5,
+        'selection_array' => 0,
+        'sort' => 60,
+        'set' => true,
+        'group' => 'mailer',
+    ),
+    array(
+        'name' => 'confirm_period',
+        'default_value' => 3,
+        'type' => 'text',
+        'subgroup' => 0,
+        'fieldset' => 5,
+        'selection_array' => 0,
+        'sort' => 70,
+        'set' => true,
+        'group' => 'mailer',
+    ),
+    array(
+        'name' => 'max_per_run',
+        'default_value' => 100,
+        'type' => 'text',
+        'subgroup' => 0,
+        'fieldset' => 5,
+        'selection_array' => 0,
+        'sort' => 80,
+        'set' => true,
+        'group' => 'mailer',
+    ),
+    array(
+        'name' => 'default_permissions',
+        'default_value' => array (3, 2, 2, 2),
+        'type' => '@select',
+        'subgroup' => 0,
+        'fieldset' => 5,
+        'selection_array' => 12,
+        'sort' => 90,
+        'set' => true,
+        'group' => 'mailer',
+    ),
+
+    // Mailchimp integration
+    array(
+        'name' => 'fs_mailchimp',
+        'default_value' => NULL,
+        'type' => 'fieldset',
+        'subgroup' => 0,
+        'fieldset' => 10,
+        'selection_array' => NULL,
+        'sort' => 0,
+        'set' => true,
+        'group' => 'mailer',
+    ),
+    array(
+        'name' => 'mc_api_key',
+        'default_value' => '',
+        'type' => 'passwd',
+        'subgroup' => 0,
+        'fieldset' => 10,
+        'selection_array' => 0,
+        'sort' => 10,
+        'set' => true,
+        'group' => 'mailer',
+    ),
+    array(
+        'name' => 'mc_def_list',
+        'default_value' => '',
+        'type' => 'text',
+        'subgroup' => 0,
+        'fieldset' => 10,
+        'selection_array' => 0,
+        'sort' => 20,
+        'set' => true,
+        'group' => 'mailer',
+    ),
+    array(
+        'name' => 'mc_mrg_fname',
+        'default_value' => '',
+        'type' => 'text',
+        'subgroup' => 0,
+        'fieldset' => 10,
+        'selection_array' => 0,
+        'sort' => 30,
+        'set' => true,
+        'group' => 'mailer',
+    ),
+    array(
+        'name' => 'mc_mrg_lname',
+        'default_value' => '',
+        'type' => 'text',
+        'subgroup' => 0,
+        'fieldset' => 10,
+        'selection_array' => 0,
+        'sort' => 40,
+        'set' => true,
+        'group' => 'mailer',
+    ),
+
+    // Sendinblue integration
+    array(
+        'name' => 'fs_sendinblue',
+        'default_value' => NULL,
+        'type' => 'fieldset',
+        'subgroup' => 0,
+        'fieldset' => 20,
+        'selection_array' => NULL,
+        'sort' => 0,
+        'set' => true,
+        'group' => 'mailer',
+    ),
+    array(
+        'name' => 'sb_api_key',
+        'default_value' => '',
+        'type' => 'passwd',
+        'subgroup' => 0,
+        'fieldset' => 20,
+        'selection_array' => 0,
+        'sort' => 10,
+        'set' => true,
+        'group' => 'mailer',
+    ),
+    array(
+        'name' => 'sb_def_list',
+        'default_value' => '',
+        'type' => 'text',
+        'subgroup' => 0,
+        'fieldset' => 20,
+        'selection_array' => 0,
+        'sort' => 20,
+        'set' => true,
+        'group' => 'mailer',
+    ),
+    array(
+        'name' => 'sb_dbo_tpl',
+        'default_value' => '',
+        'type' => 'text',
+        'subgroup' => 0,
+        'fieldset' => 20,
+        'selection_array' => 0,
+        'sort' => 30,
+        'set' => true,
+        'group' => 'mailer',
+    ),
+
 );
 
 
 /**
- * Initialize Mailer plugin configuration.
+ * Initialize Mailer plugin configuration
  *
- * Creates the database entries for the configuation if they don't already
- * exist. Initial values will be taken from $_MLR_CONF if available (e.g. from
- * an old config.php), uses $_MLR_DEFAULT otherwise.
- *
- * @return  boolean     true: success; false: an error occurred
+ * @return  boolean             True
  */
 function plugin_initconfig_mailer()
 {
-    global $_MLR_CONF, $_MLR_DEFAULT;
-
-    if (is_array($_MLR_CONF) && (count($_MLR_CONF) > 1)) {
-        $_MLR_DEFAULT = array_merge($_MLR_DEFAULT, $_MLR_CONF);
-    }
+    global $mailerConfigData;
 
     $c = config::get_instance();
-    if (!$c->group_exists($_MLR_CONF['pi_name'])) {
-
-        $c->add('sg_main', NULL, 'subgroup',
-                0, 0, NULL, 0, true, $_MLR_CONF['pi_name']);
-        $c->add('fs_main', NULL, 'fieldset',
-                0, 0, NULL, 0, true, $_MLR_CONF['pi_name']);
-
-        $c->add('displayblocks', $_MLR_DEFAULT['displayblocks'], 'select',
-                0, 0, 13, 50, true, $_MLR_CONF['pi_name']);
-        $c->add('filter_html', $_MLR_DEFAULT['filter_html'], 'select',
-                0, 0, 0, 80, true, $_MLR_CONF['pi_name']);
-        $c->add('censor', $_MLR_DEFAULT['censor'], 'select',
-                0, 0, 0, 90, true, $_MLR_CONF['pi_name']);
-        $c->add('confirm_period', $_MLR_DEFAULT['confirm_period'],
-                'text', 0, 0, NULL, 130, true, $_MLR_CONF['pi_name']);
-        $c->add('exp_days', $_MLR_DEFAULT['exp_days'],
-                'text', 0, 0, NULL, 140, true, $_MLR_CONF['pi_name']);
-        $c->add('email_from', $_MLR_DEFAULT['email_from'], 'select',
-                0, 0, 14, 150, true, $_MLR_CONF['pi_name']);
-        $c->add('def_register_sub', $_MLR_DEFAULT['def_register_sub'], 'select',
-                0, 0, 4, 160, true, $_MLR_CONF['pi_name']);
-
-        $c->add('fs_queue', NULL, 'fieldset', 0, 10, NULL, 0, true, 
-                $_MLR_CONF['pi_name']);
-        $c->add('max_per_run', $_MLR_DEFAULT['max_per_run'],
-                'text', 0, 10, NULL, 10, true, $_MLR_CONF['pi_name']);
-        $c->add('queue_interval', $_MLR_DEFAULT['queue_interval'],
-                'text', 0, 10, NULL, 20, true, $_MLR_CONF['pi_name']);
-
-        $c->add('fs_permissions', NULL, 'fieldset',
-                0, 20, NULL, 0, true, $_MLR_CONF['pi_name']);
-        $c->add('default_permissions', $_MLR_DEFAULT['default_permissions'],
-                '@select', 0, 20, 12, 120, true, $_MLR_CONF['pi_name']);
-        return true;
+    if (!$c->group_exists('mailer')) {
+        USES_lib_install();
+        foreach ($mailerConfigData AS $cfgItem) {
+            _addConfigItem($cfgItem);
+        }
     } else {
-        return false;
+        COM_errorLog('initconfig error: Mailer config group already exists');
     }
-
+    return true;
 }
 
-?>

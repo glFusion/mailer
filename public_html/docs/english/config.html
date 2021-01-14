@@ -1,80 +1,127 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<!-- $Id: config.html 38 2012-03-17 16:17:22Z root $ -->
-<html xmlns="http://www.w3.org/1999/xhtml">
+<html xmlns="http://www.w3.org/1999/xhtml" class="uk-height-1-1">
 <head>
-  <meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1" />
-  <link href="../../../docs/docstyle.css" type="text/css" rel="stylesheet" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="apple-touch-icon-precomposed" href="../../layout/cms/images/apple-touch-icon.png">
+  <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/uikit/2.26.3/css/uikit.almost-flat.min.css">
   <meta name="robots" content="noindex,nofollow" />
-  <title>Mailer Plugin - glFusion CMS</title>
+  <title>glFusion Birthdays Plugin Configuration</title>
+  <style>
+    html{background:#f9f9f9}.tm-dropdown,.tm-navbar{background:#325482!important}.uk-form label{font-weight:700}.tm-navbar{border-radius:0!important;padding:1px 0 6px!important;border:none!important}.tm-navbar-brand{color:#eee!important}.tm-navbar-brand a{text-shadow:none;color:#fff}.tm-navbar-brand a:hover{color:#ababab;text-decoration:none}.tm-navbar-brand-oc a{text-shadow:none;color:#fff}.tm-navbar-brand-oc a:hover{color:#ababab;text-decoration:none}.tm-navbar-nav>li>a{border:none;border-radius:3px!important;font-size:15px!important;height:40px!important;margin:0!important}.tm-dropdown{color:#000;border-radius:0!important;border:0!important}.tm-nav-navbar>li>a{color:#fff!important}.tm-navbar::after,.tm-navbar::before{margin-top:7px!important}.tm-navbar-nav>li.uk-open>a,.tm-navbar-nav>li:hover>a,.tm-navbar-nav>li>a:focus{color:#fff;outline:0;background:#35B3EE!important}.tm-navbar-nav>li>a{color:#fff!important;text-shadow:none!important}.tm-navbar-toggle{color:#ccc!important;text-shadow:none!important}.tm-navbar-toggle:focus,.tm-navbar-toggle:hover{color:#fff!important}.tm-footer{background:#252525;border-top:1px solid #232425;margin-bottom:0;bottom:0;padding:10px;color:#fff}.tm-wrapper{min-height:100%;margin:0 auto -51px!important}.tm-push,footer{height:51px}.uk-navbar-content > a {color:#fff !important;}
+  </style>
 </head>
 
-<body style="direction: ltr;">
-<div id="gl_container_fluid">
-  <div id="gl_header"><span style="color: rgb(255, 255, 255); float: left; padding-left: 10px; padding-top: 5px; vertical-align: middle;">glFusion Documentation Project
-  </span><a style="float: right; padding-right: 10px; padding-top: 5px; vertical-align: middle;" href="http://www.glfusion.org/wiki/doku.php">glFusion Wiki</a>
-</div>
-<div id="gl_wrapper">
-<div class="body-container">
-<h1><a name="mailer_plugin" id="mailer_plugin">Mailer Plugin</a></h1>
+<body class="uk-height-1-1">
+  <div class="tm-wrapper">
+    <nav class="uk-navbar uk-navbar-attached tm-navbar uk-margin-bottom">
+      <div class="uk-navbar-brand tm-navbar-brand">
+        glFusion Birthdays Plugin Configuration
+      </div>
+      <div class="uk-navbar-flip uk-hidden-small">
+        <div class="uk-navbar-content tm-navbar-content" style="text-shadow:none;">
+          <a href="https://www.glfusion.org/wiki/">glFusion Wiki</a>
+        </div>
+      </div>
+    </nav>
 
-<div class="level1">
-<p>The Mailer Plugin allows site visitors to subscribe to announcements and other communications.  This serves as a one-way mailing list.  Unlike the built-in "Mail Users" function, non-members can also subscribe to mailings.</p>
-<h1><a name="mailer_plugin_configuration_options" id="mailer_plugin_configuration_options">Mailer Plugin Configuration Options</a></h1>
+    <div class="uk-container uk-container-center uk-margin-bottom">
+      <h1>glFusion Mailer Plugin Configuration</h1>
+        <p>The Mailer Plugin allows site visitors to subscribe to announcements and other communications.  This serves as a one-way mailing list.  Unlike the built-in "Mail Users" function, non-members can also subscribe to mailings.</p> 
 
-<table class="inline">
-  <tbody>
-    <tr>
-      <th class="col0 leftalign" colspan="2">Main Settings</th>
-    </tr>
+      <h2>Main Options</h2>
 
-    <tr class="row0">
-      <th class="col0 leftalign">Option </th>
-      <th class="col1 leftalign">Description </th>
-    </tr>
+      <dl id="desc_provider">
+          <dt>List Provider</dt>
+          <dd>Select the mailing list provider that you use.</dd>
+      </dl>
 
-    <tr class="row0">
-      <td valign="top" class="col0 leftalign"><a name="desc_confirm_period"></a>Limit for subscribers to confirm</td>
-      <td class="col1 leftalign">
-        Enter the number of days to wait for a subscriber to confirm their subscription.  Subscriptions left unconfirmed after this period will be automatically deleted.  Enter zero for no limit.
-      </td>
-    </tr>
+      <dl id="desc_confirm_period">
+          <dt>Subscription Confirmation Time Limit</dt>
+          <dd>Enter the number of days to wait for a subscriber to confirm their subscription.  Subscriptions left unconfirmed after this period will be automatically deleted.  Enter zero for no limit.</dd>
+      </dl>
 
-    <tr class="row0">
-      <td valign="top" class="col0 leftalign"><a name="desc_exp_days"></a>Default days to keep messages</td>
-      <td class="col1 leftalign">
-        Enter the number of days that mailers will be retained by default.  Each mailer may have its own retention value.  Mailers older than this number of days will be automatically deleted.  Enter zero to disable purging.
-      </td>
-    </tr>
+      <dl id="desc_exp_days">
+          <dt>Default days to keep messages</dt>
+          <dd>Enter the number of days that mailers will be retained by default.  Each mailer may have its own retention value.  Mailers older than this number of days will be automatically deleted.  Enter zero to disable purging.</dd>
+      </dl>
 
-    <tr>
-      <th class="col0 leftalign" colspan="2">Mail Queue Settings</th>
-    </tr>
+      <dl id="desc_max_per_run">
+          <dt>Max. items mailed at once</dt>
+          <dd>Enter the maximum number of messages to be sent in one batch.  Zero indicates that all queued messages will be sent.  This is intended to help compliance with outbound mail restrictions.</dd>
+      </dl>
 
-    <tr class="row0">
-      <th class="col0 leftalign">Option </th>
-      <th class="col1 leftalign">Description </th>
-    </tr>
+      <dl id="desc_queue_interval">
+          <dt>Delay between queue processing</dt>
+          <dd>Enter the number of seconds between mailings.  The emails are sent during glFusion's cron process, so this value should be greater than that interval to be meaningful.  Zero indicates that up to the maximum number of messages will be sent with each scheduled task run.</dd>
+      </dl>
 
-    <tr class="row0">
-      <td valign="top" class="col0 leftalign"><a name="desc_max_per_run"></a>Max. items mailed at once</td>
-      <td class="col1 leftalign">
-        Enter the maximum number of messages to be sent in one batch.  Zero indicates that all queued messages will be sent.  This is intended to help compliance with outbound mail restrictions.
-      </td>
-    </tr>
+      <dl id="desc_email_from">
+          <dt>Sender Address</dt>
+          <dd>Select the address to show as &quot;From&quot;</dd>
+      </dl>
 
-    <tr class="row0">
-      <td valign="top" class="col0 leftalign"><a name="desc_queue_interval"></a>Delay between queue processing</td>
-      <td class="col1 leftalign">
-        Enter the number of seconds between mailings.  The emails are sent during glFusion's cron process, so this value should be greater than that interval to be meaningful.  Zero indicates that up to the maximum number of messages will be sent with each scheduled task run.
-      </td>
-    </tr>
+      <dl id="desc_exp_days">
+          <dt>Days to keep messages</dt>
+          <dd>Enter a number of days to keep messages available online. Enter 0 to disable purging.</dd>
+      </dl>
 
-  </tbody>
-</table>
-<p></p>
-</div>
-</div>
-</div>
-</div>
+      <dl id="desc_del_user_unsub">
+          <dt>Unsubscribe deleted users</dt>
+          <dd>Select whether to automatically unsubscribe users from mailing lists when they are deleted from the site.</dd>
+      </dl>
+
+      <dl id="desc_dbl_optin_members">
+          <dt>Require double opt-in for members</dt>
+          <dd>Select whether to require double opt-in for site members when they subscribe via their user preferences.</dd>
+      </dl>
+
+      <dl id="desc_def_register_sub">
+          <dt>At-registration subscriptions</dt>
+          <dd>Select how, or if, new users can opt into the mailing list.</dd>
+      </dl>
+
+      <dl id="desc_log_level">
+          <dt>Log Level</dt>
+          <dd>Select the log level to use. Enable debug logging to log most events if you are having issues.</dd>
+      </dl>
+
+      <dl id="desc_mc_api_key">
+          <dt>Mailchimp API Key</dt>
+          <dd>Enter your API key from Mailchimp.</dd>
+      </dl>
+
+      <dl id="desc_mc_def_list">
+          <dt>Mailchimp Default List ID</dt>
+          <dd>Enter the list ID from Mailchimp for your default email list (audience)</dd>
+      </dl>
+
+      <dl id="desc_mc_mrg_fname">
+          <dt>Mailchimp Firstname merge field ID</dt>
+          <dd>Enter the ID of the merge field used for &quot;First Name&quot;</dd>
+      </dl>
+
+      <dl id="desc_mc_mrg_lname">
+          <dt>Mailchimp Lastname merge field ID</dt>
+          <dd>Enter the ID of the merge field used for &quot;Last Name&quot;</dd>
+      </dl>
+
+      <dl id="desc_sb_api_key">
+          <dt>Sendinblue API Key</dt>
+          <dd>Enter your API key from Sendinblue.</dd>
+      </dl>
+
+      <dl id="desc_sb_def_list">
+          <dt>Sendinblue Default List ID</dt>
+          <dd>Enter the list ID from Sendinblue for your default email list.</dd>
+      </dl>
+
+      <dl id="desc_sb_dbo_tpl">
+          <dt>Sendinblue Double Opt-In Template ID</dt>
+          <dd>Enter the ID number for the double opt-in template.</dd>
+      </dl>
+
+    </div>
+  </div>
 </body>
 </html>

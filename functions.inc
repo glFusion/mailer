@@ -18,24 +18,56 @@ if (!defined ('GVERSION')) {
     die('This file can not be used on its own.');
 }
 
-define(MLR_PI_PATH, dirname(__FILE__) . '/');
+spl_autoload_register(function ($class)
+{
+    // project-specific namespace prefix
+    $prefix = 'Mailer\\';
 
-define(MLR_STAT_PENDING,    0);
-define(MLR_STAT_ACTIVE,     1);
-define(MLR_STAT_BLACKLIST,  2);
+    // does the class use the namespace prefix?
+    $len = strlen($prefix);
+    if (strncmp($prefix, $class, $len) !== 0) {
+        // no, move to the next registered autoloader
+        return;
+    }
+
+    // base directory for the namespace prefix
+    $base_dir = __DIR__ . '/classes/';
+
+    // get the relative class name
+    $relative_class = substr($class, $len);
+
+    // replace the namespace prefix with the base directory, replace namespace
+    // separators with directory separators in the relative class name, append
+    // with .php
+    $file = $base_dir . str_replace('\\', '/', $relative_class) . '.class.php';
+
+    // if the file exists, require it
+    if (file_exists($file)) {
+        require $file;
+    }
+});
+use Mailer\Config;
+use Mailer\Models\Subscriber;
+Config::getInstance();
+
+define('MLR_PI_PATH', __DIR__ . '/');
+
+define('MLR_STAT_PENDING',    0);
+define('MLR_STAT_ACTIVE',     1);
+define('MLR_STAT_BLACKLIST',  2);
 
 // Status codes for adding new addresses
-define(MLR_ADD_SUCCESS,     0);
-define(MLR_ADD_ERROR,       1);
-define(MLR_ADD_MISSING,     2);
-define(MLR_ADD_EXISTS,      3);
-define(MLR_ADD_BLACKLIST,   4);
-define(MLR_ADD_INVALID,     5);
+define('MLR_ADD_SUCCESS',     0);
+define('MLR_ADD_ERROR',       1);
+define('MLR_ADD_MISSING',     2);
+define('MLR_ADD_EXISTS',      3);
+define('MLR_ADD_BLACKLIST',   4);
+define('MLR_ADD_INVALID',     5);
 
-define(MLR_BLOCK_LEFT,      0);
-define(MLR_BLOCK_RIGHT,     1);
-define(MLR_BLOCK_BOTH,      2);
-define(MLR_BLOCK_NONE,      3);
+define('MLR_BLOCK_LEFT',      0);
+define('MLR_BLOCK_RIGHT',     1);
+define('MLR_BLOCK_BOTH',      2);
+define('MLR_BLOCK_NONE',      3);
 
 /**
  * Language file include.
@@ -46,37 +78,22 @@ if (file_exists($langfile)) {
     require_once $langfile;
 } else {
     $lang = 'english';
-    require_once MLR_PI_PATH . 'language/english.php';
+    require_once __DIR__ . '/language/english.php';
 }
-if (file_exists(MLR_PI_PATH . 'language/custom/' . $lang. '.php')) {
+if (file_exists(__DIR__ . '/language/custom/' . $lang. '.php')) {
     // Include custom language strings, if available
-    include_once MLR_PI_PATH . 'language/custom/' . $lang. '.php';
+    include_once __DIR__ . '/language/custom/' . $lang. '.php';
 }
 
-/**
- * Check and see if we need to load the plugin configuration.
- */
-if (!isset($_MLR_CONF['confirm_period'])) {
-    require_once $_CONF['path_system'] . 'classes/config.class.php';
-
-    $mlr_config = config::get_instance();
-    $_MLR_CONF = $mlr_config->get_config('mailer');
+require_once __DIR__ . '/mailer.php';
+if (is_file(__DIR__ . '/config.php')) {
+    include_once __DIR__ . '/config.php';
 }
 
-require_once MLR_PI_PATH . 'mailer.php';
-if (is_file(MLR_PI_PATH . 'config.php')) {
-    include_once MLR_PI_PATH . 'config.php';
-}
-
-define(MLR_URL, $_CONF['site_url'] . '/' . $_MLR_CONF['pi_name']);
-define(MLR_ADMIN_URL, $_CONF['site_admin_url'] . '/plugins/' .
-        $_MLR_CONF['pi_name']);
-
-$_MLR_CONF['now'] = date('Y-m-d H:i:s');
-
-function USES_mailer_class_mailer()
-{   require_once MLR_PI_PATH . 'classes/mailer.class.php';   }
-
+define('MLR_URL', $_CONF['site_url'] . '/' . Config::get('pi_name'));
+define('MLR_ADMIN_URL',
+    $_CONF['site_admin_url'] . '/plugins/' . Config::get('pi_name')
+);
 
 /**
  * This will put an option for mailer in the command and control block.
@@ -89,7 +106,7 @@ function plugin_cclabel_mailer()
 
     if (SEC_hasRights('mailer.admin,mailer.edit', 'OR')) {
         return array ($LANG_MLR['mailer'],
-                MLR_ADMIN_URL . '/index.php',
+                Config::get('admin_url') . '/index.php',
                 plugin_geticon_mailer());
     }
 
@@ -105,9 +122,7 @@ function plugin_cclabel_mailer()
  */
 function plugin_chkVersion_mailer()
 {
-    global $_MLR_CONF;
-
-    return $_MLR_CONF['pi_version'];
+    return Config::get('pi_version');
 }
 
 
@@ -136,8 +151,11 @@ function plugin_getadminoption_mailer()
             FROM {$_TABLES['mailer']}" .
             COM_getPermSQL('WHERE', 0, 3));
         $A = DB_fetchArray ($result);
-        return array($LANG_MLR['mailer'],
-                MLR_ADMIN_URL . '/index.php', (int)$A['cnt']);
+        return array(
+            $LANG_MLR['mailer'],
+            Config::get('admin_url') . '/index.php',
+            (int)$A['cnt']
+        );
     }
 }
 
@@ -151,20 +169,23 @@ function plugin_getuseroption_mailer()
 {
     global $_USER, $LANG_MLR, $_CONF, $_TABLES;
 
-    // Get the token associated with the current user's email
-    $token = DB_getItem($_TABLES['mailer_emails'], 'token',
-            "email='" . DB_escapeString($_USER['email']) . "'");
-
-    if (empty($token)) {
+    $Sub = Subscriber::getByEmail($_USER['email']);
+    if ($Sub->getID() == 0 || $Sub->getStatus() == Mailer\Models\Status::UNSUBSCRIBED) {
         // User isn't subscribed
-        return array($LANG_MLR['user_menu_subscribe'],
-            MLR_URL . '/index.php?view=add&amp;email=' .
-                    $_USER['email'] . '&amp;mode=success', 0);
+        return array(
+            $LANG_MLR['user_menu_subscribe'],
+            Config::get('url') . '/index.php?view=add&amp;email=' .
+                urlencode($_USER['email']) . '&amp;mode=success',
+            0
+        );
     } else {
         // User is subscribed, offer unsubscribe link
-        return array($LANG_MLR['user_menu_unsubscribe'],
-            MLR_URL . '/index.php?view=unsub&amp;email='
-                . $_USER['email'] . '&amp;token=' . $token, 0);
+        return array(
+            $LANG_MLR['user_menu_unsubscribe'],
+            Config::get('url') . '/index.php?view=unsub&amp;email=' .
+                urlencode($_USER['email']) . '&amp;token=' . $Sub->getToken(),
+                0
+        );
     }
 }
 
@@ -177,7 +198,7 @@ function plugin_getuseroption_mailer()
  */
 function plugin_user_create_mailer($uid)
 {
-    global $_TABLES, $_MLR_CONF;
+    global $_TABLES;
 
     if (isset($_POST['mailer_subscribe']) && $_POST['mailer_subscribe'] == 1) {
         $email = DB_getItem($_TABLES['users'], 'email', "uid = '{$uid}'");
@@ -193,35 +214,46 @@ function plugin_user_create_mailer($uid)
  */
 function plugin_user_delete_mailer($uid)
 {
-    global $_TABLES, $_MLR_CONF;
+    global $_TABLES;
 
     // First, unsubscribe the user from any lists, if configured
-    if ($_MLR_CONF['del_user_unsub']) {
-        $email = DB_getItem($_TABLES['users'], 'email', "uid = '{$uid}'");
-        MLR_unsubscribe($email);
+    if (Config::get('del_user_unsub')) {
+        $Sub = Subscriber::getByUid($uid);
+        $Sub->unsubscribe();
+        //$email = DB_getItem($_TABLES['users'], 'email', "uid = '{$uid}'");
+        //MLR_unsubscribe($email);
     }
 
     // Then find any mailings owned or authored by this user and change them.
-    if (DB_count($_TABLES['mailer'], 'mlr_uid', $uid) +
-            DB_count($_TABLES['mailer'], 'owner_id', $uid) == 0) {
+    if (
+        DB_count($_TABLES['mailer'], 'mlr_uid', $uid) +
+        DB_count($_TABLES['mailer'], 'owner_id', $uid) == 0
+    ) {
         return;
     }
 
     // assign ownership to a user from the Root group
-    $rootgroup = (int)DB_getItem($_TABLES['groups'], 'grp_id',
-                                 "grp_name = 'Root'");
-    $result = DB_query("SELECT DISTINCT ug_uid
-                    FROM {$_TABLES['group_assignments']}
-                    WHERE ug_main_grp_id = $rootgroup
-                    ORDER BY ug_uid LIMIT 1");
+    $rootgroup = (int)DB_getItem(
+        $_TABLES['groups'],
+        'grp_id',
+        "grp_name = 'Root'"
+    );
+    $result = DB_query(
+        "SELECT DISTINCT ug_uid
+        FROM {$_TABLES['group_assignments']}
+        WHERE ug_main_grp_id = $rootgroup
+        ORDER BY ug_uid LIMIT 1"
+    );
     $A = DB_fetchArray($result, false);
     $rootuser = (int)$A['ug_uid'];
 
     if ($rootuser > 0) {
-        DB_query("UPDATE {$_TABLES['mailer']} SET
-                    mlr_uid = $rootuser,
-                    owner_id = $rootuser
-                WHERE mlr_uid = $uid OR owner_id = $uid");
+        DB_query(
+            "UPDATE {$_TABLES['mailer']} SET
+                mlr_uid = $rootuser,
+                owner_id = $rootuser
+            WHERE mlr_uid = $uid OR owner_id = $uid"
+        );
     } else {
         COM_errorLog("Mailer: Error finding root user");
     }
@@ -244,32 +276,23 @@ function plugin_profileedit_mailer($uid, $panel, $fieldset)
     $retval = '';
 
     if ($panel == 'privacy' && $fieldset == 'privacy') {
-        $sql = "SELECT n.status from {$_TABLES['mailer_emails']} n
-                LEFT JOIN {$_TABLES['users']} u
-                ON u.email = n.email
-                WHERE u.uid = '" . (int)$uid . "'";
-        $res = DB_query($sql);
-        if (DB_numRows($res) > 0) {
-            $A = DB_fetchArray($res, false);
-            $status = (int)$A['status'];
-            if ($status == MLR_STAT_BLACKLIST) {
+        $chk = '';
+        $Sub = Subscriber::getByUid($uid);
+        if ($Sub->getUid() > 1) {
+            if ($Sub->getStatus() == Mailer\Models\Status::BLACKLIST) {
                 // Blacklisted, don't show the option at all
                 return $retval;
+            } elseif ($Sub->getStatus() == Mailer\Models\Status::ACTIVE) {
+                $chk = 'checked="checked"';
             }
-            $chk = 'checked="checked"';
-        } else {
-            $chk = '';
         }
-
         $T = new Template(MLR_PI_PATH . 'templates/');
         $T->set_file('profile', 'profile.thtml');
         $T->set_var('mailer_checked', $chk);
         $T->parse('output', 'profile');
         $retval .= $T->finish($T->get_var('output'));
     }
-
     return $retval;
-
 }
 
 
@@ -283,19 +306,42 @@ function plugin_profilesave_mailer($uid=0)
     global $_USER, $_TABLES;
 
     if ($uid == 0) {
-        $email = $_USER['email'];
+        $uid = (int)$_USER['uid'];
     } else {
         $uid = (int)$uid;
-        $email = DB_getItem($_TABLES['users'], 'email', "uid=$uid");
     }
-
+    $Sub = Mailer\Models\Subscriber::getByUid($uid);
     if (isset($_POST['mailer_subscribe'])) {
         // User requesting addition, double opt-in not needed
-        MLR_addEmail($email, MLR_STAT_ACTIVE);
+        if (Config::get('dbl_optin_members')) {
+            $Sub->subscribe();
+        } else {
+            // Not requiring double-optin for members
+            $Sub->subscribe(Mailer\Models\Status::ACTIVE);
+        }
     } else {
-        MLR_unsubscribe($email);
+        $Sub->unsubscribe();
     }
 
+}
+
+
+function plugin_itemsaved_mailer($id, $type, $old_id = '')
+{
+    global $_TABLES;
+
+    $contentInfo = PLG_getItemInfo(
+        $type, $id,
+        'id,status,list_segment',
+        2
+    );
+
+    if ($contentInfo) {
+        if ($contentInfo['id'] > 1) {
+            $Sub = Subscriber::getByUid($contentInfo['id']);
+//            $Sub->updateMember();
+        }
+    }
 }
 
 
@@ -401,15 +447,13 @@ function phpblock_mailer_small()
  */
 function plugin_templatesetvars_mailer($templatename, &$template)
 {
-    global $_MLR_CONF;
-
     /*if ($templatename == 'header') {
         $template->set_var('button_mailer', $LANG_MLR['mailer']);
         $template->set_var('mailer_sm', phpblock_mailer_small());
     }*/
     if ($templatename == 'registration') {
         $chk = '';
-        switch ($_MLR_CONF['def_register_sub']) {
+        switch (Config::get('def_register_sub')) {
         case 1:     // checked selection
             $chk = 'checked="checked"';
 
@@ -439,13 +483,13 @@ function plugin_templatesetvars_mailer($templatename, &$template)
 
 function plugin_getheadercss_mailer()
 {
-    global $_CONF, $_MLR_CONF;
+    global $_CONF;
 
     $styles = array();
     $files = array('style.css',);
 
     $pi_css = MLR_PI_PATH . 'css/';
-    $layout_css = "{$_CONF['path_layout']}plugins/{$_MLR_CONF['pi_name']}/";
+    $layout_css = "{$_CONF['path_layout']}plugins/" . Config::get('pi_name') . '/';
 
     foreach ($files as $file) {
         if (@file_exists($layout_css . $file)) {
@@ -489,54 +533,13 @@ function plugin_geticon_mailer()
 /**
  * Update the Mailer plugin.
  *
+ * @param   boolean $dvlp   True for a development upgrade
  * @return  integer Number of message to display (true = generic success msg)
  */
-function plugin_upgrade_mailer()
+function plugin_upgrade_mailer($dvlp=false)
 {
-    global $_TABLES, $_MLR_CONF;
-
-    $pi_name = $_MLR_CONF['pi_name'];
-
-    // Get the current version, compare to the version in the plugin code
-    $current_ver = DB_getItem($_TABLES['plugins'], 'pi_version',
-        "pi_name = '$pi_name'");
-    if (!$current_ver) {
-        COM_errorLog("Error getting the $pi_name Plugin version",1);
-        return '3';
-    }
-
-    // if we're at the current version, what are we doing here?
-    if ($current_ver >= $_MLR_CONF['pi_version']) {
-        COM_errorLog("Current version $current_ver is already up to date");
-        return '6';
-    }
-
-    // If we're still here, import the upgrade functions.
-    require_once MLR_PI_PATH . 'upgrade.inc.php';
-    $error = MLR_do_upgrade($current_ver);
-    if ($error) {
-        COM_errorLog("Error updating the $pi_name Plugin version",1);
-        return '4';
-    }
-
-    // now update the current version number.
-    DB_query("UPDATE
-        {$_TABLES['plugins']}
-    SET
-        pi_version = '{$_MLR_CONF['pi_version']}',
-        pi_gl_version = '{$_MLR_CONF['gl_version']}',
-        pi_homepage = '{$_MLR_CONF['pi_url']}'
-    WHERE
-        pi_name = '$pi_name';
-    ");
-
-    if (DB_error()) {
-        COM_errorLog("Error updating the $pi_name Plugin version",1);
-        return '5';
-    }
-
-    COM_errorLog("Succesfully updated the $pi_name Plugin!",1);
-    return true;
+    require_once __DIR__ . '/upgrade.inc.php';
+    return MLR_do_upgrade($dvlp);
 }
 
 
@@ -547,9 +550,9 @@ function plugin_upgrade_mailer()
  *
  * @return  integer Status
  */
-function MLR_addEmail($email, $status = MLR_STAT_PENDING)
+function XMLR_addEmail($email, $status = MLR_STAT_PENDING)
 {
-    global $_TABLES, $_MLR_CONF;
+    global $_TABLES;
 
     $pieces = explode('@', $email);
     if (count($pieces) != 2) {
@@ -634,7 +637,7 @@ function MLR_checkBlacklist($email)
  *
  * @param   string  $email  Email to add
  */
-function MLR_blacklist($email)
+function XMLR_blacklist($email)
 {
     global $_TABLES;
 
@@ -656,7 +659,7 @@ function MLR_blacklist($email)
 /**
  * Add email to whitelist.
  */
-function MLR_whitelist($email)
+function XMLR_whitelist($email)
 {
     global $_TABLES;
 
@@ -680,7 +683,7 @@ function MLR_whitelist($email)
  * @param   integer $id     Record ID to update
  * @param   integer $status New status
  */
-function MLR_setStatus($id, $status)
+function XMLR_setStatus($id, $status)
 {
     global $_TABLES;
 
@@ -750,9 +753,9 @@ function X_MLR_fetchWhitelist()
  *
  * @param   boolean $force  True to force immediate processing of all items
  */
-function MLR_processQueue($force=false)
+function XMLR_processQueue($force=false)
 {
-    global $_CONF, $_USER, $_TABLES, $LANG_MLR, $_MLR_CONF;
+    global $_CONF, $_USER, $_TABLES, $LANG_MLR;
 
     if (!$force) {
         // Find out when we last ran, and don't run again if it's too soon
@@ -766,13 +769,13 @@ function MLR_processQueue($force=false)
             $lastrun = 0;
         }
         $now = time();
-        if ($now - $lastrun < (int)$_MLR_CONF['queue_interval']) {
+        if ($now - $lastrun < (int)Config::get('queue_interval')) {
             return;
         }
 
         // Set the maximum messages to be sent
-        if ((int)$_MLR_CONF['max_per_run'] > 0) {
-            $sql_limit = ' LIMIT ' . (int)$_MLR_CONF['max_per_run'];
+        if ((int)Config::get('max_per_run') > 0) {
+            $sql_limit = ' LIMIT ' . (int)Config::get('max_per_run');
         } else {
             $sql_limit = '';
         }
@@ -794,7 +797,6 @@ function MLR_processQueue($force=false)
         return;
     }
 
-    USES_mailer_class_mailer();
     $N = new Mailer();
 
     $mlr_id = '';           // mailer ID used for control-break
@@ -849,7 +851,7 @@ function MLR_processQueue($force=false)
 
     // Update the last-run timestamp
     DB_query("UPDATE {$_TABLES['vars']}
-            SET value = UNIX_TIMESTAMP('{$_MLR_CONF['now']}')
+            SET value = UNIX_TIMESTAMP()
             WHERE name = 'mailer_lastrun'" );
 }
 
@@ -860,9 +862,9 @@ function MLR_processQueue($force=false)
  * @param   string  $email  Email added and to which the message is sent
  * @param   string  $token  Unique token for the confirmation url
  */
-function MLR_sendConfirmation($email, $token)
+function XMLR_sendConfirmation($email, $token)
 {
-    global $_CONF, $_MLR_CONF, $LANG_MLR;
+    global $_CONF, $LANG_MLR;
 
     $title = $_CONF['site_name'] . ' ' . $LANG_MLR['confirm_title'];
 
@@ -1054,7 +1056,7 @@ function plugin_runScheduledTask_mailer()
     $purge_days = (int)$_MLR_CONF['confirm_period'];
     if ($purge_days > 0) {
         $sql = "DELETE FROM {$_TABLES['mailer_emails']}
-                WHERE status = '" . MLR_STAT_PENDING . "'
+                WHERE status = '" . Mailer\Models\Status::PENDING . "'
                 AND '{$_MLR_CONF['now']}' > DATE_ADD(dt_reg, INTERVAL $purge_days DAY)";
         $res = DB_query($sql, 1);
         $nrows = DB_affectedRows($res);
@@ -1063,13 +1065,13 @@ function plugin_runScheduledTask_mailer()
         }
     }
 
-    MLR_processQueue();
-
     // Delete expired mailings
     $sql = "DELETE FROM {$_TABLES['mailer']}
             WHERE exp_days > 0
             AND '{$_MLR_CONF['now']}' > DATE_ADD(mlr_date, INTERVAL exp_days DAY)";
     DB_query($sql, 1);
+
+    Mailer\Queue::process();
 }
 
 
@@ -1081,14 +1083,14 @@ function plugin_runScheduledTask_mailer()
 function plugin_getconfigelementhelp_mailer($option, $doclang='english')
 {
     $doc_url = MLR_getDocURL('config.html', $doclang);
-    if (empty($doc_url))
+    if (empty($doc_url)) {
         return false;
-
-    if (!empty($option)) {
-        $file .= '#desc_' . $option;
     }
 
-    return array($doc_url . $file, 0);
+    if (!empty($option)) {
+        $doc_url .= '#desc_' . $option;
+    }
+    return array($doc_url, 0);
 
 }
 

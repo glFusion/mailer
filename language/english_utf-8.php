@@ -16,6 +16,9 @@
 global $LANG32;
 
 $LANG_MLR = array(
+    'mailers' => 'Mailers',
+    'subscribers' => 'Subscribers',
+    'queue' => 'Queue',
     'newpage' => 'New Page',
     'adminhome' => 'Admin Home',
     'mailer' => 'Mailer',
@@ -141,7 +144,7 @@ $LANG_MLR = array(
     'delimiter' => 'Delimiter',
     'importer' => 'Mailer Email List Import',
     'import_complete' => 'Import Complete',
-    'user_edit_checkbox_label' => 'Subscribe to Announcements',
+    'user_edit_checkbox_label' => 'Subscribe to Announcements?',
     'sorry_no_archives_yet' => 'Sorry no archives yet.',
     'user_menu_subscribe' => 'Subscribe to Announcements',
     'user_menu_unsubscribe' => 'Unsubscribe from Announcements',
@@ -204,6 +207,17 @@ $LANG_confignames['mailer'] = array(
     'exp_days' => 'Default number of days to keep messages (0=infinite)',
     'email_from' => 'Sender address to use in mailings',
     'def_register_sub' => 'Show subscription option on signup form',
+    'del_user_unsub' => 'Unsubscribe users upon deletion',
+    'dbl_optin_members' => 'Double Opt-In for Members',
+    'log_level' => 'Logging Level',
+    'provider' => 'List Provider',
+    'mc_api_key' => 'Mailchimp API Key',
+    'mc_def_list' => 'Default List ID',
+    'mc_mrg_fname' => 'Firstname Merge Fieldname',
+    'mc_mrg_lname' => 'Lastname Merge Fieldname',
+    'sb_api_key' => 'Mailchimp API Key',
+    'sb_def_list' => 'Default List ID',
+    'sb_dbo_tpl' => 'Double Opt-In Template ID',
 );
 
 $LANG_configsubgroups['mailer'] = array(
@@ -213,17 +227,31 @@ $LANG_configsubgroups['mailer'] = array(
 $LANG_fs['mailer'] = array(
     'fs_main' => 'Mailer Main Settings',
     'fs_queue' => 'Mail Queue Settings',
-    'fs_permissions' => 'Default Permissions'
+    'fs_permissions' => 'Default Permissions',
+    'fs_internal' => 'Internal',
+    'fs_mailchimp' => 'Mailchimp',
+    'fs_sendinblue' => 'Sendinblue',
 );
 
 // Note: entries 0, 1, 9, and 12 are the same as in $LANG_configselects['Core']
 $LANG_configselects['mailer'] = array(
     0 => array('True' => 1, 'False' => 0),
-    1 => array('True' => TRUE, 'False' => FALSE),
-    2 => array('Date' => 'date', 'Page ID' => 'id', 'Title' => 'title'),
-    3 => array('Date' => 'date', 'Page ID' => 'id', 'Title' => 'title', 'Label' => 'label'),
     4 => array('No' => 0, 'No- Subscribe Automatically' => 3, 'Yes- Checked' => 1, 'Yes- Unchecked' => 2),
-    9 => array('Forward to page' => 'item', 'Display List' => 'list', 'Display Home' => 'home', 'Display Admin' => 'admin'),
+    5 => array(
+        'Internal' => 'Internal',
+        'Mailchimp' => 'Mailchimp',
+        'Sendinblue' => 'Sendinblue',
+    ),
+    6 => array(
+        '100 DEBUG' => 100,
+        '200 INFO' => 200,
+        '250 NOTICE' => 250,
+        '300 WARNING' => 300,
+        '400 ERROR' => 400,
+        '500 CRITICAL' => 500,
+        '550 ALERT' => 550,
+        '600 EMERGENCY' => 600,
+    ),
     12 => array('No access' => 0, 'Read-Only' => 2, 'Read-Write' => 3),
     13 => array('None' => 0, 'Left' => 1, 'Right' => 2, 'Both' => 3),
     14 => array('Site E-Mail' => 'site_mail', 'No-Reply Address' => 'noreply_mail'),

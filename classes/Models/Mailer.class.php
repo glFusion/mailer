@@ -3,13 +3,15 @@
  * Class to manage mailing lists.
  *
  * @author      Lee Garner <lee@leegarner.com>
- * @copyright   Copyright (c) 2010 Lee Garner <lee@leegarner.com>
+ * @copyright   Copyright (c) 2010-2020 Lee Garner <lee@leegarner.com>
  * @package     mailer
  * @version     v0.0.4
  * @license     http://opensource.org/licenses/gpl-2.0.php
  *              GNU Public License v2 or later
  * @filesource
  */
+namespace Mailer\Models;
+use Mailer\Config;
 
 
 /**
@@ -20,11 +22,11 @@ class Mailer
 {
     /** Indicate whether the current user is an administrator/
      * @var boolean */
-    private $isAdmin;
+    private $isAdmin = 0;
 
     /** Flag to indicate whether the mailer item is new or an edit/
      * @var boolean */
-    public $isNew;
+    public $isNew = 1;
 
     /** Array of error messages.
      * @var mixed */
@@ -46,9 +48,9 @@ class Mailer
      *
      * @param   integer $id     Optional type ID
      */
-    function __construct($mlr_id='')
+    public function __construct($mlr_id='')
     {
-        global $_MLR_CONF, $_USER;
+        global $_USER, $_CONF;
 
         $this->isNew = true;
 
@@ -59,13 +61,13 @@ class Mailer
             $this->mlr_title = '';
             $this->mlr_hits = 0;
             $this->mlr_content = '';
-            $this->mlr_date = date('Y-m-d');
+            $this->mlr_date = $_CONF['_now']->toMySQL(true);
             $this->mlr_help = '';
             $this->mlr_inblock = 0;
             $this->mlr_nf = 0;
             $this->postmode = 'text';
-            $this->mlr_format = $_MLR_CONF['displayblocks'];
-            $this->exp_days = $_MLR_CONF['exp_days'];
+            $this->mlr_format = Config::get('displayblocks');
+            $this->exp_days = Config::get('exp_days');
             $this->commentcode = -1;
             $this->unixdate = 0;
             $this->owner_id = $_USER['uid'];
@@ -73,7 +75,7 @@ class Mailer
                     $_GROUPS['mailer Admin'] :
                     SEC_getFeatureGroup('mailer.edit');
             $A = array();
-            SEC_setDefaultPermissions($A, $_MLR_CONF['default_permissions']);
+            SEC_setDefaultPermissions($A, Config::get('default_permissions'));
             $this->perm_owner = $A['perm_owner'];
             $this->perm_group = $A['perm_group'];
             $this->perm_members = $A['perm_members'];
@@ -98,7 +100,7 @@ class Mailer
      * @param   string  $var    Name of property to set.
      * @param   mixed   $value  New value for property.
      */
-    function __set($var, $value='')
+    public function __set($var, $value='')
     {
         switch ($var) {
         case 'mlr_id':
@@ -156,7 +158,7 @@ class Mailer
      * @param   string  $var    Property name
      * @return  mixed           Property value, NULL if undefined
      */
-    function __get($var)
+    public function __get($var)
     {
         if (array_key_exists($var, $this->properties)) {
             return $this->properties[$var];
@@ -172,7 +174,7 @@ class Mailer
      * @param   array   $row        Array of values, from DB or $_POST
      * @param   boolean $fromDB     True if read from DB, false if from $_POST
      */
-    function SetVars($row, $fromDB=false)
+    public function SetVars($row, $fromDB=false)
     {
         if (!is_array($row)) return;
 
@@ -195,14 +197,15 @@ class Mailer
      * @param   integer $id Optional ID.  Current ID is used if zero.
      * @return  boolean     True if a record was read, False on failure
      */
-    function Read($mlr_id = '')
+    public function Read($mlr_id = '')
     {
         global $_TABLES;
 
-        if ($mlr_id == '')
+        if ($mlr_id == '') {
             $mlr_id = $this->mlr_id;
-        else
+        } else {
             $mlr_id = COM_sanitizeID($mlr_id, false);
+        }
 
         if ($mlr_id == '') {
             $this->error = 'Invalid ID in Read()';
@@ -232,19 +235,19 @@ class Mailer
      * @param   array   $A      Optional array of values from $_POST
      * @return  boolean         True if no errors, False otherwise
      */
-    function Save($A = '')
+    public function Save($A = '')
     {
-        global $_TABLES, $_MLR_CONF;
+        global $_TABLES, $_CONF;
 
         if (is_array($A)) {
             $this->SetVars($A, false);
         }
 
-        if ($_MLR_CONF['censor'] == 1) {
+        if (Config::get('censor') == 1) {
             $this->mlr_content = COM_checkWords($this->mlr_content);
             $this->mlr_title = COM_checkWords($this->mlr_title);
         }
-        if ($_MLR_CONF['filter_html'] == 1) {
+        if (Config::get('filter_html') == 1) {
             $this->mlr_content = COM_checkHTML($this->mlr_content);
         }
         $this->mlr_title = strip_tags($this->mlr_title);
@@ -264,20 +267,13 @@ class Mailer
             $sql1 = " WHERE mlr_id='" . DB_escapeString($this->mlr_old_id)."'";
         }
 
-        $sent_time = 0;
-        if (isset($A['mlr_sendnow'])) {
-            $this->queueIt($this->mlr_id);
-            $sent_time = time();
-        } elseif (isset($A['mlr_sendtest'])) {
-            $this->mailIt();
-        }
         $sql .= "mlr_id = '" . DB_escapeString($this->mlr_id) . "',
                 mlr_uid = '" . (int)$this->mlr_uid . "',
                 mlr_title='" . DB_escapeString($this->mlr_title) . "',
                 mlr_content='" . DB_escapeString($this->mlr_content) . "',
                 mlr_hits='" . (int)$this->mlr_hits . "',
-                mlr_date='" . DB_escapeString($this->mlr_date) . "',
-                mlr_sent_time = $sent_time,
+                mlr_date='" . $_CONF['_now']->toMySQL(true) . "',
+                mlr_sent_time = $this->mlr_sent_time,
                 mlr_format ='" . (int)$this->mlr_format . "',
                 commentcode='" . (int)$this->commentcode . "',
                 owner_id='" . (int)$this->owner_id . "',
@@ -294,15 +290,21 @@ class Mailer
                 show_unsub = '{$this->show_unsub}' " .
                 $sql1;
         DB_query($sql);
-        return DB_Error() ? false : true;
 
+        // Queue immediately or send a test if requested
+        if (isset($A['mlr_sendnow'])) {
+            Queue::addMailer($this->mlr_id);
+        } elseif (isset($A['mlr_sendtest'])) {
+            $this->mailIt();
+        }
+        return DB_Error() ? false : true;
     }
 
 
     /**
      * Delete the current mailer record from the database.
      */
-    function Delete()
+    public function Delete()
     {
         global $_TABLES;
 
@@ -325,7 +327,7 @@ class Mailer
      *
      * @return  boolean     True if ok, False when first test fails.
      */
-    function isValidRecord()
+    public function isValidRecord()
     {
         global $LANG_MLR;
 
@@ -349,11 +351,13 @@ class Mailer
      *
      * @return  integer     Access level
      */
-    function Access()
+    public function Access()
     {
-        $access = SEC_hasAccess($this->owner_id, $this->group_id,
-                    $this->perm_owner, $this->perm_group,
-                    $this->perm_members, $this->perm_anon);
+        $access = SEC_hasAccess(
+            $this->owner_id, $this->group_id,
+            $this->perm_owner, $this->perm_group,
+            $this->perm_members, $this->perm_anon
+        );
         return $access;
     }
 
@@ -365,7 +369,7 @@ class Mailer
      * @return  boolean     True if the user has access, False if not.a
      * @see     Mailer::Access()
      */
-    function hasAccess($level=3)
+    public function hasAccess($level=3)
     {
         if (SEC_hasRights('mailer.admin, mailer.edit', 'OR'))
             return true;        // Admin has all rights
@@ -381,18 +385,20 @@ class Mailer
      * @param   integer $id     Optional ID, current record used if zero
      * @return  string          HTML for edit form
      */
-    function Edit()
+    public function Edit()
     {
 
-        global $_CONF, $_TABLES, $_USER, $_GROUPS, $_MLR_CONF,
+        global $_CONF, $_TABLES, $_USER, $_GROUPS,
                $LANG21, $LANG_MLR, $LANG_ACCESS, $LANG_ADMIN, $LANG24,
                $LANG_postmodes, $MESSAGE;
 
         $retval = '';
 
-        $T = new Template(MLR_PI_PATH . 'templates/admin');
-        if (isset($_CONF['advanced_editor']) &&
-                ($_CONF['advanced_editor'] == 1)) {
+        $T = new \Template(__DIR__ . '/../templates/admin');
+        if (
+            isset($_CONF['advanced_editor']) &&
+            ($_CONF['advanced_editor'] == 1)
+        ) {
             $editor_type = '_advanced';
             $postmode_adv = 'selected="selected"';
             $postmode_html = '';
@@ -449,8 +455,8 @@ class Mailer
             'mlr_date'               => $curtime[1],
             'mlr_title'              => htmlspecialchars($this->mlr_title),
             'mlr_content'            => htmlspecialchars($this->mlr_content),
-            'lang_allowedhtml'      => $_MLR_CONF['filter_html'] == 1 ?
-                                    COM_allowedHTML() : $LANG_MLR['all_htmlr_allowed'],
+            'lang_allowedhtml'      => Config::get('filter_html') == 1 ?
+                                    COM_allowedHTML() : $LANG_MLR['all_html_allowed'],
             'mlr_hits'               => (int)$this->mlr_hits,
             'exp_days'               => (int)$this->exp_days,
             'mlr_hits_formatted'     => COM_numberFormat($this->mlr_hits),
@@ -489,7 +495,7 @@ class Mailer
      *
      * @return  string      Formatted error messages.
      */
-    function PrintErrors()
+    public function PrintErrors()
     {
         $retval = '';
         foreach($this->Errors as $key=>$msg) {
@@ -504,7 +510,7 @@ class Mailer
      *
      * @param  integer $count      Number to add, one by default
      */
-    function UpdateHits($count=1)
+    public function UpdateHits($count=1)
     {
         global $_TABLES;
 
@@ -517,17 +523,37 @@ class Mailer
     }
 
 
+    public function updateSentTime($ts=NULL)
+    {
+        global $_TABLES, $_CONF;
+
+        if ($ts === NULL) {
+            $ts = $_CONF['_now']->toUnix();
+        }
+        $ts = (int)$ts;
+        DB_query("UPDATE {$_TABLES['mailer']} SET 
+            mlr_sent_time= $ts
+            WHERE mlr_id = '{$this->mlr_id}'");
+    }
+
+
+    public function isNew()
+    {
+        return $this->isNew ? 1 : 0;
+    }
+
+
     /**
      * Create a printable version of the mailing.
      * Should be opened in a new window, it has no site header or footer.
      *
      * @return  string      HTML for printable page
      */
-    function printPage()
+    public function printPage()
     {
         global $_CONF, $LANG01;
 
-        $T = new Template(MLR_PI_PATH . 'templates/');
+        $T = new \Template(MLR_PI_PATH . 'templates/');
         $T->set_file('print', 'printable.thtml');
 
         $mlr_url = COM_buildUrl(MLR_URL . '/index.php?page=' . $this->mlr_id);
@@ -551,10 +577,10 @@ class Mailer
      *
      * @return  string      HTML for the page
      */
-    function displayPage()
+    public function displayPage()
     {
         global $_CONF, $_TABLES, $_USER,
-           $LANG01, $LANG11, $LANG_MLR, $_IMAGE_TYPE, $_MLR_CONF;
+           $LANG01, $LANG11, $LANG_MLR, $_IMAGE_TYPE;
 
         $retval = '';
 
@@ -569,7 +595,7 @@ class Mailer
             $footer = '';
         }
 
-        $T = new Template(MLR_PI_PATH . 'templates/');
+        $T = new \Template(MLR_PI_PATH . 'templates/');
         $T->set_file('page', 'mailer.thtml');
 
         if ($_CONF['hideprintericon'] == 0) {
@@ -600,7 +626,7 @@ class Mailer
                 'mlr_date'          => $curtime[0],
         ) );
 
-        if ($_MLR_CONF['show_date'] == 1) {
+        if (Config::get('show_date') == 1) {
             $T->set_var('lastupdate', $lastupdate);
         }
 
@@ -616,23 +642,19 @@ class Mailer
      *
      * @param   string  $mlr_id     Optional mailer ID, current if empty
      */
-    function queueIt($mlr_id='')
+    public function XqueueIt($mlr_id='')
     {
         global $_TABLES;
 
-        // If no mlr_id supplied, use the current object if instantiated
-        if ($mlr_id == '' && is_object($this)) {
-            $mlr_id = $this->mlr_id;
-        }
         // Still no mlr_id?  Then there's a problem
-        if ($mlr_id == '') return;
+        if ($this->mlr_id == '') return;
 
         $mlr_id = COM_sanitizeID($mlr_id, false);
         $sql = "INSERT INTO {$_TABLES['mailer_queue']}
                 (mlr_id, email)
             SELECT '$mlr_id', email
             FROM {$_TABLES['mailer_emails']}
-            WHERE status = " . MLR_STAT_ACTIVE;
+            WHERE status = " . Status::ACTIVE;
         DB_query($sql);
     }
 
@@ -644,34 +666,33 @@ class Mailer
      *
      * @param   string  $email  Optional email address
      */
-    function mailIt($email='', $token='')
+    public function mailIt($email='', $token='')
     {
-        global $LANG_MLR, $_CONF, $_USER, $_TABLES, $_MLR_CONF;
-
-        //MLR_sendLock($mlr_id);
+        global $LANG_MLR, $_CONF, $_USER, $_TABLES;
 
         // Don't mail invalid mailers
         if (!$this->isValidRecord()) return false;
-
-        require_once $_CONF['path'] . 'lib/phpmailer/class.phpmailer.php';
 
         if ($email == '') $email = $_USER['email'];
 
         // Get the users' token for the unsubscribe link
         if (empty($token)) {
-            $token = DB_getItem($_TABLES['mailer_emails'], 'token',
-                "email='" . DB_escapeString($email) . "'");
+            $token = DB_getItem(
+                $_TABLES['mailer_emails'],
+                'token',
+                "email='" . DB_escapeString($email) . "'"
+            );
         }
         $unsub_url =  MLR_URL . '/index.php?view=unsub&email=' .
             urlencode($email) . '&amp;token=' . urlencode($token) .
             '&amp;mlr_id=' . urlencode($this->mlr_id);
         $unsub_link = COM_createLink($unsub_url, $unsub_url);
 
-        $T = new Template(MLR_PI_PATH . 'templates/');
+        $T = new \Template(__DIR__ . '/../templates/');
         $T->set_file('msg', 'mailer_email.thtml');
         $T->set_var(array(
             'content'   => $this->mlr_content,
-            'pi_url'    => MLR_URL,
+            'pi_url'    => Config::get('url'),
             'mlr_id'    => $this->mlr_id,
             'token'     => $token,
             'email'     => $email,
@@ -683,28 +704,14 @@ class Mailer
         $altbody = strip_tags($message);
 
         // Create the "from" address using the site or noreply mail address
-        $fromEmail = isset($_CONF[$_MLR_CONF['email_from']]) ?
-            $_CONF[$_MLR_CONF['email_from']] : $_CONF['noreply_mail'];
-        //$from = array($fromEmail, $_CONF['site_name']);
-
-        // Append static footer text to the mailer
-        /*$body .= sprintf($LANG_MLR['trouble_viewing'],
-                        MLR_URL . "/index.php?page={$this->mlr_id}");
-        $body .= '<br /><a href="' . MLR_URL .
-            "/index.php?view=delete&email=$email&token=$token\">" .
-            $LANG_MLR['unsubscribe'] . '</a>';
-        $altbody = strip_tags($body);*/
-
-        // Create the "from" address using the site or noreply mail address
-        /*$fromEmail = isset($_CONF[$_MLR_CONF['email_from']]) ?
-            $_CONF[$_MLR_CONF['email_from']] : $_CONF['noreply_mail'];
-        //$from = array($fromEmail, $_CONF['site_name']);*/
+        $fromEmail = isset($_CONF[Config::get('email_from')]) ?
+            $_CONF[Config::get('email_from')] : $_CONF['noreply_mail'];
 
         $subject = trim($this->mlr_title);
         $subject = COM_emailEscape($subject);
 
-        $mail = new PHPMailer();
-        $mail->SetLanguage('en',$_CONF['path'].'lib/phpmailer/language/');
+        $mail = new \PHPMailer();
+        $mail->SetLanguage('en');
         $mail->CharSet = COM_getCharset();
         if ($_CONF['mail_backend'] == 'smtp') {
             $mail->IsSMTP();
@@ -741,7 +748,7 @@ class Mailer
 
         $mail->AddCustomHeader('List-ID:Announcements from ' .
                 $_CONF['site_name']);
-        $mail->AddCustomHeader('List-Archive:<' . MLR_URL . '>Prior Mailings');
+        $mail->AddCustomHeader('List-Archive:<' . Config::get('url') . '>Prior Mailings');
         $mail->AddCustomHeader('X-Unsubscribe-Web:<' . $unsub_url . '>');
         $mail->AddCustomHeader('List-Unsubscribe:<' . $unsub_url . '>');
 
@@ -752,11 +759,235 @@ class Mailer
             return false;
         }
         return true;
+    }
+    
+    
+    /**
+     * List all the saved messages.
+     *
+     * @return  string      HTML for admin list
+     */
+    public static function adminList()
+    {
+        global $_CONF, $_TABLES, $_IMAGE_TYPE, $LANG_ADMIN, $LANG_MLR;
 
-        /*if (!COM_mail($email, $this->mlr_title, $body, $from, true, 0, '', $altbody)) {
-            COM_errorLog( "There has been a mail error sending to " . $email, 1);
-        }*/
+        $retval = '';
 
+        $header_arr = array(      # display 'text' and use table field 'field'
+            array(
+                'text' => $LANG_ADMIN['edit'],
+                'field' => 'edit',
+                'sort' => false,
+                'align' => 'center',
+            ),
+            array(
+                'text' => $LANG_ADMIN['copy'],
+                'field' => 'copy',
+                'sort' => false,
+                'align' => 'center',
+            ),
+            array(
+                'text' => $LANG_MLR['send'],
+                'field' => 'send',
+                'sort' => false,
+                'align' => 'center',
+            ),
+            array(
+                'text' => $LANG_MLR['mlr_id'],
+                'field' => 'mlr_id',
+                'sort' => true,
+            ),
+            array(
+                'text' => $LANG_ADMIN['title'],
+                'field' => 'mlr_title',
+                'sort' => true,
+            ),
+            array(
+                'text' => $LANG_MLR['writtenby'],
+                'field' => 'mlr_uid',
+                'sort' => false,
+            ),
+            array(
+                'text' => $LANG_MLR['date'],
+                'field' => 'mlr_date',
+                'sort' => false,
+            ),
+            array(
+                'text' => $LANG_MLR['last_sent'],
+                'field' => 'mlr_sent_time',
+                'sort' => true,
+            ),
+            array(
+                'text' => $LANG_ADMIN['delete'],
+                'field' => 'delete',
+                'sort' => false,
+                'align' => 'center',
+            ),
+        );
+        $defsort_arr = array(
+            'field' => 'mlr_date',
+            'direction' => 'desc',
+        );
+
+        $menu_arr = array (
+            array(
+                'url' => Config::get('admin_url') . '/index.php?edit=x',
+                'text' => $LANG_ADMIN['create_new'],
+            ),
+            array(
+                'url' => $_CONF['site_admin_url'],
+                'text' => $LANG_ADMIN['admin_home'],
+            ),
+        );
+
+        $retval .= COM_startBlock(
+            $LANG_MLR['mailerlist'] . ' ' . Config::get('pi_name') . ' v. ' .
+                Config::get('pi_version'),
+            '',
+            COM_getBlockTemplate('_admin_block','header')
+        );
+        $retval .= ADMIN_createMenu($menu_arr, $LANG_MLR['instructions'], plugin_geticon_mailer());
+
+        $text_arr = array(
+            'has_extras' => true,
+            'form_url' => MLR_ADMIN_URL . '/index.php?mailers=x',
+        );
+
+        $query_arr = array(
+            'table' => 'mailer',
+            'sql' => "SELECT *
+                FROM {$_TABLES['mailer']}
+                WHERE 1=1 " .
+                COM_getPermSQL('AND', 0, 3),
+            'query_fields' => array('mlr_title', 'mlr_id'),
+        );
+
+        $options = array();
+
+        $retval .= ADMIN_list(
+            'mailer_listmailers',
+            array(__CLASS__, 'getListField'),
+            $header_arr, $text_arr, $query_arr, $defsort_arr,
+            '', '', $options
+        );
+        $retval .= COM_endBlock(COM_getBlockTemplate('_admin_block', 'footer'));
+        return $retval;
+    }
+
+    
+    /**
+     * Get the display value for a list field, either mailer or subscriber.
+     *
+     * @param   string  $fieldname      Name of the field
+     * @param   string  $fieldvalue     Value of the field
+     * @param   array   $A              Array of all field name=>value pairs
+     * @param   array   $icon_arr       Array of admin icons
+     * @return  string                  Display value for $fieldname
+     */
+    public static function getListField($fieldname, $fieldvalue, $A, $icon_arr)
+    {
+        global $_CONF, $LANG_ADMIN, $LANG_MLR, $_TABLES, $_IMAGE_TYPE;
+
+        $retval = '';
+        static $admin_url = NULL;
+        if ($admin_url === NULL) {
+            $admin_url = Config::get('admin_url');
+        }
+        switch($fieldname) {
+        case 'edit':
+            $retval = COM_createLink(
+                $icon_arr['edit'],
+                $admin_url . "/index.php?edit=x&amp;mlr_id={$A['mlr_id']}"
+            );
+            break;
+
+        case 'copy':
+            $retval = COM_createLink(
+                $icon_arr['copy'],
+                $admin_url . "/index.php?clone=x&amp;mlr_id={$A['mlr_id']}"
+            );
+            break;
+
+        case 'send':
+            $retval = COM_createLink(
+                '<i class="uk-icon uk-icon-envelope"></i>',
+                $admin_url . "/index.php?sendnow=x&amp;mlr_id={$A['mlr_id']}",
+                array(
+                    'onclick' => "return confirm('{$LANG_MLR['conf_sendnow']}');",
+                )
+            );
+            break;
+
+        case 'delete':
+            $retval = COM_createLink(
+                '<i class="uk-icon uk-icon-remove uk-text-danger"></i>',
+                $admin_url . "/index.php?delete=x&amp;mlr_id={$A['mlr_id']}",
+                array(
+                    'onclick' => "return confirm('{$LANG_MLR['conf_delete']}');",
+                )
+            );
+            break;
+    
+        case 'deletequeue':     // Delete an entry from the queue
+            $retval = COM_createLink(
+                "<img src=\"{$_CONF['layout_url']}/images/admin/delete.png\" 
+                height=\"16\" width=\"16\" border=\"0\"
+                onclick=\"return confirm('Do you really want to delete this item?');\">",
+                $admin_url . "/index.php?deletequeue=x&amp;mlr_id={$A['mlr_id']}&amp;email={$A['email']}"
+            );
+            break;
+
+        case 'mlr_title':
+            $url = COM_buildUrl(
+                $_CONF['site_url'] . '/mailer/index.php?page=' . $A['mlr_id']
+            );
+            $retval = COM_createLink(
+                $A['mlr_title'], 
+                $url, 
+                array('title'=>$LANG_MLR['title_display'])
+            );
+            break;
+
+        case 'mlr_uid':
+            $retval = COM_getDisplayName ($A['mlr_uid']);
+            break;
+
+        case 'mlr_centerblock':
+            if ($A['mlr_centerblock']) {
+                switch ($A['mlr_where']) {
+                case '1': $where = $LANG_MLR['centerblock_top']; break;
+                case '2': $where = $LANG_MLR['centerblock_feat']; break;
+                case '3': $where = $LANG_MLR['centerblock_bottom']; break;
+                default:  $where = $LANG_MLR['centerblock_entire']; break;
+                }
+                $retval = $where;
+            } else {
+                $retval = $LANG_MLR['centerblock_no'];
+            }
+            break;
+
+        case 'mlr_sent_time':
+        case 'mlr_date':
+            if ($fieldvalue == 0) {
+                $retval = $LANG_MLR['never'];
+            } else {
+                $dt = new \Date($fieldvalue, $_CONF['timezone']);
+                $retval = $dt->toMySQL(true);
+            }
+            break;
+
+        case 'uid':
+            if (!empty($A['uid'])) {
+                $retval = COM_createLink(COM_getDisplayName($A['uid']),
+                    $_CONF['site_url'].'/users.php?mode=profile&uid=' . $A['uid']) .
+                    ' (' . $A['uid'] . ')';
+            }
+            break;
+        default:
+            $retval = $fieldvalue;
+            break;
+        }
+        return $retval;
     }
 
 }

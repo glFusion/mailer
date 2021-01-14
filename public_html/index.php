@@ -13,17 +13,13 @@
  */
 
 require_once '../lib-common.php';
+use Mailer\Models\Subscriber;
+use Mailer\Models\Status;
 
 if (!in_array('mailer', $_PLUGINS)) {
     COM_404();
     exit;
 }
-
-if (GVERSION < '1.3.0') {
-    if (!empty($_GET)) $_GET = MLR_stripslashes($_GET);
-    if (!empty($_POST)) $_GET = MLR_stripslashes($_POST);
-}
-
 
 /**
  * Save an email address.
@@ -47,29 +43,11 @@ function MLR_storeAddress()
     }
 
     // Basic checks passed, now try to add the address
-    $success = MLR_addEmail($address);
-    switch ($success) {
-    case MLR_ADD_SUCCESS:
-        //$message = $LANG_MLR['email_success'];
-        $message = '1';
-        break;
-    case MLR_ADD_MISSING:
-        //$message = $LANG_MLR['email_missing'];
-        $message = '5';
-        break;
-    case MLR_ADD_EXISTS:
-        //$message = $LANG_MLR['email_exists'];
+    $Sub = Subscriber::getByEmail($address);
+    if ($Sub->getID() > 0) {        // email already exists
         $message = '6';
-        break;
-    case MLR_ADD_BLACKLIST:
-        //$message = $LANG_MLR['email_blacklisted'];
-        $message = '7';
-        break;
-    default:
-    case MLR_ADD_ERROR:
-        //$message = $LANG_MLR['email_store_error'];
-        $message = '8';
-        break;
+    } elseif ($Sub->subscribe()) {
+        $message = '1';
     }
     return $message;
 }
@@ -169,17 +147,31 @@ $blockformat = 9;      // By default, use global config for block selection
 
 switch ($view) {
 case 'add':
-    $content = MLR_storeAddress();
+    $message = '&nbsp;';
+    if (!isset($_GET['email'])) {
+        //$message = $LANG_MLR['email_missing'];
+        return '10';
+    }
+    $address = $_GET['email'];
+    if (!preg_match("/^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*$/i", $address)) {
+        //$message = $LANG_MLR['email_format_error'];
+        return '9';
+    }
+
+    // Basic checks passed, now try to add the address
+    $Sub = Subscriber::getByEmail($address);
+    if ($Sub->getStatus() == Status::ACTIVE) {        // email already exists
+        $message = '6';
+    } elseif ($Sub->subscribe()) {
+        $message = '1';
+    }
     if ($display_mode == 'success') {
         // called from a normal link.  Assume $content
         // contains a PLG_mailer message ID
-        echo COM_refresh($_CONF['site_url'] .
-                "?msg=$content&plugin={$_MLR_CONF['pi_name']}");
-        //$display .= COM_startBlock($LANG_MLR['success_title']);
-        //$display .= $LANG_MLR['add_success'];
-        //$display .= COM_endBlock();
+        echo COM_refresh(
+            $_CONF['site_url'] . "?msg=$message&plugin={$_MLR_CONF['pi_name']}"
+        );
     } else {
-        $content = $PLG_mailer_MESSAGE{$content};
         echo $content;
     }
     exit;
@@ -192,19 +184,24 @@ case 'list':
     break;
 
 case 'unsub':
-    if (isset($_GET['email']) && !empty($_GET['email']) &&
-        isset($_GET['token']) && !empty($_GET['token'])) {
-        if (isset($_GET['ml_id']) && !empty($_GET['ml_id'])) {
-            $ml_id = $_GET['ml_id'];
-        } else {
-            $ml_id = 'undefined';
+    $msg = '';
+    if (
+        isset($_GET['email']) && !empty($_GET['email']) &&
+        isset($_GET['token']) && !empty($_GET['token'])
+    ) {
+        $Sub = Mailer\Models\Subscriber::getByEmail($_GET['email']);
+        if ($Sub->getToken() == $_GET['token']) {
+            if (isset($_GET['ml_id']) && !empty($_GET['ml_id'])) {
+                $ml_id = $_GET['ml_id'];
+            } else {
+                $ml_id = 'undefined';
+            }
+            if ($Sub->unsubscribe()) {
+                $msg = '&msg=4';    // You've been removed
+            } else {
+                $msg = '&msg=5';    // Invalid email or token
+            }
         }
-        if (MLR_unsubscribe($_GET['email'], $_GET['token'], $ml_id))
-            $msg = '&msg=4';    // You've been removed
-        else
-            $msg = '&msg=5';    // Invalid email or token
-    } else {
-        $msg = '';
     }
     echo COM_refresh($_CONF['site_url'] . '?plugin='.$_MLR_CONF['pi_name'].$msg);
     exit;
@@ -218,8 +215,7 @@ case 'unsub':
     break;*/
 
 case 'print':
-    USES_mailer_class_mailer();
-    $N = new Mailer($page);
+    $N = new Mailer\Mailer($page);
     //$content = MLR_returnMailer($page, $view);
     //echo $content;
     echo $N->printPage();
@@ -270,8 +266,7 @@ case 'bl':
 default:
     // Display the mailer
     if (!empty($page)) {
-        USES_mailer_class_mailer();
-        $N = new Mailer($page);
+        $N = new Mailer\Mailer($page);
         if (!$N->isNew) {
             // isNew will be true if the mlr_id was invalid
             $blockformat = $N->mlr_format;  // let the mailer pick the blocks
