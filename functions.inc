@@ -304,6 +304,7 @@ function plugin_profileedit_mailer($uid, $panel, $fieldset)
 function plugin_profilesave_mailer($uid=0)
 {
     global $_USER, $_TABLES;
+    var_dump(debug_backtrace(0));die;
 
     if ($uid == 0) {
         $uid = (int)$_USER['uid'];
@@ -332,7 +333,7 @@ function plugin_itemsaved_mailer($id, $type, $old_id = '')
 
     $contentInfo = PLG_getItemInfo(
         $type, $id,
-        'id,status,list_segment',
+        'id,status,merge_fields',
         2
     );
 
