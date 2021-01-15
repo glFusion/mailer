@@ -94,6 +94,55 @@ class Mailer
     }
 
 
+    public function withID($id)
+    {
+        $this->mlr_id = $id;
+        return $this;
+    }
+
+
+    public function getID()
+    {
+        return $this->mlr_id;
+    }
+
+
+    public function withTitle($title)
+    {
+        $this->mlr_title = $title;
+        return $this;
+    }
+
+
+    public function getTitle()
+    {
+        return $this->mlr_title;
+    }
+
+    public function withContent($content)
+    {
+        $this->mlr_content = $content;
+        return $this;
+    }
+
+    public function getContent()
+    {
+        return $this->mlr_content;
+    }
+
+    public function withDate($date)
+    {
+        $this->mlr_date = $date;
+        return $This;
+    }
+
+    public function getDate()
+    {
+        return $this->date;
+    }
+
+
+
     /**
      * Set a property's value.
      *
@@ -642,20 +691,30 @@ class Mailer
      *
      * @param   string  $mlr_id     Optional mailer ID, current if empty
      */
-    public function XqueueIt($mlr_id='')
+    public function queueIt($emails=NULL)
     {
         global $_TABLES;
 
-        // Still no mlr_id?  Then there's a problem
-        if ($this->mlr_id == '') return;
+        if ($this->mlr_id == '') return false;
 
         $mlr_id = COM_sanitizeID($mlr_id, false);
-        $sql = "INSERT INTO {$_TABLES['mailer_queue']}
-                (mlr_id, email)
-            SELECT '$mlr_id', email
+        if ($emails === NULL) {
+            $values = "SELECT '{$this->mlr_id}', email
             FROM {$_TABLES['mailer_emails']}
             WHERE status = " . Status::ACTIVE;
+        } elseif (is_array($emails)) {
+            $vals = array();
+            foreach ($emails as $email) {
+                $vals[] = "('{$mlr_id}', '" . DB_escapeString($email) . "')";
+            }
+            $values = ' VALUES ' . implode(',', $vals);
+        } else {
+            return false;
+        }
+        $sql = "INSERT INTO {$_TABLES['mailer_queue']}
+                (mlr_id, email) $values";
         DB_query($sql);
+        return DB_error() ? false : true;
     }
 
 
