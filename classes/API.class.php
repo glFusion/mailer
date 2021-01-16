@@ -1,14 +1,17 @@
 <?php
 /**
  * Base class for mailer API's.
+ * Request handling based on Drew McLellan's Mailchimp API class.
  *
- * @author      
- * @version     2.2
+ * @author      Lee Garner <lee@leegarner.com>
+ * @author      Drew McLellan <drew.mclellan@gmail.com>
+ * @version     0.0.4
  * @package     mailer
  * @version     v0.1.0
  * @license     http://opensource.org/licenses/MIT
  *              MIT License
  * @filesource
+ *
  */
 namespace Mailer;
 use Mailer\Models\Subscriber;
@@ -158,7 +161,10 @@ class API
      */
     public function isValidEmail($email)
     {
-        $retval = '';
+        $validator = new \EmailValidator;
+        return $validator->checkEmailAddress($email) ? true : false;
+
+        /*$retval = '';
         if (empty($this->email)) {
             return false;
         }
@@ -175,8 +181,7 @@ class API
         if (!self::isValidDomain($pieces[1])) {
             return false;
         }
-
-        return true;
+        return true;*/
     }
 
 
