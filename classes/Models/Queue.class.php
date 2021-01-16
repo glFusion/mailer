@@ -48,6 +48,9 @@ class Queue
     }
 
 
+    /**
+     * Delete all entries from the queue at once.
+     */
     public static function purge()
     {
         global $_TABLES;
@@ -56,6 +59,9 @@ class Queue
     }
 
 
+    /**
+     * Resets the last-run timestamp so the queue will be picked up.
+     */
     public static function reset()
     {
         global $_TABLES;
@@ -66,6 +72,24 @@ class Queue
     }
 
 
+    /**
+     * Delete multiple records from the queue.
+     *
+     * @param   array   $q_ids      Array of queue record IDs
+     */
+    public static function deleteMulti($q_ids)
+    {
+        global $_TABLES;
+
+        DB_query("DELETE FROM {$_TABLES['mailer_queue']}
+            WHERE q_id IN (" . implode(',', $q_ids) . ')'
+        );
+    }
+
+
+    /**
+     * @deprecated
+     */
     public static function deleteEmail($mlr_id, $email)
     {
         global $_TABLES;
@@ -124,7 +148,7 @@ class Queue
         }
 
         // Get the queued entries. Order by mlr_id so we can minimize DB calls.
-        $sql = "SELECT q.mlr_id, q.email, e.token
+        $sql = "SELECT q.q_id, q.mlr_id, q.email, e.token
             FROM {$_TABLES['mailer_queue']} q
             LEFT JOIN {$_TABLES['mailer_emails']} e
             ON q.email = e.email
@@ -159,8 +183,8 @@ class Queue
             // but this protects against a connection issue mid-queue.
             DB_delete(
                 $_TABLES['mailer_queue'],
-                array('mlr_id', 'email'),
-                array($mlr_id, $A['email'])
+                array('q_id'),
+                array($A['q_id'])
             );
         }
 
@@ -200,8 +224,15 @@ class Queue
             'query_fields' => array('email', 'mlr_id'),
             'default_filter' => COM_getPermSQL ('AND', 0, 3)
         );
-
-        $options = array();
+        $options = array(
+            'chkdelete' => true,
+            //'chkselect' => true,
+            'chkfield' => 'q_id',
+            'chkname' => 'deletequeue',
+            'chkminimum' => 0,
+            'chkall' => true,
+            //'chkactions' => $chkactions,
+        );
         $defsort_arr = array('field' => 'ts,email', 'direction' => 'ASC');
 
         $retval .= ADMIN_list(
@@ -235,10 +266,9 @@ class Queue
         switch($fieldname) {
         case 'deletequeue':     // Delete an entry from the queue
             $retval = COM_createLink(
-                "<img src=\"{$_CONF['layout_url']}/images/admin/delete.png\"
-                height=\"16\" width=\"16\" border=\"0\"
-                onclick=\"return confirm('Do you really want to delete this item?');\">",
-                $admin_url . "/index.php?deletequeue=x&amp;mlr_id={$A['mlr_id']}&amp;email={$A['email']}"
+                '<i class="uk-icon uk-icon-remove uk-text-danger"
+                onclick="return confirm(\'Do you really want to delete this item?\');"></i>',
+                "$admin_url/index.php?deletequeue={$A['q_id']}"
             );
             break;
 
