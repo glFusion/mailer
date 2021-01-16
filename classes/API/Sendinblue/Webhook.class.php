@@ -67,7 +67,7 @@ class Webhook extends \Mailer\Webhook
                     if ($Sub->getID() == 0) {
                         $Sub->withStatus(Status::ACTIVE)->Save();
                     } else {
-                        $Sub->setStatus(Status::ACTIVE);
+                        $Sub->updateStatus(Status::ACTIVE);
                     }
                     $retval = true;
                 }
@@ -78,7 +78,7 @@ class Webhook extends \Mailer\Webhook
             $email = LGLIB_getVar($this->payload, 'email');
             $Sub = Subscriber::getByEmail($email);
             if ($Sub->getID() > 0) {
-                $Sub->setStatus(Status::UNSUBSCRIBED);
+                $Sub->updateStatus(Status::UNSUBSCRIBED);
                 $retval = true;
             }
             break;
