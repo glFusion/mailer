@@ -20,3 +20,7 @@ and unsubscription requests are received via webhooks to update the user profile
     pairs for merge fields.
   - Works with version 0.2.0 or later of the Membership plugin.
 
+## Requirements:
+  - glFusion vesion 1.7.8 or later
+  - LGLib plugin version 1.0.12 or later
+
