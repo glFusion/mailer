@@ -1,7 +1,12 @@
+<html>
+<head>
+<base ref="{site_url}">
+</head>
+<body>
 {content}
-<p>&nbsp;</p>
+<p style="width:100%;clear:both;">&nbsp;</p>
 {!if show_unsub}
-<hr>
+<hr />
 <p>
 {$LANG_MLR['trouble_viewing']}: <a href="{pi_url}/index.php?page={mlr_id}">{pi_url}/index.php?page={mlr_id}</a>
 </p>
@@ -9,3 +14,5 @@
 {$LANG_MLR[unsubscribe]}: <a href="{pi_url}/index.php?view=unsub&email={email}&token={token}&mlr_id={mlr_id}">{pi_url}/index.php?view=unsub&email={email}&token={token}&mlr_id={mlr_id}</a>
 </p>
 {!endif}
+</body>
+</html>
