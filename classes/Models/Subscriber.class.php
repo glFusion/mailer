@@ -12,8 +12,9 @@
  * @filesource
  */
 namespace Mailer\Models;
-use Mailer\API;
 use Mailer\Models\Status;
+use Mailer\Logger;
+use Mailer\API;
 use Mailer\Config;
 
 
@@ -23,7 +24,7 @@ use Mailer\Config;
  */
 class Subscriber
 {
-    private $sub_id = 0;
+    private $id = 0;
     private $uid = 1;
     private $dt_reg = '';
     private $domain = '';
@@ -42,7 +43,7 @@ class Subscriber
     {
         if (is_array($A)) {
             // assumes a DB record or identical layout
-            $this->withID($A['sub_id'])
+            $this->withID($A['id'])
                  ->withUid($A['uid'])
                  ->withEmail($A['email'])
                  ->withRegDate($A['dt_reg'])
@@ -76,20 +77,10 @@ class Subscriber
     {
         global $_TABLES;
 
-        $sql = "SELECT * FROM {$_TABLES['mailer_emails']}
-            WHERE sub_id = " . (int)$id;
-        $res = DB_query($sql);
-        if (DB_numRows($res) == 1) {
-            $A = DB_fetchArray($res, false);
-            $retval = new self($A);
-        } else {
-            $retval = (new self)
-                ->withRegDate()
-                ->withToken();
-        }
-        return $retval;
+        //$sql = "SELECT * FROM {$_TABLES['mailer_emails']}
+        //    WHERE id = " . (int)$id;
+        return self::_create('id', $id);
     }
-
 
 
     /**
@@ -137,7 +128,7 @@ class Subscriber
         return $retval;
     }
 
-   
+
     /**
      * Add email to subscriber list.
      * This is called from the web page and uses the API to update the
@@ -147,14 +138,14 @@ class Subscriber
      */
     public function subscribe($status = NULL)
     {
-        // Do nothing if this address is blacklisted.
-        if ($this->status == Status::BLACKLIST) {
-            return false;
-        }
-
         if ($status !== NULL) {
             $this->status = (int)$status;
         } else {
+            // Do nothing if this address is blacklisted,
+            // unless forced by admin.
+            if ($this->status == Status::BLACKLIST) {
+                return Status::SUB_BLACKLIST;
+            }
             $this->status = Status::PENDING;
         }
         $API = API::getInstance();
@@ -177,8 +168,8 @@ class Subscriber
     {
         global $_TABLES;
 
-        DB_delete($_TABLES['mailer_emails'], 'sub_id', $this->getID());
-        $this->sub_id = 0;
+        DB_delete($_TABLES['mailer_emails'], 'id', $this->getID());
+        $this->id = 0;
     }
 
 
@@ -192,7 +183,11 @@ class Subscriber
         $API = API::getInstance();
         $result = $API->unsubscribe($this);
         if ($result) {
-            $this->setStatus(Status::UNSUBSCRIBED);
+            $this->updateStatus(Status::UNSUBSCRIBED);
+            Logger::Audit("Unsubscribed {$this->getEmail()}");
+        } else {
+            Logger::Audit("Failed to unsubscribe {$this->getEmail()}");
+            return false;
         }
         return $result;
     }
@@ -218,7 +213,7 @@ class Subscriber
             $sql3 = '';
         } else {
             $sql1 = "UPDATE {$_TABLES['mailer_emails']} SET ";
-            $sql3 = " WHERE sub_id = {$this->getID()}";
+            $sql3 = " WHERE id = {$this->getID()}";
         }
         $sql = $sql1 . $sql2 . $sql3;
         //echo $sql;die;
@@ -235,56 +230,26 @@ class Subscriber
 
 
     /**
-     * Whitelist an email address or domain.
-     * This just sets the status as Active.
-     *
-     * @param   string  $email      Email address.
+     * Purge old unconfirmed subscriptions.
      */
-    public static function whitelist($email)
+    public static function purgeUnconfirmed()
     {
-        global $_TABLES;
+        global $_CONF, $_TABLES;
 
-        $pieces = explode('@', $email);
-        if ($pieces[0] == '*') {
-            // Update all emails in the domain
-            DB_query(
-                "UPDATE {$_TABLES['mailer_emails']}
-                SET status='" . Status::ACTIVE . "'
-                WHERE domain = '" . DB_escapeString($pieces[1]) . "'",
-                1
-            );
-        } else {
-            DB_query("UPDATE {$_TABLES['mailer_emails']} SET
-                status = '" . Status::ACTIVE. "'
-                WHERE email = '" . DB_escapeString($email) . "'",
-            1);
+        $purge_days = (int)Config::get('confirm_period');
+        if ($purge_days > 0) {
+            $sql = "DELETE FROM {$_TABLES['mailer_emails']}
+                WHERE status = '" . Status::PENDING . "'
+                AND '" . $_CONF['_now']->toMySQL(true) .
+                    "' > DATE_ADD(dt_reg, INTERVAL $purge_days DAY)";
+            $res = DB_query($sql, 1);
+            $nrows = DB_affectedRows($res);
+            if ($nrows > 0) {
+                Logger::Audit(sprintf('Purged %d unconfirmed subscriptions', $nrows));
+            }
         }
-        MLR_auditLog("Whitelisted $email");
     }
 
-    
-    /**
-     * Add email to blacklist.
-     *
-     * @param   string  $email  Email to add
-     */
-    public static function blacklist($email)
-    {
-        global $_TABLES;
-
-        $pieces = explode('@', $email);
-        if ($pieces[0] == '*') {
-            // Update status of all addreses with this domain
-            DB_query("UPDATE {$_TABLES['mailer_emails']}
-                SET status='" . Status::BLACKLIST . "'
-                WHERE domain = '" . DB_escapeString($pieces[1]) . "'", 1);
-        } else {
-            DB_query("UPDATE {$_TABLES['mailer_emails']}
-                SET status = '" . Status::BLACKLIST . "'
-                WHERE email = '" . DB_escapeString($email) . "'");
-        }
-        MLR_auditLog("Blacklisted $email");
-    }
 
     /*public function offsetSet($key, $value)
     {
@@ -311,16 +276,16 @@ class Subscriber
     }*/
 
 
-    public function withID($sub_id)
+    public function withID($id)
     {
-        $this->sub_id = (int)$sub_id;
+        $this->id = (int)$id;
         return $this;
     }
 
 
     public function getID()
     {
-        return (int)$this->sub_id;
+        return (int)$this->id;
     }
 
 
@@ -420,11 +385,12 @@ class Subscriber
     /**
      * Update a member record.
      *
-     * @param   array   $params     Parameters to update
+     * @return  boolean     True on success, False on error
      */
-    public function updateMember($params = array())
+    public function update()
     {
-        if (!isset($params['attributes'])) {
+        $params = $this->getAttributes();
+        /*if (!isset($params['attributes'])) {
             $params['attributes'] = array();
         }
         $rc = LGLIB_invokeService('lglib', 'parseName',
@@ -432,11 +398,11 @@ class Subscriber
             $parts, $svc_msg
         );
         if ($rc == PLG_RET_OK) {
-            $params['attributes']['firstname'] = $parts['fname'];
-            $params['attributes']['lastname'] = $parts['lname'];
-        }
+            $params['attributes']['FIRSTNAME'] = $parts['fname'];
+            $params['attributes']['LASTNAME'] = $parts['lname'];
+        }*/
         $API = API::getInstance();
-        $API->updateMember($this->email_address, $this->uid, $params);
+        return $API->updateMember($this);
     }
 
 
@@ -447,8 +413,9 @@ class Subscriber
      *
      * @param   integer $status New status
      * @param   boolean $force  True to change from blacklisted
+     * @return  boolean     True on success, False on error
      */
-    public function setStatus($status, $force=false)
+    public function updateStatus($status, $force=false)
     {
         global $_TABLES;
 
@@ -456,11 +423,21 @@ class Subscriber
         $this->status = $status;
         $sql = "UPDATE {$_TABLES['mailer_emails']} SET
             status = $status
-            WHERE sub_id = {$this->getID()}";
+            WHERE id = {$this->getID()}";
         if (!$force) {
             $sql .= ' AND status < ' . Status::BLACKLIST;
         }
-        DB_query($sql);
+        $result = DB_query($sql);
+        if (!$result) {
+            /*if ($status == Status::PENDING) {
+                // if an admin forced the status to Pending, send the double
+                // opt-in message so the user can activate.
+                API::getInstance()->sendDoubleOptin($this);
+        }*/
+            return true;
+        } else {
+            return false;
+        }
     }
 
 
@@ -515,7 +492,8 @@ class Subscriber
 
 
     /**
-     * Get the attributs array (aka merge fields).
+     * Get the attributes array (aka merge fields).
+     * This could be used publically, but probably won't be.
      *
      * @param   array   $map    Array of original->target names
      * @return  array   Array of name->value pairs
@@ -529,10 +507,10 @@ class Subscriber
             $parts, $svc_msg
         );
         if ($rc == PLG_RET_OK) {
-            $this->_attributes['firstname'] = $parts['fname'];
-            $this->_attributes['lastname'] = $parts['lname'];
+            $this->_attributes['FIRSTNAME'] = $parts['fname'];
+            $this->_attributes['LASTNAME'] = $parts['lname'];
         }
-        
+
         // Get the merge fields from plugins.
         if ($this->uid > 1) {
             foreach ($_PLUGINS as $pi_name) {
@@ -578,6 +556,26 @@ class Subscriber
 
 
     /**
+     * Get all the emails that are blacklisted according to the database.
+     *
+     * @return  array   Array of Subscriber objects
+     */
+    public static function getBlacklisted()
+    {
+        global $_TABLES;
+
+        $retval = array();
+        $sql = "SELECT * FROM {$_TABLES['mailer_emails']}
+            WHERE status = " . Status::BLACKLIST;
+        $res = DB_query($sql);
+        while ($A = DB_fetchArray($res, false)) {
+            $retval[] = new self($A);
+        }
+        return $retval;
+    }
+
+
+    /**
      * List all the current subscribers.
      *
      * @return  string      HTML for admin list
@@ -594,7 +592,7 @@ class Subscriber
         $header_arr = array(      # display 'text' and use table field 'field'
             array(
                 'text' => $LANG_MLR['id'],
-                'field' => 'sub_id',
+                'field' => 'id',
                 'sort' => true,
             ),
             array(
@@ -608,54 +606,27 @@ class Subscriber
                 'sort' => true,
             ),
             array(
-                'text' => $LANG_MLR['list_status'], 
+                'text' => $LANG_MLR['list_status'],
                 'field' => 'status',
                 'sort' => false,
                 'align' => 'center',
             ),
             array(
                 'text' => $LANG_ADMIN['delete'],
-                'field' => 'remove_subscriber', 
+                'field' => 'remove_subscriber',
                 'sort' => false,
                 'align' => 'center',
             ),
         );
         $defsort_arr = array('field' => 'email', 'direction' => 'asc');
-        $menu_arr = array (
-            array(
-                'url' => MLR_ADMIN_URL . '/index.php?import_form=x',
-                'text' => $LANG_MLR['import'],
-            ),
-            array(
-                'url' => MLR_ADMIN_URL . '/index.php?import_users_confirm=x',
-                'text' => $LANG_MLR['import_current_users'],
-            ),
-            array(
-                'url' => MLR_ADMIN_URL . '/index.php?export=x',
-                'text' => $LANG_MLR['export'],
-            ),
-            array(
-                'url' => MLR_ADMIN_URL . '/index.php?clear_warning=x',
-                'text' => $LANG_MLR['clear'],
-            ),
-        );
-
-        $retval .= COM_startBlock(
-            $LANG_MLR['subscriberlist'] . ' ' . Config::get('pi_name') . ' v. ' .
-                Config::get('pi_version'),
-            '',
-            COM_getBlockTemplate('_admin_block', 'header')
-        );
-        $retval .= ADMIN_createMenu($menu_arr, '', plugin_geticon_mailer());
-
         $text_arr = array(
             'has_extras' => true,
-            'form_url' => MLR_ADMIN_URL . '/index.php?subscribers=x',
+            'form_url' => Config::get('admin_url') . '/index.php?subscribers=x',
         );
 
         $query_arr = array(
             'table' => 'mailer_emails',
-            'sql' => "SELECT ml.*, u.uid, u.fullname 
+            'sql' => "SELECT ml.*, u.uid, u.fullname
                 FROM {$_TABLES['mailer_emails']} ml
                 LEFT JOIN {$_TABLES['users']} u
                     ON ml.email = u.email
@@ -670,38 +641,37 @@ class Subscriber
             . '" onclick="return confirm(\'' . $LANG01[125] . '\');"'
             . '/>&nbsp;' . $LANG_ADMIN['delete'] . '&nbsp;';
         $chkactions .= '<input name="blacklist" type="image" src="'
-            . MLR_ADMIN_URL . '/images/red.png'
+            . Config::get('admin_url') . '/images/red.png'
             . '" style="vertical-align:text-bottom;" title="'
             . $LANG_MLR['blacklist']
             . '" onclick="return confirm(\'' . $LANG_MLR['conf_black'] . '\');"'
             . '/>&nbsp;' . $LANG_MLR['blacklist'] . '&nbsp;';
-        $chkactions .= '<input name="whitelist" type="image" src="'
-            . MLR_ADMIN_URL . '/images/green.png'
+        $chkactions .= '<input name="active" type="image" src="'
+            . Config::get('admin_url') . '/images/green.png'
             . '" style="vertical-align:text-bottom;" title="'
-            . $LANG_MLR['whitelist']
+            . $LANG_MLR['subscribe']
             . '" onclick="return confirm(\'' . $LANG_MLR['conf_white'] . '\');"'
-            . '/>&nbsp;' . $LANG_MLR['whitelist'] . '&nbsp;';
+            . '/>&nbsp;' . $LANG_MLR['subscribe'] . '&nbsp;';
 
         $options = array(
             //'chkdelete' => true,
             'chkselect' => true,
-            'chkfield' => 'sub_id',
+            'chkfield' => 'id',
             'chkname' => 'delsubscriber',
             'chkminimum' => 0,
             'chkall' => true,
             'chkactions' => $chkactions,
         );
- 
+
         $retval .= ADMIN_list(
-            'mailer_subscribers', 
+            'mailer_subscribers',
             array(__CLASS__, 'getListField'),
             $header_arr, $text_arr, $query_arr, $defsort_arr, '', '', $options
         );
-        $retval .= COM_endBlock(COM_getBlockTemplate('_admin_block', 'footer'));
         return $retval;
     }
 
-    
+
     /**
      * Get the display value for a list field, either mailer or subscriber.
      *
@@ -724,7 +694,7 @@ class Subscriber
         case 'remove_subscriber':
             $retval = COM_createLink(
                 '<i class="uk-icon uk-icon-remove uk-text-danger"></i>',
-                $admin_url . "/index.php?delsubscriber=x&amp;sub_id={$A['sub_id']}",
+                $admin_url . "/index.php?delsubscriber=x&amp;id={$A['id']}",
                 array(
                     'onclick' => "return confirm('Do you really want to delete this item?');",
                 )
@@ -735,20 +705,25 @@ class Subscriber
             $icon1_cls = 'uk-icon-circle-o';
             $icon2_cls = 'uk-icon-circle-o';
             $icon3_cls = 'uk-icon-circle-o';
-            $onclick1 = "onclick='MLR_toggleUserStatus(\"" . Status::ACTIVE . 
-                "\", \"{$A['sub_id']}\");' ";
+            $onclick1 = "onclick='MLR_toggleUserStatus(\"" . Status::ACTIVE .
+                "\", \"{$A['id']}\");' ";
             $onclick2 = "onclick='MLR_toggleUserStatus(\"" . Status::PENDING .
-                "\", \"{$A['sub_id']}\");' ";
-            $onclick3 = "onclick='MLR_toggleUserStatus(\"" . Status::BLACKLIST . 
-                "\", \"{$A['sub_id']}\");' ";
+                "\", \"{$A['id']}\");' ";
+            $onclick3 = "onclick='MLR_toggleUserStatus(\"" . Status::BLACKLIST .
+                "\", \"{$A['id']}\");' ";
+            $onclick4 = "onclick='MLR_toggleUserStatus(\"" . Status::UNSUBSCRIBED.
+                "\", \"{$A['id']}\");' ";
             switch ($fieldvalue) {
-            case Status::PENDING:
-                $icon2_cls = 'uk-icon-circle uk-text-warning';
-                $onclick2 = '';
+            case Status::UNSUBSCRIBED:
+                $onclick4 = '';
                 break;
             case Status::ACTIVE:
                 $icon1_cls = 'uk-icon-circle uk-text-success';
                 $onclick1 = '';
+                break;
+            case Status::PENDING:
+                $icon2_cls = 'uk-icon-circle uk-text-warning';
+                $onclick2 = '';
                 break;
             case Status::BLACKLIST:
                 $icon3_cls = 'uk-icon-circle uk-text-danger';
@@ -757,16 +732,18 @@ class Subscriber
             default:
                 break;
             }
-            $retval = '<div id="userstatus' . $A['sub_id']. '">' .
+            $retval = '<div id="userstatus' . $A['id']. '">' .
                 '<i class="uk-icon ' . $icon1_cls . '" ' .
                 $onclick1 . '/></i>&nbsp;';
             $retval .= '<i class="uk-icon ' . $icon2_cls . '" ' .
                 $onclick2 . '/></i>&nbsp;';
             $retval .= '<i class="uk-icon ' . $icon3_cls . '" ' .
-                $onclick3 . '/></i>';
+                $onclick3 . '/></i>&nbsp;';
+            $retval .= '<i class="uk-icon uk-icon-remove uk-text-danger" ' .
+                $onclick4 . '/></i>';
             $retval .= '</div>';
             break;
-    
+
         case 'uid':
             if (!empty($A['uid'])) {
                 $retval = COM_createLink(COM_getDisplayName($A['uid']),

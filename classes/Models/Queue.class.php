@@ -72,7 +72,7 @@ class Queue
 
         DB_delete(
             $_TABLES['mailer_queue'],
-            array('mlr_id','email'), 
+            array('mlr_id','email'),
             array(DB_escapeString($mlr_id), DB_escapeString($email))
         );
     }
@@ -169,8 +169,8 @@ class Queue
             SET value = UNIX_TIMESTAMP()
             WHERE name = 'mailer_lastrun'" );
     }
-    
-    
+
+
     /**
      * List all the currently queued messages.
      *
@@ -189,33 +189,9 @@ class Queue
         );
         $defsort_arr = array('field' => 'mlr_id', 'direction' => 'asc');
 
-        $menu_arr = array (
-            array('url' => MLR_ADMIN_URL . '/index.php?purgequeue=x',
-              'text' => $LANG_MLR['purge_queue']),
-            array('url' => MLR_ADMIN_URL . '/index.php?resetqueue=x',
-              'text' => $LANG_MLR['reset_queue']),
-            array('url' => MLR_ADMIN_URL . '/index.php?flushqueue=x',
-                  'text' => $LANG_MLR['flush_queue']),
-            array('url' => $_CONF['site_admin_url'],
-              'text' => $LANG_ADMIN['admin_home'])
-        );
-
-        $retval .= COM_startBlock(
-            $LANG_MLR['mailerlist'] . ' ' . Config::get('pi_name') . ' v. ' .
-                Config::get('pi_version'),
-            '',
-            COM_getBlockTemplate('_admin_block', 'header')
-        );
-
-        $retval .= ADMIN_createMenu(
-            $menu_arr,
-            $LANG_MLR['instr_admin_queue'],
-            plugin_geticon_mailer()
-        );
-
         $text_arr = array(
             'has_extras' => true,
-            'form_url' => MLR_ADMIN_URL . '/index.php?queue=x'
+            'form_url' => Config::get('admin_url') . '/index.php?queue=x'
         );
 
         $query_arr = array(
@@ -234,11 +210,10 @@ class Queue
             $header_arr, $text_arr, $query_arr, $defsort_arr,
             '', '', $options
         );
-        $retval .= COM_endBlock(COM_getBlockTemplate('_admin_block', 'footer'));
         return $retval;
     }
-    
-    
+
+
     /**
      * Get the display value for a list field, either mailer or subscriber.
      *
@@ -260,13 +235,13 @@ class Queue
         switch($fieldname) {
         case 'deletequeue':     // Delete an entry from the queue
             $retval = COM_createLink(
-                "<img src=\"{$_CONF['layout_url']}/images/admin/delete.png\" 
+                "<img src=\"{$_CONF['layout_url']}/images/admin/delete.png\"
                 height=\"16\" width=\"16\" border=\"0\"
                 onclick=\"return confirm('Do you really want to delete this item?');\">",
                 $admin_url . "/index.php?deletequeue=x&amp;mlr_id={$A['mlr_id']}&amp;email={$A['email']}"
             );
             break;
-    
+
         default:
             $retval = $fieldvalue;
             break;

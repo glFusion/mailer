@@ -7,7 +7,7 @@
  * @copyright   Copyright (c) 2008 Wayne Patterson <suprsidr@gmail.com>
  * @package     mailer
  * @version     v0.0.1
- * @license     http://opensource.org/licenses/gpl-2.0.php 
+ * @license     http://opensource.org/licenses/gpl-2.0.php
  *              GNU Public License v2 or later
  * @filesource
  */
@@ -20,22 +20,24 @@ use Mailer\Models\Mailer;
 use Mailer\Models\Queue;
 use Mailer\Models\Subscriber;
 use Mailer\API;
+use Mailer\Menu;
 
 if (!SEC_hasRights('mailer.admin,mailer.edit', 'OR')) {
-    $display = MLR_siteHeader ($LANG_MLR['access_denied']);
-    $display .= COM_startBlock ($LANG_MLR['access_denied'], '',
-                        COM_getBlockTemplate ('_msg_block', 'header'));
+    $display = Menu::siteHeader($LANG_MLR['access_denied']);
+    $display .= COM_startBlock(
+        $LANG_MLR['access_denied'],
+        '',
+        COM_getBlockTemplate('_msg_block', 'header')
+    );
     $display .= $LANG_MLR['access_denied_msg'];
-    $display .= COM_endBlock (COM_getBlockTemplate ('_msg_block', 'footer'));
-    $display .= MLR_siteFooter ();
-    COM_accessLog ("User {$_USER['username']} tried to illegally access the mailers administration screen.");
+    $display .= COM_endBlock(COM_getBlockTemplate ('_msg_block', 'footer'));
+    $display .= Mailer::siteFooter();
+    COM_accessLog("User {$_USER['username']} tried to illegally access the mailers administration screen.");
     echo $display;
     exit;
 }
 
 USES_lib_admin();
-
-if (!empty($_POST) && GVERSION < '1.3.0') $_POST = MLR_stripslashes($_POST);
 
 
 /**
@@ -161,21 +163,22 @@ function MLR_list_subscribers()
     global $_CONF, $_TABLES, $_IMAGE_TYPE, $LANG_ADMIN, $LANG_MLR, $_MLR_CONF,
             $LANG01;
 
-    $retval = '<script type="text/javascript" src="' . MLR_URL . 
+    $retval = '<script type="text/javascript" src="' . Config::get('url') .
         '/js/userStatus.js"></script>';
 
     $header_arr = array(      # display 'text' and use table field 'field'
         array('text' => $LANG_MLR['id'], 'field' => 'id', 'sort' => true),
         array('text' => $LANG_MLR['email'], 'field' => 'email', 'sort' => true),
         array('text' => $LANG_MLR['site_user'], 'field' => 'uid', 'sort' => true),
-        array('text' => $LANG_MLR['list_status'], 
+        array('text' => $LANG_MLR['list_status'],
                 'field' => 'status', 'sort' => false, 'align' => 'center'),
-        array('text' => $LANG_ADMIN['delete'], 'field' => 'remove_subscriber', 
+        array('text' => $LANG_ADMIN['delete'], 'field' => 'remove_subscriber',
                 'sort' => false, 'align' => 'center'),
     );
     $defsort_arr = array('field' => 'email', 'direction' => 'asc');
+    echo "Here";die;
     $menu_arr = array (
-        array('url' => MLR_ADMIN_URL . '/index.php?import_form=x',
+        array('url' => $admin_url . '/index.php?import_form=x',
               'text' => $LANG_MLR['import']),
         array('url' => MLR_ADMIN_URL . '/index.php?import_users_confirm=x',
               'text' => $LANG_MLR['import_current_users']),
@@ -198,7 +201,7 @@ function MLR_list_subscribers()
 
     $query_arr = array(
         'table' => 'mailer_emails',
-        'sql' => "SELECT ml.*, u.uid, u.fullname 
+        'sql' => "SELECT ml.*, u.uid, u.fullname
                 FROM {$_TABLES['mailer_emails']} ml
                 LEFT JOIN {$_TABLES['users']} u
                     ON ml.email = u.email
@@ -234,8 +237,8 @@ function MLR_list_subscribers()
         'chkall' => true,
         'chkactions' => $chkactions,
     );
- 
-    $retval .= ADMIN_list('mailer_subscribers', 
+
+    $retval .= ADMIN_list('mailer_subscribers',
             'MLR_getListField_mailer',
             $header_arr, $text_arr, $query_arr, $defsort_arr, '', '', $options);
     $retval .= COM_endBlock(COM_getBlockTemplate('_admin_block', 'footer'));
@@ -273,7 +276,7 @@ function MLR_list_queue()
               'text' => $LANG_ADMIN['admin_home'])
     );
 
-    $retval .= COM_startBlock($LANG_MLR['mailerlist'] .  
+    $retval .= COM_startBlock($LANG_MLR['mailerlist'] .
                 " ({$_MLR_CONF['pi_name']} v. {$_MLR_CONF['pi_version']})",
                 '', COM_getBlockTemplate('_admin_block', 'header'));
 
@@ -315,13 +318,13 @@ function MLR_display_import_form()
 
     $retval = COM_startBlock($LANG_MLR['importer']);
     $menu_arr = array(
-        array('url'=>$_CONF['site_admin_url'], 
+        array('url'=>$_CONF['site_admin_url'],
                 'text'=>$LANG_ADMIN['admin_home']),
         array('url'=>'javascript:back()', 'text'=>'Back'),
     );
     $retval .= ADMIN_createMenu($menu_arr, '', plugin_geticon_mailer());
 
-    $T = new Template(MLR_PI_PATH . 'templates/admin');
+    $T = new Template(Config::get('pi_path') . '/templates/admin');
     $T->set_file('form', 'import.thtml');
     $T->set_var(array(
         //'lang_import'       => $LANG_MLR['import'],
@@ -371,7 +374,7 @@ function MLR_getListField_mailer($fieldname, $fieldvalue, $A, $icon_arr)
 
     case 'send':
         $retval = COM_createLink(
-            "<img src=\"{$_CONF['layout_url']}/images/admin/mail.png\" 
+            "<img src=\"{$_CONF['layout_url']}/images/admin/mail.png\"
             height=\"16\" width=\"16\" border=\"0\"
             onclick=\"return confirm('{$LANG_MLR['conf_sendnow']}');\">",
             $admin_url . "/index.php?sendnow=x&amp;mlr_id={$A['mlr_id']}"
@@ -380,7 +383,7 @@ function MLR_getListField_mailer($fieldname, $fieldvalue, $A, $icon_arr)
 
     case 'delete':
         $retval = COM_createLink(
-            "<img src=\"{$_CONF['layout_url']}/images/admin/delete.png\" 
+            "<img src=\"{$_CONF['layout_url']}/images/admin/delete.png\"
             height=\"16\" width=\"16\" border=\"0\"
             onclick=\"return confirm('{$LANG_MLR['conf_delete']}');\">",
             $admin_url . "/index.php?delete=x&amp;mlr_id={$A['mlr_id']}"
@@ -389,7 +392,7 @@ function MLR_getListField_mailer($fieldname, $fieldvalue, $A, $icon_arr)
 
     case 'deletequeue':     // Delete an entry from the queue
         $retval = COM_createLink(
-            "<img src=\"{$_CONF['layout_url']}/images/admin/delete.png\" 
+            "<img src=\"{$_CONF['layout_url']}/images/admin/delete.png\"
             height=\"16\" width=\"16\" border=\"0\"
             onclick=\"return confirm('Do you really want to delete this item?');\">",
             $admin_url . "/index.php?deletequeue=x&amp;mlr_id={$A['mlr_id']}&amp;email={$A['email']}"
@@ -398,7 +401,7 @@ function MLR_getListField_mailer($fieldname, $fieldvalue, $A, $icon_arr)
 
     case 'remove_subscriber':
         $retval = COM_createLink(
-            "<img src=\"{$_CONF['layout_url']}/images/admin/delete.png\" 
+            "<img src=\"{$_CONF['layout_url']}/images/admin/delete.png\"
             height=\"16\" width=\"16\" border=\"0\"
             onclick=\"return confirm('Do you really want to delete this item?');\">",
             $admin_url . "/index.php?delsubscriber=x&amp;sub_id={$A['id']}"
@@ -409,11 +412,11 @@ function MLR_getListField_mailer($fieldname, $fieldvalue, $A, $icon_arr)
         $icon1_cls = 'uk-icon-circle-o';
         $icon2_cls = 'uk-icon-circle-o';
         $icon3_cls = 'uk-icon-circle-o';
-        $onclick1 = "onclick='MLR_toggleUserStatus(\"" . Status::ACTIVE . 
+        $onclick1 = "onclick='MLR_toggleUserStatus(\"" . Status::ACTIVE .
                 "\", \"{$A['id']}\");' ";
         $onclick2 = "onclick='MLR_toggleUserStatus(\"" . Status::PENDING .
                 "\", \"{$A['id']}\");' ";
-        $onclick3 = "onclick='MLR_toggleUserStatus(\"" . Status::BLACKLIST . 
+        $onclick3 = "onclick='MLR_toggleUserStatus(\"" . Status::BLACKLIST .
                 "\", \"{$A['id']}\");' ";
         switch ($fieldvalue) {
         case Status::PENDING:
@@ -446,8 +449,8 @@ function MLR_getListField_mailer($fieldname, $fieldvalue, $A, $icon_arr)
             $_CONF['site_url'] . '/mailer/index.php?page=' . $A['mlr_id']
         );
         $retval = COM_createLink(
-            $A['mlr_title'], 
-            $url, 
+            $A['mlr_title'],
+            $url,
             array('title'=>$LANG_MLR['title_display'])
         );
         break;
@@ -497,8 +500,8 @@ function MLR_getListField_mailer($fieldname, $fieldvalue, $A, $icon_arr)
 // MAIN
 $expected = array(
     'blacklist_x', 'whitelist_x', 'delsubscriber',
-    'mailers', 'subscribers', 'queue', 
-    'edit', 'clone', 'mlr_save', 
+    'mailers', 'subscribers', 'queue',
+    'edit', 'clone', 'mlr_save',
     'delete', 'sendnow',
     'deletequeue', 'purgequeue', 'resetqueue', 'flushqueue',
     'clear_warning', 'clearsub',
@@ -530,26 +533,33 @@ $content = '';
 
 switch ($action) {
 case 'sendnow':
-    $view = 'mailers';
-    $mld_id = COM_sanitizeID($_GET['mlr_id'], false);
-    if (empty($mlr_id)) break;
-    Queue::addMailer($mlr_id);
+    $Mailer = new Mailer($_GET['mlr_id']);
+    if (!$Mailer->isNew()) {
+        $Mailer->queueIt();
+    }
+    COM_refresh(Config::get('admin_url') . '/index.php?mailers');
     break;
 
 case 'delsubscriber':
     if (is_array($_POST['delsubscriber'])) {
         $del_subs = array();
         foreach ($_POST['delsubscriber'] as $idx=>$sub_id) {
-            $del_subs[] = (int)$sub_id;
+            $Sub = Subscriber::getById($sub_id);
+            $Sub->unsubscribe();
+            $Sub->delete();
+            //$del_subs[] = (int)$sub_id;
         }
-        $sub_list = join(',', $del_subs);
+        /*$sub_list = join(',', $del_subs);
         $sql = "DELETE FROM {$_TABLES['mailer_emails']}
             WHERE id IN ($sub_list)";
-        DB_query($sql);
+        DB_query($sql);*/
     } else {
         $del_sub = (int)$_REQUEST['sub_id'];
         if ($del_sub > 0) {
-            DB_delete($_TABLES['mailer_emails'], 'id', $del_sub);
+            $Sub = Subscriber::getInstance($del_sub);
+            $Sub->unsubscribe();
+            $Sub->delete();
+            //DB_delete($_TABLES['mailer_emails'], 'id', $del_sub);
         }
     }
     $view = 'subscribers';
@@ -558,7 +568,7 @@ case 'delsubscriber':
 case 'blacklist_x':
     if (is_array($_POST['delsubscriber'])) {
         foreach ($_POST['delsubscriber'] as $id) {
-            Subscriber::setStatus($id, Status::BLACKLIST);
+            Subscriber::getById($id)->updateStatus(Status::BLACKLIST);
         }
     }
     $view = 'subscribers';
@@ -567,7 +577,7 @@ case 'blacklist_x':
 case 'whitelist_x':
     if (is_array($_POST['delsubscriber'])) {
         foreach ($_POST['delsubscriber'] as $id) {
-            Subscriber::setStatus($id, Status::ACTIVE);
+            Subscriber::getById($id)->updateStatus(Status::ACTIVE, true);
         }
     }
     $view = 'subscribers';
@@ -580,29 +590,26 @@ case 'clearsub':
     $view = 'subscribers';
     break;
 
-case 'edit':
-    $view = 'edit';
-    break;
-
 case 'clone':
     $M = new Mailer($mlr_id);
-    if ($M->isNew)      // can't clone a non-existant mailer
+    if ($M->isNew) {     // can't clone a non-existant mailer
         break;
-    $M->mlr_id = COM_makeSid();
-    $M->mlr_title = $M->mlr_title . ' -Copy';
+    }
+    $M->withID(0)
+      ->withTitle($M->mlr_title . ' -Copy');
     $M->unixdate = time();
     $M->mlr_date = date('Y-m-d H:i;s');
     $M->isNew = true;
     $status = $M->Save();
-    $view = 'mailers';
+    COM_refresh(Config::get('admin_url') . '/index.php?mailers');
     break;
 
 case 'delete':
     (new Mailer($mlr_id))->Delete();
-    COM_refresh(Config::get('admin_url') . '/index.php?mailes');
+    COM_refresh(Config::get('admin_url') . '/index.php?mailers');
     $view = 'mailers';
     break;
- 
+
 case 'import_form':
     $view = 'import_form';
     break;
@@ -627,16 +634,16 @@ case 'import':
 
                 //$status = MLR_addEmail(trim($email), $status);
                 switch ($response) {
-                case MLR_ADD_SUCCESS:
+                case Status::SUB_SUCCESS:
                     $results['success']++;
                     break;
-                case MLR_ADD_INVALID:
+                case Status::SUB_INVALID:
                     $results['invalid']++;
                     break;
-                case MLR_ADD_EXISTS:
+                case Status::SUB_EXISTS:
                     $results['duplicate']++;
                     break;
-                case MLR_ADD_ERROR:
+                case Status::SUB__ERROR:
                     $results['error']++;
                 break;
                 }
@@ -685,159 +692,18 @@ case 'export':
     exit;
     break;
 
-
-case 'mode':
-echo 'DEPRECATED: mode';break;
-    switch ($actionval) {
-    case $LANG_ADMIN['delete']:
-        if (!empty ($LANG_ADMIN['delete']) && SEC_checkToken()) {
-            if (empty ($mlr_id) || (is_numeric ($mlr_id) && ($mlr_id == 0))) {
-                COM_errorLog ('Attempted to delete mailer mlr_id=' . $mlr_id);
-            } else {
-                $args = array('mlr_id' => $mlr_id);
-                MLR_invokeService('mailer', 'delete', $args, $display, $svc_msg);
-            }
-        }
-        break;
-
-    case 'import':
-        if (SEC_checkToken()) {
-            $display .= MLR_siteHeader($LANG_MLR['importer']);
-            $display .= COM_startBlock($LANG_MLR['importer']);
-            $display .= MLR_import($_POST['import_list'], $_POST['delimiter'], 
-                            (isset($_POST['blacklist']) && $_POST['blacklist'] != '')?1:0);
-            $display .= COM_endBlock();
-            $display .= MLR_siteFooter();
-            $display .= COM_refresh ($_CONF['site_admin_url'] . '/plugins/mailer/index.php');
-        }
-        break;
-
-    case 'import_users':
-        $display .= MLR_siteHeader($LANG_MLR['importer']);
-        $display .= COM_startBlock($LANG_MLR['importer']);
-        $display .= Subscriber::importUsers();
-        $display .= COM_endBlock();
-        $display .= MLR_siteFooter();
-        $display .= COM_refresh ($_CONF['site_admin_url'] . '/plugins/mailer/index.php');
-        break;
-
-    case 'remove_subscriber':
-        $success = MLR_unsubscribe($email);
-        if ($success){
-            $display = MLR_siteHeader();
-            $display .= COM_startBlock($LANG_MLR['removed_title']);
-            $display .= sprintf($LANG_MLR['removed_msg'], $email);
-            $display .= COM_endBlock();
-            $display .= MLR_siteFooter();
-            $display .= COM_refresh ($_CONF['site_admin_url'] . '/plugins/mailer/index.php');
-        }
-        break;
-
-    case 'clear_warning':
-        $display = MLR_siteHeader();
-        $display .= COM_startBlock($LANG_MLR['are_you_sure']);
-        //require_once $_CONF['path_system'].'lib-admin.php';
-        $menu_arr = array(array('url'=>$_CONF['site_admin_url'], 'text'=>$LANG_ADMIN['admin_home']),
-                array('url' => $_CONF['site_admin_url'] . '/plugins/mailer/index.php?mode=export',
-                'text' => $LANG_MLR['export']), array('url'=>'javascript:back()', 'text'=>'Back'));
-        list($blackListEmails, $blackListDomains) = MLR_fetchBlacklist();
-        list($emails) = MLR_fetchWhitelist();
-        $display .= ADMIN_createMenu($menu_arr, '', plugin_geticon_mailer());
-        $display .= $LANG_MLR['blacklisted_emails'] . 
-                    implode(',', $blackListEmails)."<br />";
-        $display .= $LANG_MLR['blacklisted_domains'] . 
-                    implode(',', $blackListDomains)."<br />";
-        $display .= $LANG_MLR['whitelisted_emails'] .
-                    wordwrap(implode(',', $emails), 120, "<br />", true);
-        $display .= '<form action="' . Config::get('admin_url') . 
-            'index.php" method="post"><input type="submit" value="' . 
-            $LANG_MLR['clear'] . 
-            '" name="iclearsub"/><input type="hidden" name="' . CSRF_TOKEN .
-            '" value="'.SEC_createToken().'"/></form>';
-        $display .= COM_endBlock();
-        $display .= MLR_siteFooter();
-        break;
-
-    case $LANG_MLR['clear']:
-        if (SEC_checkToken()) {
-            $display = MLR_truncateList();
-            $display .= COM_refresh ($_CONF['site_admin_url'] . '/plugins/mailer/index.php');
-        }
-        break;
-
-    case $LANG_ADMIN['save']:
-        if (!empty ($LANG_ADMIN['save']) && SEC_checkToken()) {
-            if (!empty ($mlr_id)) {
-                if (!isset ($_POST['mlr_onmenu'])) {
-                    $_POST['mlr_onmenu'] = '';
-                }
-                if (!isset ($_POST['mlr_php'])) {
-                    $_POST['mlr_php'] = '';
-                }
-                if (!isset ($_POST['mlr_nf'])) {
-                    $_POST['mlr_nf'] = '';
-                }
-                if (!isset ($_POST['mlr_centerblock'])) {
-                    $_POST['mlr_centerblock'] = '';
-                }
-                $help = '';
-                if (isset ($_POST['mlr_help'])) {
-                    $mlr_help = COM_sanitizeUrl ($_POST['mlr_help'], array ('http', 'https'));
-                }
-                if (!isset ($_POST['mlr_inblock'])) {
-                    $_POST['mlr_inblock'] = '';
-                }
-                $mlr_uid = COM_applyFilter ($_POST['mlr_uid'], true);
-                if ($mlr_uid == 0) {
-                    $mlr_uid = $_USER['uid'];
-                }
-                if (!isset ($_POST['postmode'])) {
-                    $_POST['postmode'] = '';
-                }
-                $display .= submitmailer ($mlr_id, $mlr_uid, $_POST['mlr_title'],
-                    $_POST['mlr_content'], COM_applyFilter ($_POST['mlr_hits'], true),
-                    COM_applyFilter ($_POST['mlr_format']), $_POST['mlr_onmenu'],
-                    $_POST['mlr_label'], COM_applyFilter ($_POST['commentcode'], true),
-                    COM_applyFilter ($_POST['owner_id'], true),
-                    COM_applyFilter ($_POST['group_id'], true), $_POST['perm_owner'],
-                    $_POST['perm_group'], $_POST['perm_members'], $_POST['perm_anon'],
-                    $_POST['mlr_php'], $_POST['mlr_nf'],
-                    COM_applyFilter ($_POST['mlr_old_id']), $_POST['mlr_centerblock'],
-                    $mlr_help, COM_applyFilter ($_POST['mlr_tid']),
-                    COM_applyFilter ($_POST['mlr_where'], true), $_POST['mlr_inblock'],
-                    COM_applyFilter ($_POST['postmode']), $_POST['mlr_sent_time']);
-                if (isset($_POST['mlr_sendnow'])) {
-                    //$display .= MLR_mailIt($mlr_id, $_POST['mlr_title'], $_POST['mlr_content']);
-                    $display .= MLR_queueIt($mlr_id, $_POST['mlr_title'], $_POST['mlr_content']);
-                }
-                if (isset($_POST['mlr_sendtest'])) {
-                    //$display .= MLR_mailIt($mlr_id, $_POST['mlr_title'], $_POST['mlr_content'], true);
-                    
-                }
-            } else {
-                $display = COM_refresh ($_CONF['site_admin_url'] . '/index.php');
-            }
-        }
-        break;
-
-    case 'listsubscribers':
-    case 'listmailers':
-    default:
-        $view = $actionval;
-        break;
-    }
-    break;
-
 case 'mlr_save':
-    $mlr_old_id = isset($_POST['mlr_old_id']) ? $_POST['mlr_old_id'] : '';
-    $M = new Mailer($mlr_old_id);
+    $mlr_id = isset($_POST['mlr_id']) ? $_POST['mlr_id'] : '';
+    $M = new Mailer($mlr_id);
     $status = $M->Save($_POST);
     if (!$status) {
+        $content .= Menu::Admin('mailers');
+        $content .= Menu::adminMailers('edit');
         $content .= MLR_errorMsg('<ul>' . $M->PrintErrors() . '</ul>');
         $content .= $M->Edit();
         $view = 'none';     // Editing it here, no other display
     } else {
-        $view = 'mailers';  // Success, return to list
+        COM_refresh(Config::get('admin_url') . '/index.php?mailers');
     }
     break;
 
@@ -866,52 +732,39 @@ case 'flushqueue':
 case 'subscribers':
 case 'mailers':
 case 'queue':
+    $view = $action;
+    $features = API::getInstance()->getFeatures();
+    if (!in_array($view, $features)) {
+        $view = $features[0];
+    }
+    break;
 default:
     $view = $action;
     break;
-
 }
 
 // Now create the content to be displayed
+$content .= Menu::Admin($view);
 switch ($view) {
 case 'edit':
     $M = new Mailer($mlr_id);
+    $content .= Menu::adminMailers($view);
     $content .= $M->Edit();
     break;
 
 case 'mailers':
-case 'subscribers';
+    $content .= Menu::adminMailers($view);
+    $content .= Mailer::adminList();
+    break;
+
+case 'subscribers':
+    $content .= Menu::adminSubscribers($view);
+    $content .= Subscriber::adminList();
+    break;
+
 case 'queue':
-    USES_class_navbar();
-    $features = API::getInstance()->getFeatures();
-    $navmenu = new navbar;
-    foreach ($features as $feature) {
-        $navmenu->add_menuitem(
-            $LANG_MLR[$feature],
-            Config::get('admin_url'). '/index.php?' . $feature
-        );
-    }
-/*    if (in_array('mailers')) {
-        $navmenu->add_menuitem('Mailers', Config::get('admin_url'). '/index.php?mailers=x');
-    }
-    if (in_array($features, 'subscribers')) {
-        $navmenu->add_menuitem('Subscribers', Config::get('admin_url') . '/index.php?subscribers=x');
-    }
-    if (in_array($features, 'queues')) {
-        $navmenu->add_menuitem('Queue', Config::get('admin_url') . '/index.php?queue=x');
-    }*/
-    if ($view == 'mailers') {
-        $content = Mailer::adminList();
-        $navmenu->set_selected('Mailers');
-    } elseif ($view == 'queue') {
-        $content = Queue::adminList();
-        $navmenu->set_selected('Queue');
-    } else {
-        $content .= Subscriber::adminList();
-        $navmenu->set_selected('Subscribers');
-    }
- 
-    $content = $navmenu->generate() . $content;
+    $content .= Menu::adminQueue($view);
+    $content .= Queue::adminList();
     break;
 
 case 'import_form':
@@ -928,10 +781,10 @@ case 'import_users_confirm':
             $LANG_ACCESS['no'] . '" />' . LB;
     $content .= '</form>';
     break;
-    
+
 case 'clear_warning':
     $content .= COM_startBlock($LANG_MLR['are_you_sure']);
-    $menu_arr = array(
+    /*$menu_arr = array(
         array(
             'url' => $_CONF['site_admin_url'],
             'text'=>$LANG_ADMIN['admin_home'],
@@ -939,37 +792,36 @@ case 'clear_warning':
         array(
             'url' => Config::get('admin_url'). '/index.php?export=x',
             'text' => $LANG_MLR['export'],
-        ), 
+        ),
         array(
             'url'=>'javascript:back()',
             'text'=>'Back',
         )
-    );
-    list($blackListEmails, $blackListDomains) = MLR_fetchBlacklist();
-    list($emails) = MLR_fetchWhitelist();
-    $content .= ADMIN_createMenu($menu_arr, '', plugin_geticon_mailer());
-    $content .= $LANG_MLR['blacklisted_emails'] .
+    );*/
+    //list($blackListEmails, $blackListDomains) = MLR_fetchBlacklist();
+    //list($emails) = MLR_fetchWhitelist();
+    //$content .= ADMIN_createMenu($menu_arr, '', plugin_geticon_mailer());
+    /*$content .= $LANG_MLR['blacklisted_emails'] .
                 implode(',', $blackListEmails)."<br />";
     $content .= $LANG_MLR['blacklisted_domains'] .
                 implode(',', $blackListDomains)."<br />";
     $content .= $LANG_MLR['whitelisted_emails'] .
-                wordwrap(implode(',', $emails), 120, "<br />", true);
-    $content .= '<form action="' . Config::get('admin_url') . 
-            '/index.php" method="post"><input type="submit" value="' . 
-            $LANG_MLR['clear'] . 
+        wordwrap(implode(',', $emails), 120, "<br />", true);*/
+    $content .= '<form action="' . Config::get('admin_url') .
+            '/index.php" method="post"><input type="submit" value="' .
+            $LANG_MLR['clear'] .
             '" name="clearsub"/><input type="hidden" name="' . CSRF_TOKEN .
             '" value="'.SEC_createToken().'"/></form>';
     $content .= COM_endBlock();
     break;
-
 }
 
-$display = MLR_siteHeader($LANG_MLR['mailer_admin']);
-if (!empty($msg)) {
+$display = Menu::siteHeader($LANG_MLR['mailer_admin']);
+/*if (!empty($msg)) {
     $display .= COM_showMessagetext($msg, '', true);
-}
+}*/
 $display .= $content;
-$display .= MLR_siteFooter();
+$display .= Menu::siteFooter();
 echo $display;
 
 ?>

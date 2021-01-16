@@ -7,19 +7,21 @@
  * @copyright   Copyright (c) 2008 Wayne Patterson <suprsidr@gmail.com>
  * @package     mailer
  * @version     v0.0.1
- * @license     http://opensource.org/licenses/gpl-2.0.php 
+ * @license     http://opensource.org/licenses/gpl-2.0.php
  *              GNU Public License v2 or later
  * @filesource
  */
 
 require_once '../lib-common.php';
-use Mailer\Models\Subscriber;
-use Mailer\Models\Status;
-
 if (!in_array('mailer', $_PLUGINS)) {
     COM_404();
     exit;
 }
+use Mailer\Models\Subscriber;
+use Mailer\Models\Status;
+use Mailer\Models\Mailer;
+use Mailer\Menu;
+
 
 /**
  * Save an email address.
@@ -67,9 +69,9 @@ function MLR_listArchives()
     $retval = '';
 
     $header_arr = array(
-        array('text' => $LANG08[32], 'field' => 'unixdate', 
+        array('text' => $LANG08[32], 'field' => 'unixdate',
                 'sort' => 'true'),
-        array('text' => $LANG_ADMIN['title'], 'field' => 'mlr_title', 
+        array('text' => $LANG_ADMIN['title'], 'field' => 'mlr_title',
                 'sort' => 'true'),
     );
 
@@ -81,7 +83,7 @@ function MLR_listArchives()
 
     $query_arr = array(
         'table' => 'mailer',
-        'sql' => "SELECT mlr_id, mlr_title, 
+        'sql' => "SELECT mlr_id, mlr_title,
                     UNIX_TIMESTAMP(mlr_date) AS unixdate
                 FROM {$_TABLES['mailer']} " .
                 COM_getPermSQL('WHERE', 0, 2),
@@ -90,7 +92,7 @@ function MLR_listArchives()
 
     $options = array();
 
-    $retval .= ADMIN_createMenu($menu_arr, $LANG_MLR['instr_archive'], 
+    $retval .= ADMIN_createMenu($menu_arr, $LANG_MLR['instr_archive'],
         plugin_geticon_mailer());
 
     $retval .= ADMIN_list('mailer', 'MLR_public_getListField',
@@ -116,8 +118,10 @@ function MLR_public_getListField($fieldname, $fieldvalue, $A, $icon_arr)
 
     switch ($fieldname) {
     case 'mlr_title':
-        $retval = COM_createLink($fieldvalue,
-                MLR_URL . "/index.php?page={$A['mlr_id']}");
+        $retval = COM_createLink(
+            $fieldvalue,
+            Config::get('url') . "/index.php?page={$A['mlr_key']}"
+        );
         break;
 
     case 'unixdate':
@@ -139,11 +143,10 @@ COM_setArgNames(array('page', 'mode', 'view', 'email'));
 $page = COM_applyFilter(COM_getArgument('page'));
 $display_mode = COM_applyFilter(COM_getArgument('mode'));
 $view = COM_applyFilter(COM_getArgument('view'));
-
-if($display_mode == 'print') $view = 'print';
-
+if($display_mode == 'print') {
+    $view = 'print';
+}
 $content = '';
-$blockformat = 9;      // By default, use global config for block selection
 
 switch ($view) {
 case 'add':
@@ -152,24 +155,29 @@ case 'add':
         //$message = $LANG_MLR['email_missing'];
         return '10';
     }
-    $address = $_GET['email'];
-    if (!preg_match("/^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*$/i", $address)) {
-        //$message = $LANG_MLR['email_format_error'];
-        return '9';
-    }
 
     // Basic checks passed, now try to add the address
+    $address = $_GET['email'];
     $Sub = Subscriber::getByEmail($address);
     if ($Sub->getStatus() == Status::ACTIVE) {        // email already exists
         $message = '6';
-    } elseif ($Sub->subscribe()) {
-        $message = '1';
+    } elseif ($Sub->getStatus() == Status::BLACKLIST) {
+        $message = 0;
+    } else {
+        $status = $Sub->subscribe();
+        if ($status == Status::SUB_SUCCESS) {
+            $message = '1';
+        } elseif ($status == Status::SUB_INVALID) {
+            $message = '9';
+        } else {
+            $message = '8';
+        }
     }
     if ($display_mode == 'success') {
         // called from a normal link.  Assume $content
         // contains a PLG_mailer message ID
         echo COM_refresh(
-            $_CONF['site_url'] . "?msg=$message&plugin={$_MLR_CONF['pi_name']}"
+            $_CONF['site_url'] . "?msg=$message&plugin=" . Config::PI_NAME
         );
     } else {
         echo $content;
@@ -189,7 +197,7 @@ case 'unsub':
         isset($_GET['email']) && !empty($_GET['email']) &&
         isset($_GET['token']) && !empty($_GET['token'])
     ) {
-        $Sub = Mailer\Models\Subscriber::getByEmail($_GET['email']);
+        $Sub = Subscriber::getByEmail($_GET['email']);
         if ($Sub->getToken() == $_GET['token']) {
             if (isset($_GET['ml_id']) && !empty($_GET['ml_id'])) {
                 $ml_id = $_GET['ml_id'];
@@ -203,7 +211,7 @@ case 'unsub':
             }
         }
     }
-    echo COM_refresh($_CONF['site_url'] . '?plugin='.$_MLR_CONF['pi_name'].$msg);
+    echo COM_refresh($_CONF['site_url'] . '?plugin=' . Config::PI_NAME . $msg);
     exit;
     break;
 
@@ -215,7 +223,7 @@ case 'unsub':
     break;*/
 
 case 'print':
-    $N = new Mailer\Mailer($page);
+    $N = Mailer::getById($page);
     //$content = MLR_returnMailer($page, $view);
     //echo $content;
     echo $N->printPage();
@@ -228,18 +236,19 @@ case 'confirm':
     if (isset($_GET['token']) && !empty($_GET['token'])) {
         $token = DB_escapeString($_GET['token']);
         $email = DB_escapeString($_GET['email']);
-        $status = DB_getItem($_TABLES['mailer_emails'], 'status', 
+        $status = DB_getItem($_TABLES['mailer_emails'], 'status',
                 "email='$email' AND token='$token'");
-        if ($status !== NULL && $status == MLR_STAT_PENDING) {
+        if ($status !== NULL && $status == Status::PENDING) {
             DB_query("UPDATE {$_TABLES['mailer_emails']}
-                SET status = '" . MLR_STAT_ACTIVE . "'
+                SET status = '" . Status::ACTIVE . "'
                 WHERE token='$token'");
             $msg = '2';
-            MLR_auditLog("Confirmed subscription for $email");
+            Mailer\Logger::Audit("Confirmed subscription for $email");
         }
     }
-    echo COM_refresh($_CONF['site_url'] . 
-            "?msg=$msg&plugin={$_MLR_CONF['pi_name']}");
+    COM_refresh(
+        $_CONF['site_url'] . "?msg=$msg&plugin=" . Config::PI_NAME
+    );
     exit;
     break;
 
@@ -248,49 +257,41 @@ case 'bl':
     $msg = '5';     // Default "invalid token" message
     if (isset($_GET['token']) && !empty($_GET['token'])) {
         $token = DB_escapeString($_GET['token']);
-        $email = DB_getItem($_TABLES['mailer_emails'], 'email', 
+        $email = DB_getItem($_TABLES['mailer_emails'], 'email',
                 "token='$token'");
         if ($email != NULL) {
             DB_query("UPDATE {$_TABLES['mailer_emails']}
-                    SET status = '" . MLR_STAT_BLACKLIST . "'
+                    SET status = '" . Status::BLACKLIST . "'
                     WHERE token='$token'");
             $msg = '3';
-            MLR_auditLog("User-requested blacklisting of $email");
+            Mailer\Logger::Audit("User-requested blacklisting of $email");
         }
     }
-    echo COM_refresh($_CONF['site_url'] . 
-            "?msg=$msg&plugin={$_MLR_CONF['pi_name']}");
+    COM_refresh(
+        $_CONF['site_url'] . "?msg=$msg&plugin=" . Config::PI_NAME
+    );
     exit;
     break;
-    
+
 default:
     // Display the mailer
     if (!empty($page)) {
-        $N = new Mailer\Mailer($page);
-        if (!$N->isNew) {
-            // isNew will be true if the mlr_id was invalid
-            $blockformat = $N->mlr_format;  // let the mailer pick the blocks
-
-            /*if ($page == 'print') {
-                $content = $N->printPage();
-            } else {*/
-                $content = $N->displayPage();
-//            }
-
+        $N = Mailer::getById($page);
+        if ($N->getID() > 0) {  // confirm page exists
+            $content = $N->displayPage();
             $N->UpdateHits();
         } else {
             $content .= COM_showmessageText($LANG_MLR['not_found']);
             $content .= MLR_listArchives();
         }
-
     } else {
         $content .= MLR_listArchives();
     }
 }
 
-$display = MLR_siteHeader('', '', $blockformat);
+$display = Menu::siteHeader('');
 $display .= $content;
-$display .= MLR_siteFooter($blockformat);
+$display .= Menu::siteFooter();
 echo $display;
 
 ?>
