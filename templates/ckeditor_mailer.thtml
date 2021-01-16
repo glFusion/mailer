@@ -1,0 +1,28 @@
+<script type="text/javascript" src="{site_url}/ckeditor/ckeditor.js" ></script >
+<script type="text/javascript" >
+var site_url = "{site_url}";
+function loadEditor(id) {
+    var instance = CKEDITOR.replace( id, {
+        toolbar: [
+            { name: 'document', items: [ 'Source' ] },
+            [ 'Cut', 'Copy', 'Paste', '-', 'Undo', 'Redo' ],
+            { name: 'basicstyles', items: [ 'Bold', 'Italic', 'Underline' ] },
+            { name: 'forum', items : [ 'Smiley','NumberedList', 'BulletedList', 'Image','SpecialChar' ] },
+        ],
+        contentsCss: [ '{css_url}' ],
+        bodyClass: 'forumpost',
+        removePlugins: 'elementspath',
+        resize_enabled: false,
+     } );
+     return instance;
+}
+window.onload = function() {
+    content = loadEditor('content');
+};
+function won (id) {
+    content = loadEditor('content');
+}
+function woff (id) {
+    content.destroy();
+}
+</script>
