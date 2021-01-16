@@ -26,7 +26,7 @@ function MLR_do_upgrade($dvlp=false)
 {
     global $_TABLES, $_MLR_UPGRADE, $_PLUGIN_INFO;
 
-    $installed_ver = $_PLUGIN_INFO[Mailer\Config::get('pi_name')]['pi_version'];
+    $installed_ver = $_PLUGIN_INFO[Mailer\Config::PI_NAME]['pi_version'];
     $code_ver = plugin_chkVersion_mailer();
     $current_ver = $installed_ver;
 
@@ -46,7 +46,7 @@ function MLR_do_upgrade($dvlp=false)
             while ($A = DB_fetchArray($res, false)) {
                 $pieces = split('@', $A['email']);
                 $id = (int)$A['id'];
-                if (count($pieces) != 2 || !MLR_isValidDomain($pieces[1])) {
+                if (count($pieces) != 2 || !Mailer\API::isValidDomain($pieces[1])) {
                     COM_errorLog("Invalid domain, deleted {$A['email']}");
                     DB_delete($_TABLES['mailer_emails'], 'id', $id);
                 } else {
@@ -65,7 +65,7 @@ function MLR_do_upgrade($dvlp=false)
     USES_lib_install();
     global $mailerConfigData;
     require_once __DIR__ . '/install_defaults.php';
-    _update_config(Mailer\Config::get('pi_name'), $mailerConfigData);
+    _update_config(Mailer\Config::PI_NAME, $mailerConfigData);
 
     return true;
 }
@@ -118,7 +118,7 @@ function MLR_do_set_version($ver)
             pi_version = '$ver',
             pi_gl_version = '" . Mailer\Config::get('gl_version') . "',
             pi_homepage = '" . Mailer\Config::get('pi_url') . "'
-        WHERE pi_name = '" . Mailer\Config::get('pi_name') . "'";
+        WHERE pi_name = '" . Mailer\Config::PI_NAME . "'";
 
     $res = DB_query($sql, 1);
     if (DB_error()) {
