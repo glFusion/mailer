@@ -780,6 +780,12 @@ class Mailer
             );
         }
 
+        // Convert image URLs
+        \LGLib\SmartResizer::create()
+            ->withLightbox(false)
+            ->withFullUrl(true)
+            ->convert($this->mlr_content);
+
         $unsub_url = Config::get('url') . '/index.php?view=unsub&email=' .
             urlencode($email) . '&amp;token=' . urlencode($token) .
             '&amp;mlr_id=' . urlencode($this->mlr_id);
