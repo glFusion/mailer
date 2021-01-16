@@ -35,4 +35,28 @@ class Status
     /** Blacklisted, cannot receive emails.
      */
     public const BLACKLIST = 32;
+
+    /** Subscription success.
+     */
+    public const SUB_SUCCESS = 0;
+
+    /** Subscription error.
+     */
+    public const SUB_ERROR = 1;
+
+    /** Subscription missing email address.
+     */
+    public const SUB_MISSING = 2;
+
+    /** Subscription email already subscribed.
+     */
+    public const SUB_EXISTS = 3;
+
+    /** Subscription email is invalid.
+     */
+    public const SUB_INVALID = 4;
+
+    /** Subscription email already blacklisted.
+     */
+    public const SUB_BLACKLIST = 5;
 }
