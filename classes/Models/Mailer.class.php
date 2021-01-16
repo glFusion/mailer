@@ -781,10 +781,10 @@ class Mailer
         }
 
         // Convert image URLs
-        \LGLib\SmartResizer::create()
+        /*\LGLib\SmartResizer::create()
             ->withLightbox(false)
             ->withFullUrl(true)
-            ->convert($this->mlr_content);
+            ->convert($this->mlr_content);*/
 
         $unsub_url = Config::get('url') . '/index.php?view=unsub&email=' .
             urlencode($email) . '&amp;token=' . urlencode($token) .
@@ -837,13 +837,16 @@ class Mailer
             $mail->Mailer = "mail";
         }
         $mail->WordWrap = 76;
+
+        // Create the HTML message. Automatically creates the AltBody and
+        // inlines any images.
         $mail->IsHTML($this->mailHTML);
         if ($this->mailHTML) {
-            $mail->Body = COM_filterHTML($message);
+            $body = COM_filterHTML($message);
+            $mail->msgHTML($message, $_CONF['path_html']);
         } else {
             $mail->Body = $message;
         }
-        $mail->AltBody = $altBody;
 
         $mail->Subject = $subject;
         $mail->From = $fromEmail;

@@ -19,6 +19,7 @@ and unsubscription requests are received via webhooks to update the user profile
     This should return an array containing the user ID and an array of name=value
     pairs for merge fields.
   - Works with version 0.2.0 or later of the Membership plugin.
+  - Converts images to inline data using phpmailer.
 
 ## Requirements:
   - glFusion vesion 1.7.8 or later
