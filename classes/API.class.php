@@ -11,6 +11,7 @@
  * @filesource
  */
 namespace Mailer;
+use Mailer\Models\Subscriber;
 
 
 /**
@@ -19,10 +20,17 @@ namespace Mailer;
  */
 class API
 {
-    protected $success = true;
+    /** Collect errors.
+     * @var array */
     protected $errors = array();
+
+    /** List ID being used.
+     * @var string */
     protected $list_id = '';
-    protected $cfg_list_key = '';   // default list ID per API
+
+    /** Default list ID for each API provider.
+     * @var string */
+    protected $cfg_list_key = '';
 
     /** Endpoint URL.
      * @var string */
@@ -38,7 +46,7 @@ class API
      * http://snippets.webaware.com.au/howto/stop-turning-off-curlopt_ssl_verifypeer-and-fix-your-php-config/
      * @var boolean
      */
-    public $verify_ssl = true;
+    protected $verify_ssl = true;
 
     /** Indicator of the request status.
      * @var boolean */
@@ -125,14 +133,50 @@ class API
 
     /**
      * Validate a domain.
-     * Note that getmxrr() is not available on Windows.
+     * Checks for MX records and falls back to check for hostname.
      *
      * @param   string  $domain     Domain to check
      * @return  boolean     True for a valid domain, False if invalid
      */
     public static function isValidDomain($domain)
     {
-        return @getmxrr($domain, $mxrecords);
+        $status = true;
+        if (!@getmxrr($domain, $mxrecords)) {
+            $list = gethostbynamel($domain);
+            if (empty($list)) {
+                $status = false;
+            }
+        }
+        return $status;
+    }
+
+
+    /**
+     * Check if the email address is valid.
+     *
+     * @return  string  Error message, or empty string if address is OK
+     */
+    public function isValidEmail($email)
+    {
+        $retval = '';
+        if (empty($this->email)) {
+            return false;
+        }
+        if (
+            !preg_match(
+                "/^[_a-z0-9-]+([\.\+][_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*$/i",
+                $this->email
+            )
+        ) {
+            return false;
+        }
+
+        $pieces = explode('@', $email);
+        if (!self::isValidDomain($pieces[1])) {
+            return false;
+        }
+
+        return true;
     }
 
 
@@ -154,8 +198,9 @@ class API
 
 
     /**
-     * Convert an email address into a 'subscriber hash' for identifying the subscriber in a method URL.
-     * @param   string $email The subscriber's email address
+     * Convert an email address into a 'hash'.
+     *
+     * @param   string  $email  The subscriber's email address
      * @return  string          Hashed version of the input
      */
     public function subscriberHash($email)
@@ -165,7 +210,7 @@ class API
 
 
     /**
-     * Get supported administrative features.
+     * Get supported administrative features to show as menu options.
      * Possibilities are `mailers`, `subscribers` and `queue`.
      * Third-party APIs only support subscriber management, the Internal API
      * supports all three.
@@ -186,7 +231,7 @@ class API
      * @param   object  $Subscriber     Subscriber object
      * @return  boolean     True on success, False on error
      */
-    public static function sendDoubleOptin($Subscriber)
+    public static function sendDoubleOptin(Subscriber $Sub)
     {
         return true;
     }
@@ -275,6 +320,12 @@ class API
     }
 
 
+    /**
+     * Set the API-specific headers to send along with requests.
+     *
+     * @param   array   $headers    Array of header strings.
+     * @return  object  $this
+     */
     protected function setHeaders($headers)
     {
         $this->http_headers = $headers;
@@ -306,7 +357,7 @@ class API
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_HTTPHEADER, $this->http_headers);
-        curl_setopt($ch, CURLOPT_USERAGENT, 'glFusion/Mailer');
+        curl_setopt($ch, CURLOPT_USERAGENT, 'glFusion/Mailer/' . Config::get('pi_version'));
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_VERBOSE, true);
         curl_setopt($ch, CURLOPT_HEADER, true);
@@ -556,33 +607,6 @@ class API
         }
 
         return 418;
-    }
-
-
-    /**
-     * Get the merge fields from plugins.
-     * Each plugin returns an array of name=>value pairs.
-     *
-     * @param   integer $uid    User ID
-     */
-    public function XmergePlugins($uid)
-    {
-        global $_PLUGINS;
-
-        if ($uid > 1) {
-            foreach ($_PLUGINS as $pi_name) {
-                $output = PLG_callFunctionForOnePlugin(
-                    'plugin_getMergeFields_' . $pi_name,
-                    array(1 => $uid)
-                );
-                if (is_array($output)) {
-                    foreach ($output as $name=>$value) {
-                        $attributes[$name] = $value;
-                    }
-                }
-            }
-        }
-        return $attributes;
     }
 
 
