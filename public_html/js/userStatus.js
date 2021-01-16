@@ -20,30 +20,38 @@ function MLR_toggleUserStatus(stat, id)
                 if (result.id != '') {
                     id = result.id;
                     icon1 = '<i class="uk-icon ' + result.icon1_cls + '" ';
-                    if (result.newstat != 1) {
+                    if (result.newstat != 2) {
                         icon1 = icon1 +
-                            "onclick='MLR_toggleUserStatus(\"1\", \"" + id +
+                            "onclick='MLR_toggleUserStatus(\"2\", \"" + id +
                             "\")';";
                     }
                     icon1 = icon1 + '/></i>';
 
                     icon2 = '<i class="uk-icon ' + result.icon2_cls + '" ';
-                    if (result.newstat != 0) {
+                    if (result.newstat != 1) {
                         icon2 = icon2 +
-                            "onclick='MLR_toggleUserStatus(\"0\", \"" + id +
+                            "onclick='MLR_toggleUserStatus(\"1\", \"" + id +
                             "\")';";
                     }
                     icon2 = icon2 + '/></i>';
 
                     icon3 = '<i class="uk-icon ' + result.icon3_cls + '" ';
-                    if (result.newstat != 2) {
+                    if (result.newstat != 32) {
                         icon3 = icon3 +
-                            "onclick='MLR_toggleUserStatus(\"0\", \"" + id +
+                            "onclick='MLR_toggleUserStatus(\"32\", \"" + id +
                             "\")';";
                     }
                     icon3 = icon3 + '/></i>';
+
+                    icon4 = '<i class="' + result.icon4_cls + '"';
+                    if (result.newstat != 0) {
+                        icon4 = icon4 +
+                            "onclick='MLR_toggleUserStatus(\"0\", \"" + id +
+                            "\")';";
+                    }
+                    icon4 = icon4 + '/></i>';
                     $('#userstatus'+id).html(
-                        icon1 + '&nbsp;' +icon2 + '&nbsp;' +icon3
+                        icon1 + '&nbsp;' +icon2 + '&nbsp;' + icon3 + '&nbsp;' + icon4
                     );
                 }
             } catch(err) {

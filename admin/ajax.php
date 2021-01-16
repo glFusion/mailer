@@ -1,5 +1,4 @@
 <?php
-//  $Id: ajax.php 19 2010-09-17 04:13:37Z root $
 /**
  *  Common AJAX functions
  *
@@ -11,6 +10,9 @@
  *              GNU Public License v2 or later
  *  @filesource
  */
+use Mailer\Models\Status;
+use Mailer\Models\Subscriber;
+
 
 /**
  *  Include required glFusion common functions
@@ -23,8 +25,6 @@ if (!SEC_hasRights('mailer.admin')) {
     exit;
 }
 
-$base_url = MLR_ADMIN_URL;
-
 switch ($_GET['action']) {
 case 'userstatus':
     $id = (int)$_GET['id'];
@@ -34,46 +34,51 @@ case 'userstatus':
         'icon1_cls' => 'uk-icon-circle-o',
         'icon2_cls' => 'uk-icon-circle-o',
         'icon3_cls' => 'uk-icon-circle-o',
+        'icon4_cls' => 'uk-icon uk-icon-remove uk-text-danger',
     );
     $icon1 = 'black.png';
     $icon2 = 'black.png';
     $icon3 = 'black.png';
+
+    $Sub = Subscriber::getById($id);
     switch ($newval) {
-    case MLR_STAT_PENDING:
+    case Status::UNSUBSCRIBED:
+        $status = 'Unsubscribed';
+        $Sub->unsubscribe();
+        $Sub->updateStatus(STATUS::UNSUBSCRIBED, true);
+        break;
+    case Status::PENDING:
         $status = 'Pending';
         $icon2 = 'yellow.png';
         $retval['icon2_cls'] = 'uk-icon-circle uk-text-warning';
+        $Sub->unsubscribe();
+        $Sub->updateStatus(Status::PENDING, true);
         break;
-    case MLR_STAT_ACTIVE:
+    case Status::ACTIVE:
         $status = 'Active';
         $icon1 = 'green.png';
         $retval['icon1_cls'] = 'uk-icon-circle uk-text-success';
+        $Sub->subscribe(Status::ACTIVE);
         break;
-    case MLR_STAT_BLACKLIST:
+    case Status::BLACKLIST:
         $status = 'Blacklisted';
         $icon3 = 'red.png';
         $retval['icon3_cls'] = 'uk-icon-circle uk-text-danger';
+        $Sub->unsubscribe();
+        $Sub->updateStatus(Status::BLACKLIST, true);
         break;
     default:
         exit;
     }
 
-    $email = DB_getItem($_TABLES['mailer_emails'], 'email', "id='$id'");
-    if ($email) {
-        // Toggle the is_origin flag between 0 and 1
-        DB_query("UPDATE {$_TABLES['mailer_emails']}
-                SET status = '$newval'
-                WHERE id = '$id'");
-        MLR_auditLog("Changed $email to status $status");
+    if ($Sub->getStatus() == $newval) {
+        Mailer\Logger::Audit("Changed {$Sub->getEmail()} to status $status");
     } else {
-        MLR_auditLog("Attempted to change invalid email id: $id to $status");
+        Mailer\Logger::Audit("Error changing status for {$Sub->getEmail()} to $status");
     }
-
     echo json_encode($retval);
     exit;
 
 default:
     exit;
 }
-
-?>
