@@ -153,7 +153,8 @@ function plugin_user_create_mailer($uid)
 
     if (isset($_POST['mailer_subscribe']) && $_POST['mailer_subscribe'] == 1) {
         $email = DB_getItem($_TABLES['users'], 'email', "uid = '{$uid}'");
-        MLR_addEmail($email);
+        $Sub = Subscriber::getByUid($uid);
+        $Sub->withEmail($email)->subscribe();
     }
 }
 
