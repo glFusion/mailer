@@ -33,6 +33,13 @@ class ApiInfo implements \ArrayAccess
     );
 
 
+    /**
+     * Dynamically set an attribute value.
+     *
+     * @param   string  $key    Attribute name
+     * @param   string  $value  Attribute value
+     * @return  object  $this
+     */
     public function setAttribute($key, $value)
     {
         $this->properties['attributes'][$key] = $value;
@@ -40,6 +47,12 @@ class ApiInfo implements \ArrayAccess
     }
 
 
+    /**
+     * Get a single attribute, or all attributes if none requested.
+     *
+     * @param   string  $key    Attribute name, NULL to retrieve all
+     * @return  mixed       Attribute value, all attributes, or NULL if invalid
+     */
     public function getAttribute($key=NULL)
     {
         if ($key === NULL) {
@@ -65,6 +78,12 @@ class ApiInfo implements \ArrayAccess
     }
 
 
+    /**
+     * ArrayAccess - Set an attribute value.
+     *
+     * @param   string  $key    Attribute name
+     * @param   string  $value  Attribute value
+     */
     public function offsetSet($key, $value)
     {
         if ($value === NULL) {
@@ -74,16 +93,36 @@ class ApiInfo implements \ArrayAccess
         }
     }
 
+
+    /**
+     * ArrayAccess - check if an attribute is set.
+     *
+     * @param   string  $key    Attribute name
+     * @return  boolean     True if set, False if not
+     */
     public function offsetExists($key)
     {
         return isset($this->properties[$key]);
     }
 
+
+    /**
+     * ArrayAccess - Remove an attribute.
+     *
+     * @param   string  $key    Attribute name
+     */
     public function offsetUnset($key)
     {
         unset($this->properties[$key]);
     }
 
+
+    /**
+     * ArrayAccess - Retrieve an attribute.
+     *
+     * @param   string  $key    Attribute name
+     * @return  mixed       Attribute value, NULL if not set
+     */
     public function offsetGet($key)
     {
         return isset($this->properties[$key]) ? $this->properties[$key] : null;

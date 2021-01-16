@@ -2,17 +2,18 @@
 /**
  * Internal API class for the Mailer plugin.
  *
- * @author      Lee Garner
- * @version     2.2
+ * @author      Lee Garner <lee@leegarner.com>
+ * @copyright   Copyright (c) 2010-2020 Lee Garner <lee@leegarner.com>
+ * @version     v0.4.0
  * @package     mailer
- * @version     v0.1.0
- * @license     http://opensource.org/licenses/MIT
- *              MIT License
+ * @license     http://opensource.org/licenses/gpl-2.0.php
+ *              GNU Public License v2 or later
  * @filesource
  */
 namespace Mailer\API\Internal;
 use Mailer\Models\Subscriber;
-use Mailer\Logger;
+use Mailer\Models\ApiInfo;
+use Mailer\Models\Status;
 use Mailer\Notifier;
 
 
@@ -22,14 +23,6 @@ use Mailer\Notifier;
  */
 class API extends \Mailer\API
 {
-    private $id = 0;        // record id
-    private $dt_reg = '';   // datetime registered
-    private $domain = '';   // email domain
-    private $email_addr = ''; // email address
-    private $status =  0;   // status, blacklisted, etc.
-    private $token = '';    // access token
-
-
     /**
      * Get a list of members subscribed to a given list.
      *
@@ -73,106 +66,43 @@ class API extends \Mailer\API
 
     /**
      * Subscribe an email address to one or more lists.
+     * Noop for this API, subscriber is added to the table by the
+     * Subscriber class, no other action needed.
      *
-     * @param   string  $email      Email address
-     * @param   array   $args       Array of additional args to supply
-     * @param   array   $lists      Array of list IDs
-     * @return  boolean     True on success, False on error
+     * @param   object  $Sub    Subscriber object
+     * @return  integer     Result status
      */
-    public function subscribe($email, $args=array(), $lists=array())
+    public function subscribe($Sub)
     {
-        global $_TABLES, $_MLR_CONF;
-
-        if (empty($lists)) {
-            return true;
-        } elseif (!is_array($lists)) {
-            $lists = array($lists);
-        }
-
-        $this->resetErrors();
-
-        $pieces = explode('@', $email);
-        if (count($pieces) != 2) {
-            $this->addError('Invalid email address');
-            return false;
-        }
-        //$db_email = DB_escapeString($email);
-        $Sub = Subscriber::getByEmail($email);
-
-        // Check if the address already exists, and alter the status
-        //$id = DB_getItem($_TABLES['mailer_emails'], 'id ', "email='{$db_email}'");
-        if ($Sub->getID() > 0) {
-            $this->addError('Email already exists');
-            return false;
-        }
-
-        if (self::isValidDomain($pieces[1])) {
-            // Valid domain, add the record
-            $Sub->Save();
-            /*DB_query("INSERT INTO {$_TABLES['mailer_emails']} (
-                `dt_reg`, `domain`, `email`, `token`, `status`
-                ) VALUES (
-                '{$_MLR_CONF['now']}', '{$domain}', '{$db_email}',
-                '$token', $status
-                )",
-                1
-            );
-
-            if (DB_error()) {
-                //MLR_auditLog("Error subscribing $email, status $status");
-                $this->addError('Error adding ' . $email . ' to database');
-                return false;
-            } else {
-                return true;
-            }*/
-            return true;
+        if (!self::isValidEmail($Sub->getEmail())) {
+            return Status::SUB_INVALID;
         } else {
-            $this->addError('Invalid email domain ' . $domain);
-            return false;
+            return Status::SUB_SUCCESS;
         }
     }
 
 
     /**
      * Remove a single email address from our list.
-     * The token parameter can be filled when this is called from a public
-     * page in order to prevent users from unsubscribing other users.
      *
-     * @param   string  $email  Email address to remove
-     * @param   string  $token  Optional token, to authenticate the removal
+     * @param   object  $Sub    Subscriber object
      * @return  boolean         True on success, False if user not found
      */
     public function unsubscribe($email, $lists=array()) 
     {
-        global $_TABLES;
-
-        // Sanitize the input and create a query to find the existing record id
-        $email = DB_escapeString($email);
-        $where = "email = '$email' AND status <> " . Status::BLACKLIST;
-        /*if ($token != '') {
-            $token = DB_escapeString($token);
-            $where .= " AND token = '$token'";
-        }*/
-        $id = (int)DB_getItem($_TABLES['mailer_emails'], 'id', $where);
-        if ($id > 0) {
-            DB_delete($_TABLES['mailer_emails'], 'id', $id);
-            Logger::Audit("Unsubscribed $email (mailer $mlr_id)");
-            return true;
-        } else {
-            $this->addError("Attempted to unsubscribe $email, not a subscriber");
-            return false;
-        }
+        return true;
     }
 
 
     /**
      * Get the tags associated with a subscriber.
      *
+     * @unused
      * @param   string  $email      Subscriber email address
      * @param   string  $list_id    Mailing list ID
      * @return  array       Array of tags
      */
-    public function getTags($email, $list_id='')
+    public function getTags(Subscriber $Sub)
     {
         return array();
     }
@@ -181,11 +111,11 @@ class API extends \Mailer\API
     /**
      * Update a subscriber's tags.
      *
-     * @param   string  $email  Email address
-     * @param   array   $tags   Array of tags (name=>active)
+     * @unused
+     * @param   object  $Sub    Subscriber object
      * @param   array   $lists  Array of email lists
      */
-    public function updateTags($email, $tags, $lists=array())
+    public function updateTags(Subscriber $Sub)
     {
         return true;
     }
@@ -193,54 +123,56 @@ class API extends \Mailer\API
 
     /**
      * Get information about a specific member by email address.
+     * This API just returns the information in the database, no attributes.
      *
      * @param   string  $email      Email address
      * @return  array       Array of member information
      */
-    public function memberInfo($email)
+    public function getMemberInfo(Subscriber $Sub, $list_id='')
     {
-        global $_TABLES;
-
-        $email = DB_escapeString($email);
-        $sql = "SELECT * FROM {$_TABLES['mailer_emails']}
-            WHERE email = '$email'";
-        $res = DB_query($sql);
-        if (DB_numRows($res) == 1) {
-            $A = DB_fetchArray($res, false);
-            $retval = new Subscriber;
-            $retval['id'] = $A['id'];
-            $retval['email_address'] = $A['email_address'];
-            return $retval;
+        $retval = new ApiInfo;
+        $retval['provider_uid'] = $Sub->getId();
+        $retval['email_address'] = $Sub->getEmail();
+        $retval['status'] = $Sub->getStatus();
+        foreach ($Sub->getAttributes() as $k=>$v) {
+            $retval->setAttribute($k, $v);
         }
-        return false;
+        return $retval;;
     }
 
 
     /**
      * This API does nothing when updateMember() is called.
+     *
+     * @param   object  $Sub    Subscriber object
+     * @return  boolean     Always true
      */
-    public function updateMember($email, $params=array())
+    public function updateMember(Subscriber $Sub)
     {
+        return true;
     }
 
 
     /**
      * Send a double opt-in notification to a subscriber.
      *
-     * @param   object  $Subscriber     Subscriber object
+     * @param   object  $Sub    Subscriber object
      * @return  boolean     True on success, False on error
      */
-    public static function sendDoubleOptin($Subscriber)
+    public static function sendDoubleOptin(Subscriber $Sub)
     {
-        return Notifier::Send($Subscriber->getEmail(), $Subscriber->getToken());
+        return Notifier::Send($Sub->getEmail(), $Sub->getToken());
     }
 
 
-
+    /**
+     * Get the features available to administrators.
+     *
+     * @return  array   Array of menus to show
+     */
     public function getFeatures()
     {
         return array('mailers', 'subscribers', 'queue');
     }
-
 
 }

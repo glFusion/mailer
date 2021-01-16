@@ -2,18 +2,20 @@
 /**
  * Sendinblue API for the Mailer plugin.
  *
- * @author      Lee Garner
- * @version     2.2
- * @package     mailchimp
- * @version     v0.1.0
- * @license     http://opensource.org/licenses/MIT
- *              MIT License
+ * @author      Lee Garner <lee@leegarner.com>
+ * @copyright   Copyright (c) 2020 Lee Garner <lee@leegarner.com>
+ * @package     mailer
+ * @version     v0.0.4
+ * @since       v0.0.4
+ * @license     http://opensource.org/licenses/gpl-2.0.php
+ *              GNU Public License v2 or later
  * @filesource
  */
 namespace Mailer\API\Sendinblue;
-use Mailer\Models\Subscriber;
 use Mailer\Config;
+use Mailer\Models\Subscriber;
 use Mailer\Models\Status;
+use Mailer\Models\ApiInfo;
 
 
 /**
@@ -143,7 +145,7 @@ class API extends \Mailer\API
         foreach ($lists as $list) {
             $this->put("/contacts/lists/{$list}/contacts/remove", $args);
         }
-        Subscriber::getByEmail($email)->setStatus(Status::UNSUBSCRIBED);
+        Subscriber::getByEmail($email)->updateStatus(Status::UNSUBSCRIBED);
         return true;
     }
 
@@ -166,18 +168,16 @@ class API extends \Mailer\API
             $lists = array($lists);
         }
         if (empty($lists)) {
-            return true;
+            return Status::SUB_INVALID;
         }
-        if ($uid > 1) {
-            $this->mergePlugins($Sub->getUid());
-        }
+
         $args = array(
             'email' => $Sub->getEmail(),
-            'includeListIds' = $lists,
+            'includeListIds' => $lists,
             'redirectionUrl' => $_CONF['site_url'] . '/index.php',
             'templateId' => Config::get('sb_dbo_tpl'),
             'updateEnabled' => true,
-            'attributes' => $this->attributes,
+            'attributes' => $Sub->getAttributes(),
         );
         if ($Sub->getStatus() == Status::ACTIVE) {
             // Not requiring double-opt-in
@@ -186,22 +186,7 @@ class API extends \Mailer\API
             $path = '/contacts/doubleOptinConfirmation';
         }
         $status = $this->post($path, $args);
-        return $status;
-    }
-
-
-    /**
-     * Get information about a specific member by email address.
-     *
-     * @param   string  $email      Email address
-     * @return  array       Array of member information
-     */
-    public function memberInfo($email)
-    {
-        $params = array(
-            'query' => $email,
-        );
-        return $this->get('/search-members', $params);
+        return $status ? Status::SUB_SUCCESS : Status::SUB_ERROR;
     }
 
 
@@ -213,92 +198,47 @@ class API extends \Mailer\API
      * @param   array   $params     Array of parameters to update
      * @return      True on success, False on failure
      */
-    public function updateMember($email, $uid=1, $params=array())
+    public function updateMember($Sub, $lists=array())
     {
-        $data = array();
-        if ($uid > 1) {
-            $this->mergePlugins($uid);
-        }
-        if (isset($params['attributes'])) {
-            $params['attributes'] = array_merge($this->attributes, $params['attributes']);
-        }
-        $email = urlencode($email);
-        foreach ($params as $key=>$val) {
-            switch ($key) {
-            case 'attributes':
-                if (!isset($data['attributes'])) {
-                    $data['attributes'] = array();
-                }
-                foreach ($val as $k=>$v) {
-                    switch ($k) {
-                    case 'firstname':
-                    case 'lastname':
-                        $data['attributes'][strtoupper($k)] = $v;
-                        break;
-                    default:
-                        $data['attributes'][$k] = $v;
-                        break;
-                    }
-                }
-                break;
-            default:
-                $data[$k] = $v;
-                break;
-            }
-        }
-        if (!empty($data)) {
-            $response = $this->put("contacts/$email", $data);
-            return $response;
-        } else {
-            return true;    // synthetic response
-        }
+        $params = array(
+            'status' => $Sub->getStatus(),
+            'attributes' => $Sub->getAttributes(),
+        );
+        $email = urlencode($Sub->getEmail());
+        $response = $this->put("contacts/$email", $params);
+        return $response;
     }
 
 
     /**
      * Get information about a specific member by email address.
      *
-     * @param   string  $email      Email address
+     * @param   object  $Sub    Subscriber object
      * @return  array       Array of member information
      */
-    public function getMemberInfo($email, $list_id='')
+    public function getMemberInfo($Sub, $list_id='')
     {
         $retval = array();
-        $email = urlencode($email);
+        $email = urlencode($Sub->getEmail());
         $status = $this->get("/contacts/{$email}");
         if ($status) {
             $data = $this->formatResponse($this->getLastResponse());
-            var_dump($data);
-            $attributes = array();
-            if (isset($data['attributes'])) {
-                // First and Last name are fixed by the provider.
-                foreach ($data['attributes'] as $key=>$val) {
-                    switch ($key) {
-                    case 'FIRSTNAME':
-                    case 'LASTNAME':
-                        $attributes[strtolower($key)] = $val;
-                        break;
-                    default:
-                        $attributes[$key] = $val;
-                        break;
-                    }
-                }
-            }
+            $attributes = isset($data['attributes']) ? $data['attributes'] : array();
             if ($data['emailBlacklisted']) {
                 $status = Status::UNSUBSCRIBED;
             } else {
                 $status = Status::ACTIVE;
             }
-            $retval = array(
-                'provider_uid' => $data['id'],
-                'email_address' => $data['email'],
-                'email_type' => '',
-                'status' => $status,
-                'attributes' => $attributes,
-            );
+            $retval = new ApiInfo;
+            $retval['provider_uid'] = $data['id'];
+            $retval['email_address'] = $data['email'];
+            $retval['email_type'] = '';
+            $retval['status'] = $status;
+            foreach ($attributes as $k=>$v) {
+                $retval->setAttribute($k, $v);
+            }
         }
         return $retval;
     }
-
 
 }

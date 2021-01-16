@@ -14,6 +14,7 @@
 namespace Mailer\API\Mailchimp;
 use Mailer\Config;
 use Mailer\Models\Status;
+use Mailer\Models\ApiInfo;
 
 
 /**
@@ -188,8 +189,8 @@ class API extends \Mailer\API
             'email_address' => $Sub->getEmail(),
             'status' => self::_strStatus(Status::UNSUBSCRIBED),
             'merge_fields' => $Sub->getAttributes(array(
-                'firstname' => Config::get('mc_mrg_fname'),
-                'lastname' => Config::get('mc_mrg_lname')
+                'FIRSTNAME' => Config::get('mc_mrg_fname'),
+                'LASTNAME' => Config::get('mc_mrg_lname')
             ) ),
         );
         foreach ($lists as $list_id) {
@@ -207,11 +208,9 @@ class API extends \Mailer\API
      * Subscribe an email address to one or more lists.
      *
      * @param   string  $email      Email address
-     * @param   array   $args       Array of additional args to supply
      * @param   array   $lists      Array of list IDs
      * @return  boolean     True on success, False on error
      */
-    //public function subscribe($email, $args=array(), $lists=array())
     public function subscribe($Sub, $lists=array())
     {
         if (empty($lists)) {
@@ -223,8 +222,8 @@ class API extends \Mailer\API
             'email_address' => $Sub->getEmail(),
             'status' => self::_strStatus($Sub->getStatus()),
             'merge_fields' => $Sub->getAttributes(array(
-                'firstname' => Config::get('mc_mrg_fname'),
-                'lastname' => Config::get('mc_mrg_lname')
+                'FIRSTNAME' => Config::get('mc_mrg_fname'),
+                'LASTNAME' => Config::get('mc_mrg_lname')
             ) ),
         );
         if (empty($args['merge_fields'])) { // should have names at least
@@ -235,7 +234,11 @@ class API extends \Mailer\API
             //$status = $this->post("/lists/$list_id/members/", $args);
             $status = $this->put("/lists/$list_id/members/$hash", $args);
         }
-        return $status;
+        if ($status) {
+            return Status::SUB_SUCCESS;
+        } else {
+            return Status::SUB_ERROR;
+        }
     }
 
 
@@ -316,10 +319,14 @@ class API extends \Mailer\API
             return false;
         }
 
+        $retval = new ApiInfo;
         $hash = $this->subscriberHash($Sub->getEmail());
         $status = $this->get("/lists/{$list_id}/members/{$hash}");
         if ($status) {
             $data = $this->formatResponse($this->getLastResponse());
+            $retval['provider_uid'] = $data['id'];
+            $retval['email_address'] = $data['email_address'];
+            $retval['status'] = self::_intStatus($data['status']);
             $attributes = array();
             if (isset($data['merge_fields'])) {
                 foreach ($data['merge_fields'] as $key=>$val) {
@@ -327,24 +334,17 @@ class API extends \Mailer\API
                     // are part of the plugin configuration.
                     switch ($key) {
                     case Config::get('mc_mrg_fname'):
-                        $attributes['firstname'] = $val;
+                        $retval->setAttribute('FIRSTNAME', $val);
                         break;
                     case Config::get('mc_mrg_lname'):
-                        $attributes['lastname'] = $val;
+                        $retval->setAttribute('LASTNAME', $val);
                         break;
                     default:
-                        $attributes[$key] = $val;
+                        $retval->setAttribute($key, $val);
                         break;
                     }
                 }
             }
-            $retval = array(
-                'provider_uid' => $data['id'],
-                'email_address' => $data['email_address'],
-                'email_type' => $data['email_type'],
-                'status' => self::_intStatus($data['status']),
-                'attributes' => $attributes,
-            );
         }
         return $retval;
     }
@@ -353,58 +353,42 @@ class API extends \Mailer\API
     /**
      * Update the member information for a specific email and list.
      *
-     * @param   string  $email      Email address
-     * @param   string  $list_id    Mailing List ID
-     * @param   array   $params     Array of parameters to update
-     * @return      True on success, False on failure
+     * @param   object  $Sub    Subscriber object
+     * @param   array   $lists  Array of list IDs
+     * @return  boolean     True on success, False on failure
      */
-    public function updateMember($email, $uid=1, $params=array())
+    public function updateMember($Sub, $lists=array())
     {
-        if (isset($params['list_id'])) {
-            $list_id = $params['list_id'];
-            unset($params['list_id']);
-        } else {
-            $list_id = Config::get('mc_def_list');
+        if (empty($lists)) {
+            $lists = array(Config::get('mc_def_list'));
+        } elseif (!is_array($lists)) {
+            $lists = array($lists);
         }
-        if (empty($list_id)) {
+        if (empty($lists)) {
             return false;
         }
-        if ($uid > 1) {
-            $this->mergePlugins($uid);
-        }
-        foreach ($params as $key=>$val) {
-            switch ($key) {
-            case 'status':
-                $params[$key] = $this->_strStatus($status);
-                break;
-            case 'attributes':
-                foreach ($val as $k=>$v) {
-                    switch ($k) {
-                    case 'lastname':
-                    case 'firstname':
-                        if (!empty(Config::get('mc_mrg_' . $k))) {
-                            $this->attributes[Config::get('mc_mrg_' . $k)] = $v;
-                        }
-                        break;
-                    default:
-                        $this->attributes[$k] = $v;
-                        break;
-                    }
-                }
-                break;
-            }
-            unset($params[$key]);
-        }
-        if (!empty($this->attributes)) {
-            $params['merge_fields'] = $this->attributes;
-        }
+        $args = array(
+            'email_address' => $Sub->getEmail(),
+            'status' => self::_strStatus($Sub->getStatus()),
+            'merge_fields' => $Sub->getAttributes(array(
+                'FIRSTNAME' => Config::get('mc_mrg_fname'),
+                'LASTNAME' => Config::get('mc_mrg_lname'),
+            ) ),
+        );
+
         $hash = $this->subscriberHash($email);
-        //$response = $this->patch("/lists/$list_id/members/$hash", $params);
-        $response = $this->put("/lists/$list_id/members/$hash", $params);
+        //$response = $this->patch("/lists/$list_id/members/$hash", $args);
+        $response = $this->put("/lists/$list_id/members/$hash", $args);
         return $response;
     }
 
 
+    /**
+     * Convert an internal integer status value to a Mailchimp status string.
+     *
+     * @param   integer $int    Plugin status value from the Status model.
+     * @return  string      Corresponding status used by Mailchimp
+     */
     private function _strStatus($int)
     {
         switch ($int) {
@@ -418,6 +402,12 @@ class API extends \Mailer\API
     }
 
 
+    /**
+     * Convert a Mailchimp status string to a Status model integer.
+     *
+     * @param   string  $str    Mailchimp status value
+     * @return  integer     Plugin status value from the Status model.
+     */
     private function _intStatus($str)
     {
         switch ($str) {
