@@ -33,19 +33,19 @@ class Notifier
         $title = $_CONF['site_name'] . ' ' . $LANG_MLR['confirm_title'];
 
         // TODO - use a template for this
-        $templatepath = MLR_PI_PATH . 'templates/';
+        $templatepath = Config::get('pi_path') . '/templates/';
         $lang = $_CONF['language'];
         if (is_file($templatepath . $lang . '/confirm_sub.thtml')) {
-            $T = new Template($templatepath . $lang);
+            $T = new \Template($templatepath . $lang);
         } else {
-            $T = new Template($templatepath . 'english/');
+            $T = new \Template($templatepath . 'english/');
         }   
         $T->set_file('message', 'confirm_sub.thtml');
         $T->set_var(array(
-            'pi_url'        => MLR_URL,
+            'pi_url'        => Config::get('url') ,
             'email'         => urlencode($email),
             'token'         => $token,
-            'confirm_period' => $_MLR_CONF['confirm_period'],
+            'confirm_period' => Config::get('confirm_period'),
             'site_name'     => $_CONF['site_name'],
         ) );
 
@@ -54,8 +54,8 @@ class Notifier
         $altbody = strip_tags($body);
 
         // Create the "from" address using the site or noreply mail address
-        $fromEmail = isset($_CONF[$_MLR_CONF['email_from']]) ?
-            $_CONF[$_MLR_CONF['email_from']] : $_CONF['noreply_mail'];
+        $fromEmail = isset($_CONF[Config::get('email_from')]) ?
+            $_CONF[Config::get('email_from')] : $_CONF['noreply_mail'];
         $from = array($fromEmail, $_CONF['site_name']);
 
         COM_mail($email, $title, $body, $from, true, 0, '', $altbody);

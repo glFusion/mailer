@@ -41,7 +41,7 @@ class Logger
             $logentry);
         $timestamp = strftime( '%c' );
         if ($logfile == '') {
-            $logfile = Config::get('pi_name') . '.log';
+            $logfile = Config::PI_NAME . '.log';
         }
         $logfile = $_CONF['path_log'] . $logfile;
 
@@ -76,7 +76,7 @@ class Logger
      */
     public static function Audit($msg)
     {
-        $logfile = Config::get('pi_name') . '.log';
+        $logfile = Config::PI_NAME . '.log';
         self::write($msg, $logfile);
     }
 
