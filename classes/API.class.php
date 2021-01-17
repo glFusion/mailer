@@ -161,7 +161,7 @@ class API
      */
     public function isValidEmail($email)
     {
-        $validator = new \EmailValidator;
+        $validator = new \EmailAddressValidator;
         return $validator->checkEmailAddress($email) ? true : false;
 
         /*$retval = '';
