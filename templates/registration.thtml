@@ -1,6 +1,6 @@
 {# begin {templatelocation} #}
 <p>
-  <label for="mailer_subscribe">{$LANG_MLR['user_edit_checkbox_label']}?</label>
-  <input type="checkbox" name="mailer_subscribe" value="1" {chk} {xhtml}>
+  <label for="mailer_subscribe">{$LANG_MLR['user_edit_checkbox_label']}</label>
+  <input type="checkbox" name="mailer_subscribe" value="1" {chk} />
 </p>
 {# end {templatelocation} #}
