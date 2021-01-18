@@ -212,6 +212,7 @@ $LANG_confignames['mailer'] = array(
     'del_user_unsub' => 'Unsubscribe users upon deletion',
     'dbl_optin_members' => 'Double Opt-In for Members',
     'log_level' => 'Logging Level',
+    'blk_show_subs' => 'Show signup block to subscribers',
     'provider' => 'List Provider',
     'mc_api_key' => 'Mailchimp API Key',
     'mc_def_list' => 'Default List ID',
@@ -237,8 +238,16 @@ $LANG_fs['mailer'] = array(
 
 // Note: entries 0, 1, 9, and 12 are the same as in $LANG_configselects['Core']
 $LANG_configselects['mailer'] = array(
-    0 => array('True' => 1, 'False' => 0),
-    4 => array('No' => 0, 'No- Subscribe Automatically' => 3, 'Yes- Checked' => 1, 'Yes- Unchecked' => 2),
+    0 => array(
+        'Yes' => 1,
+        'No' => 0,
+    ),
+    4 => array(
+        'No' => 0,
+        'No- Subscribe Automatically' => 3,
+        'Yes- Checked' => 1,
+        'Yes- Unchecked' => 2,
+    ),
     5 => array(
         'Internal' => 'Internal',
         'Mailchimp' => 'Mailchimp',
