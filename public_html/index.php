@@ -21,6 +21,8 @@ use Mailer\Models\Subscriber;
 use Mailer\Models\Status;
 use Mailer\Models\Mailer;
 use Mailer\Menu;
+use Mailer\Config;
+use Mailer\Logger;
 
 
 /**
@@ -120,7 +122,7 @@ function MLR_public_getListField($fieldname, $fieldvalue, $A, $icon_arr)
     case 'mlr_title':
         $retval = COM_createLink(
             $fieldvalue,
-            Config::get('url') . "/index.php?page={$A['mlr_key']}"
+            Config::get('url') . "/index.php?page={$A['mlr_id']}"
         );
         break;
 
@@ -243,7 +245,7 @@ case 'confirm':
                 SET status = '" . Status::ACTIVE . "'
                 WHERE token='$token'");
             $msg = '2';
-            Mailer\Logger::Audit("Confirmed subscription for $email");
+            Logger::Audit("Confirmed subscription for $email");
         }
     }
     COM_refresh(
@@ -264,7 +266,7 @@ case 'bl':
                     SET status = '" . Status::BLACKLIST . "'
                     WHERE token='$token'");
             $msg = '3';
-            Mailer\Logger::Audit("User-requested blacklisting of $email");
+            Logger::Audit("User-requested blacklisting of $email");
         }
     }
     COM_refresh(
