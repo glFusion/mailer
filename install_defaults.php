@@ -100,6 +100,17 @@ $mailerConfigData = array(
         'set' => true,
         'group' => 'mailer',
     ),
+    array(
+        'name' => 'blk_show_subs',
+        'default_value' => 0,
+        'type' => 'select',
+        'subgroup' => 0,
+        'fieldset' => 0,
+        'selection_array' => 0,
+        'sort' => 130,
+        'set' => true,
+        'group' => 'mailer',
+    ),
 
     // Internal queue options
     array(

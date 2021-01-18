@@ -197,10 +197,10 @@ function plugin_profileedit_mailer($uid, $panel, $fieldset)
         $chk = '';
         $Sub = Subscriber::getByUid($uid);
         if ($Sub->getUid() > 1) {
-            if ($Sub->getStatus() == Mailer\Models\Status::BLACKLIST) {
+            if ($Sub->getStatus() == Status::BLACKLIST) {
                 // Blacklisted, don't show the option at all
                 return $retval;
-            } elseif ($Sub->getStatus() == Mailer\Models\Status::ACTIVE) {
+            } elseif ($Sub->getStatus() == Status::ACTIVE) {
                 $chk = 'checked="checked"';
             }
         }
@@ -222,26 +222,24 @@ function plugin_profileedit_mailer($uid, $panel, $fieldset)
 function plugin_profilesave_mailer($uid=0)
 {
     global $_USER, $_TABLES;
-    var_dump(debug_backtrace(0));die;
 
     if ($uid == 0) {
         $uid = (int)$_USER['uid'];
     } else {
         $uid = (int)$uid;
     }
-    $Sub = Mailer\Models\Subscriber::getByUid($uid);
+    $Sub = Subscriber::getByUid($uid);
     if (isset($_POST['mailer_subscribe'])) {
         // User requesting addition, double opt-in not needed
         if (Config::get('dbl_optin_members')) {
             $Sub->subscribe();
         } else {
             // Not requiring double-optin for members
-            $Sub->subscribe(Mailer\Models\Status::ACTIVE);
+            $Sub->subscribe(Status::ACTIVE);
         }
     } else {
         $Sub->unsubscribe();
     }
-
 }
 
 
@@ -293,8 +291,12 @@ function plugin_autouninstall_mailer ()
 {
     $out = array (
         // give the name of the tables, without $_TABLES[]
-        'tables' => array('mailer', 'mailer_emails',
-                        'mailer_queue'),
+        'tables' => array(
+            'mailer',
+            'mailer_emails',
+            'mailer_queue',
+            'mailer_txn',
+        ),
         // give the full name of the group, as in the db
         'groups' => array('Mailer Admin'),
         // give the full name of the feature, as in the db
@@ -306,7 +308,6 @@ function plugin_autouninstall_mailer ()
         // give the full name of the plugins config data
         'config_data' => array('mailer')
     );
-
     return $out;
 }
 
@@ -322,7 +323,7 @@ function phpblock_mailer()
 {
     global $_CONF, $LANG_MLR, $_USER, $_TABLES;
 
-    if (!COM_isAnonUser()) {
+    if (!Config::get('blk_show_subs') && !COM_isAnonUser()) {
         // Anon always sees the block, no way to know if they're subscribed
         $c = DB_count($_TABLES['mailer_emails'], 'email', $_USER['email']);
         if ($c > 0) return '';
@@ -400,6 +401,11 @@ function plugin_templatesetvars_mailer($templatename, &$template)
 }
 
 
+/**
+ * Add CSS to the header.
+ *
+ * @return  array   Array of files to add.
+ */
 function plugin_getheadercss_mailer()
 {
     global $_CONF;
