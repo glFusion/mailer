@@ -150,7 +150,7 @@ class Subscriber
         }
         $API = API::getInstance();
         $result = $API->subscribe($this);
-        if ($result) {
+        if ($result == Status::SUB_SUCCESS) {
             $this->Save();
             if ($this->status == Status::PENDING) {
                 $response = $API::sendDoubleOptin($this);
