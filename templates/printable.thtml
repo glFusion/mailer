@@ -5,11 +5,9 @@
 </head>
 <body>
     <h1>{mlr_title}</h1>
-
     <p>{mlr_content}</p>
-
-    <hr{xhtml}>
-
+    <div style="clear:both;"></div>
+    <hr />
     <p>{site_name}<br{xhtml}>
         <a href="{mlr_url}">{mlr_url}</a>
     </p>

@@ -3,10 +3,10 @@
  * English language strings for the Mailer plugin.
  *
  * @author      Lee Garner <lee@leegarner.com>
- * @copyright   Copyright (c) 2010 Lee Garner <lee@leegarner.com>
+ * @copyright   Copyright (c) 2010-2021 Lee Garner <lee@leegarner.com>
  * @copyright   Copyright (c) 2008 Wayne Patterson <suprsidr@gmail.com>
  * @package     mailer
- * @version     v0.0.1
+ * @version     v0.0.4
  * @license     http://opensource.org/licenses/gpl-2.0.php 
  *              GNU Public License v2 or later
  * @filesource
@@ -17,6 +17,7 @@ global $LANG32;
 
 $LANG_MLR = array(
     'mailers' => 'Mailers',
+    'mlr_archive' => 'Archived Mailings',
     'subscribers' => 'Subscribers',
     'queue' => 'Queue',
     'list' => 'List',

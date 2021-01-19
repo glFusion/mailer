@@ -3,7 +3,7 @@
  * Class to provide admin and user-facing menus.
  *
  * @author      Lee Garner <lee@leegarner.com>
- * @copyright   Copyright (c) 2020 Lee Garner <lee@leegarner.com>
+ * @copyright   Copyright (c) 2021 Lee Garner <lee@leegarner.com>
  * @package     mailer
  * @version     v0.0.4
  * @since       v0.0.4
@@ -28,36 +28,17 @@ class Menu
      */
     public static function User($view='')
     {
-        global $_CONF, $LANG_MLR;
+        global $LANG_MLR;
 
         USES_lib_admin();
-
-        $hdr_txt = SHOP_getVar($LANG_MLR, 'user_hdr_' . $view);
         $menu_arr = array(
             array(
-                'url'  => SHOP_URL . '/index.php',
-                'text' => $LANG_MLR['back_to_catalog'],
+                'url'  => Config::get('url') . '/index.php',
+                'text' => $LANG_MLR['mailers'],
+                'active' => $view == 'list' ? true : false,
             ),
         );
-
-        $active = $view == 'orderhist' ? true : false;
-        $menu_arr[] = array(
-            'url'  => COM_buildUrl(SHOP_URL . '/account.php'),
-            'text' => $LANG_MLR['purchase_history'],
-            'active' => $active,
-        );
-
-        // Show the Gift Cards menu item only if enabled.
-        if ($_SHOP_CONF['gc_enabled']) {
-            $active = $view == 'couponlog' ? true : false;
-            $menu_arr[] = array(
-                'url'  => COM_buildUrl(SHOP_URL . '/account.php?mode=couponlog'),
-                'text' => $LANG_MLR['gc_activity'],
-                'active' => $active,
-                'link_admin' => plugin_ismoderator_mailer(),
-            );
-        }
-        return \ADMIN_createMenu($menu_arr, $hdr_txt);
+        return \ADMIN_createMenu($menu_arr, '');
     }
 
 

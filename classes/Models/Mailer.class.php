@@ -3,7 +3,7 @@
  * Class to manage mailing lists.
  *
  * @author      Lee Garner <lee@leegarner.com>
- * @copyright   Copyright (c) 2010-2020 Lee Garner <lee@leegarner.com>
+ * @copyright   Copyright (c) 2010-2021 Lee Garner <lee@leegarner.com>
  * @package     mailer
  * @version     v0.0.4
  * @license     http://opensource.org/licenses/gpl-2.0.php
@@ -659,11 +659,14 @@ class Mailer
         $retval = '';
 
         if ($this->mlr_inblock == 1) {
-            $header = COM_startBlock($this->mlr_title,
-                        $this->mlr_help,
-                        COM_getBlockTemplate('_mailer_block', 'header'));
-            $footer = COM_endBlock(COM_getBlockTemplate('_mailer_block',
-                                                       'footer'));
+            $header = COM_startBlock(
+                $this->mlr_title,
+                $this->mlr_help,
+                COM_getBlockTemplate('_mailer_block', 'header')
+            );
+            $footer = COM_endBlock(
+                COM_getBlockTemplate('_mailer_block','footer')
+            );
         } else {
             $header = '';
             $footer = '';
@@ -671,34 +674,16 @@ class Mailer
 
         $T = new \Template(Config::get('pi_path') . 'templates/');
         $T->set_file('page', 'mailer.thtml');
-
-        if ($_CONF['hideprintericon'] == 0) {
-            $icon_url = $_CONF['layout_url'] . '/images/print.' . $_IMAGE_TYPE;
-            $attr = array('title' => $LANG_MLR['printable_format']);
-            $printicon = COM_createImage($icon_url, $LANG01[65], $attr);
-            $print_url = COM_buildUrl(
-                Config::get('url') .'/index.php?page=' .$this->mlr_id . '&amp;mode=print'
-            );
-            $icon = COM_createLink($printicon, $print_url);
-            $T->set_var('print_icon', $icon);
-        }
-        if ($this->hasAccess(3)) {
-            $icon_url = $_CONF['layout_url'] . '/images/edit.' . $_IMAGE_TYPE;
-            $attr = array('title' => $LANG_MLR['edit']);
-            $editiconhtml = COM_createImage($icon_url, $LANG_MLR['edit'], $attr);
-            $attr = array('class' => 'editlink','title' => $LANG_MLR['edit']);
-            $url = Config::get('admin_url') . '/index.php?edit=x&amp;mlr_id=' . $this->mlr_id;
-            $icon = '&nbsp;' . COM_createLink($editiconhtml, $url, $attr);
-            $T->set_var('edit_icon', $icon);
-        }
-
         $curtime = COM_getUserDateTimeFormat($this->mlr_date);
         $lastupdate = $LANG_MLR['lastupdated']. ' ' . $curtime[0];
         $T->set_var(array(
-                'content'           => $this->mlr_content,
-                'title'             => $this->mlr_title,
-                'info_separator'    => 'hidden',
-                'mlr_date'          => $curtime[0],
+            'content'           => $this->mlr_content,
+            'title'             => $this->mlr_title,
+            'info_separator'    => 'hidden',
+            'mlr_date'          => $curtime[0],
+            'mlr_id'            => $this->mlr_id,
+            'can_print'         => $_CONF['hideprintericon'] == 0,
+            'can_edit'          => $this->hasAccess(3),
         ) );
 
         if (Config::get('show_date') == 1) {
