@@ -163,25 +163,6 @@ class API
     {
         $validator = new \EmailAddressValidator;
         return $validator->checkEmailAddress($email) ? true : false;
-
-        /*$retval = '';
-        if (empty($this->email)) {
-            return false;
-        }
-        if (
-            !preg_match(
-                "/^[_a-z0-9-]+([\.\+][_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*$/i",
-                $this->email
-            )
-        ) {
-            return false;
-        }
-
-        $pieces = explode('@', $email);
-        if (!self::isValidDomain($pieces[1])) {
-            return false;
-        }
-        return true;*/
     }
 
 
