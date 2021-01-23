@@ -12,6 +12,7 @@
  */
 namespace Mailer\Models;
 use Mailer\Config;
+use Mailer\API;
 
 
 /**
@@ -746,6 +747,8 @@ class Mailer
      * mailing lists.
      *
      * @param   string  $email  Optional email address
+     * @param   string  $token  Optional token
+     * @return  integer     Status code from API::sendEmail()
      */
     public function mailIt($email='', $token='')
     {
@@ -765,91 +768,8 @@ class Mailer
             );
         }
 
-        // Convert image URLs
-        /*\LGLib\SmartResizer::create()
-            ->withLightbox(false)
-            ->withFullUrl(true)
-            ->convert($this->mlr_content);*/
-
-        $unsub_url = Config::get('url') . '/index.php?view=unsub&email=' .
-            urlencode($email) . '&amp;token=' . urlencode($token) .
-            '&amp;mlr_id=' . urlencode($this->mlr_id);
-        $unsub_link = COM_createLink($unsub_url, $unsub_url);
-
-        $T = new \Template(Config::get('pi_path') . 'templates/');
-        $T->set_file('msg', 'mailer_email.thtml');
-        $T->set_var(array(
-            'content'   => $this->mlr_content,
-            'pi_url'    => Config::get('url'),
-            'mlr_id'    => $this->mlr_id,
-            'token'     => $token,
-            'email'     => $email,
-            'unsub_url' => $unsub_link,
-            'show_unsub' => $this->show_unsub ? 'true' : '',
-        ) );
-        $T->parse('output', 'msg');
-        $message = $T->finish($T->get_var('output'));
-        $altbody = strip_tags($message);
-
-        // Create the "from" address using the site or noreply mail address
-        $fromEmail = isset($_CONF[Config::get('email_from')]) ?
-            $_CONF[Config::get('email_from')] : $_CONF['noreply_mail'];
-
-        $subject = trim($this->mlr_title);
-        $subject = COM_emailEscape($subject);
-
-        $mail = new \PHPMailer();
-        $mail->SetLanguage('en');
-        $mail->CharSet = COM_getCharset();
-        if ($_CONF['mail_backend'] == 'smtp') {
-            $mail->IsSMTP();
-            $mail->Host     = $_CONF['mail_smtp_host'];
-            $mail->Port     = $_CONF['mail_smtp_port'];
-            if ($_CONF['mail_smtp_secure'] != 'none') {
-                $mail->SMTPSecure = $_CONF['mail_smtp_secure'];
-            }
-            if ($_CONF['mail_smtp_auth']) {
-                $mail->SMTPAuth   = true;
-                $mail->Username = $_CONF['mail_smtp_username'];
-                $mail->Password = $_CONF['mail_smtp_password'];
-            }
-            $mail->Mailer = "smtp";
-
-        } elseif ($_CONF['mail_backend'] == 'sendmail') {
-            $mail->Mailer = "sendmail";
-            $mail->Sendmail = $_CONF['mail_sendmail_path'];
-        } else {
-            $mail->Mailer = "mail";
-        }
-        $mail->WordWrap = 76;
-
-        // Create the HTML message. Automatically creates the AltBody and
-        // inlines any images.
-        $mail->IsHTML($this->mailHTML);
-        if ($this->mailHTML) {
-            $body = COM_filterHTML($message);
-            $mail->msgHTML($message, $_CONF['path_html']);
-        } else {
-            $mail->Body = $message;
-        }
-
-        $mail->Subject = $subject;
-        $mail->From = $fromEmail;
-        $mail->FromName = $_CONF['site_name'];
-
-        $mail->AddCustomHeader('List-ID:Announcements from ' .
-                $_CONF['site_name']);
-        $mail->AddCustomHeader('List-Archive:<' . Config::get('url') . '>Prior Mailings');
-        $mail->AddCustomHeader('X-Unsubscribe-Web:<' . $unsub_url . '>');
-        $mail->AddCustomHeader('List-Unsubscribe:<' . $unsub_url . '>');
-
-        $mail->AddAddress($email);
-
-        if(!$mail->Send()) {
-            COM_errorLog("Email Error: " . $mail->ErrorInfo);
-            return false;
-        }
-        return true;
+        $API = API::getInstance();
+        return $API->sendEmail($this, $email, $token);
     }
 
 

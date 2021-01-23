@@ -6,15 +6,15 @@
     onblur="if(this.value == ''){this.value = '{lang_import_temp_text}';}"
     >{lang_import_temp_text}</textarea>
   <input type="text" maxlength="2" size="2" name="delimiter" 
-    id="delimiter" value=","{xhtml}>
+    id="delimiter" value="," />
   <label for="delimiter">{lang_delimiter}</label>
-  <input type="checkbox" name="blacklist" id="blacklist" value="1"{xhtml}>
+  <input type="checkbox" name="blacklist" id="blacklist" value="1" />
   <label for="blacklist">{lang_blacklist}</label>
-  <br{xhtml}><br{xhtml}>
-  <input type="submit" value="{$LANG_MLR['import']}" name="import"{xhtml}>
+  <br /><br />
+  <input type="submit" value="{$LANG_MLR['import']}" name="import" />
   &nbsp;
   <input type="submit" value="{$LANG_ADMIN['cancel']}" 
-    name="cancel_import"{xhtml}>
-  <input type="hidden" name="{gltoken_name}" value="{gltoken}"{xhtml}>
+    name="cancel_import" />
+  <input type="hidden" name="{gltoken_name}" value="{gltoken}" />
 </form>
 {# end {templatelocation} #}

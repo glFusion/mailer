@@ -4,9 +4,9 @@
   <fieldset>
     <legend>{block_text_small}</legend>
       <p>
-        <input type="text" name="address" id="address" size="20" maxlength="128" {xhtml}>
-        <br {xhtml}>
-        <input type="submit" value="{block_button_text}" {xhtml}>
+        <input type="text" name="address" id="address" size="20" maxlength="128" />
+        <br />
+        <input type="submit" value="{block_button_text}" />
       </p>
       <p id="mlr_sub_response">&nbsp;</p>
   </fieldset>

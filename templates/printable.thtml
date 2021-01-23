@@ -8,7 +8,7 @@
     <p>{mlr_content}</p>
     <div style="clear:both;"></div>
     <hr />
-    <p>{site_name}<br{xhtml}>
+    <p>{site_name}<br />
         <a href="{mlr_url}">{mlr_url}</a>
     </p>
 </body>
