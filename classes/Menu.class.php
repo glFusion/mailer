@@ -38,6 +38,12 @@ class Menu
                 'active' => $view == 'list' ? true : false,
             ),
         );
+        if (plugin_ismoderator_mailer()) {
+            $menu_arr[] = array(
+                'url' => Config::get('admin_url') . '/index.php',
+                'text' => $LANG_MLR['admin'],
+            );
+        }
         return \ADMIN_createMenu($menu_arr, '');
     }
 
@@ -52,7 +58,8 @@ class Menu
     {
         global $_CONF, $LANG_MLR;
         USES_lib_admin();
-        $features = API::getInstance()->getFeatures();
+        $API = API::getInstance();
+        $features = $API->getFeatures();
         if (!in_array($view, $features)) {
             $view = $features[0];
         }
@@ -90,9 +97,16 @@ class Menu
         $admin_hdr = 'admin_item_hdr';
         $T = new \Template(__DIR__ . '/../templates');
         $T->set_file('title', 'mailer_title.thtml');
-        $T->set_var('title', _('Mailer Administration'));
+        $T->set_var(array(
+            'title' => _('Mailer Administration'),
+        ) );
+        $hlp_text = _('Mail Handler') . ': ' . $API->getName();
+        $hlp_opts = $API->getMenuHelp();
+        if (!empty($hlp_opts)) {
+            $hlp_text .= $hlp_opts;
+        }
         $retval .= $T->parse('', 'title');
-        $retval .= ADMIN_createMenu($menu_arr, '', plugin_geticon_mailer());
+        $retval .= ADMIN_createMenu($menu_arr, $hlp_text, plugin_geticon_mailer());
         return $retval;
     }
 
