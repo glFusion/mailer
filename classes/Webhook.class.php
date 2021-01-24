@@ -36,16 +36,32 @@ class Webhook
      */
     public static function getInstance()
     {
-        try {
-            $this->provider = Config::get('provider');
-            $cls = '\\Mailer\\API\\' . $this->provider . '\\Webhook';
-            $wh = new $cls;
-        } catch (\Exception $e) {
-            COM_errorLog("ERROR: " . print_r($e,true));
-            $wh = new self;
-            $this->provider = '';
+        static $wh = NULL;
+        if ($wh === NULL) {
+            $provider = Config::get('provider');
+            try {
+                $cls = '\\Mailer\\API\\' . $provider . '\\Webhook';
+                $wh = new $cls;
+                $wh->withProvider($provider);
+            } catch (\Exception $e) {
+                COM_errorLog("ERROR: " . print_r($e,true));
+                $wh = new self;
+            }
         }
         return $wh;
+    }
+
+
+    /**
+     * Set the provider name.
+     *
+     * @param   string  $name   API provider name
+     * @return  object  $this
+     */
+    protected function withProvider($name)
+    {
+        $this->provider = $name;
+        return $this;
     }
 
 
