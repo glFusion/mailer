@@ -13,7 +13,7 @@
  */
 
 $_SQL= array(
-'mailer' => "CREATE TABLE {$_TABLES['mailer']} (
+'mailer' => "CREATE TABLE {$_TABLES['mailer_campaigns']} (
  `mlr_id` varchar(40) NOT NULL DEFAULT '',
   `mlr_uid` mediumint(8) NOT NULL DEFAULT 1,
   `mlr_title` varchar(128) NOT NULL DEFAULT '',
@@ -40,7 +40,7 @@ $_SQL= array(
   KEY `mailer_mlr_date` (`mlr_date`)
 ) ENGINE=MyISAM",
 
-'mailer_emails' => "CREATE TABLE {$_TABLES['mailer_emails']} (
+'mailer_emails' => "CREATE TABLE {$_TABLES['mailer_subscribers']} (
   `sub_id` int(11) unsigned NOT NULL AUTO_INCREMENT,
   `uid` int(11) unsigned NOT NULL DEFAULT 1,
   `dt_reg` datetime DEFAULT NULL,
@@ -61,7 +61,7 @@ $_SQL= array(
   UNIQUE KEY `mlr_id` (`mlr_id`,`email`)
 ) ENGINE=MyISAM",
 
-'mailer_txn' = "CREATE TABLE `{$_TABLES['mailer_txn']}` (
+'mailer_txn' => "CREATE TABLE `{$_TABLES['mailer_txn']}` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
   `provider` varchar(40) DEFAULT NULL,
   `type` varchar(20) DEFAULT NULL,
@@ -71,16 +71,24 @@ $_SQL= array(
   PRIMARY KEY (`id`),
   KEY `idx_txn` (`provider`,`type`,`txn_id`,`txn_date`)
 ) ENGINE=MyISAM",
+
+'mailer_provider_campaigns' => "CREATE TABLE `{$_TABLES['mailer_provider_campaigns']}` (
+  `mlr_id` varchar(20) NOT NULL,
+  `provider` varchar(20) NOT NULL,
+  `provider_mlr_id` varchar(20) NOT NULL,
+  `tested` tinyint(1) unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`mlr_id`,`provider`)
+) ENGINE=MyISAM",
 );
 
 global $_MLR_UPGRADE;
 $_MLR_UPGRADE = array(
     '0.0.3' => array(
-        "ALTER TABLE {$_TABLES['mailer_emails']} ADD UNIQUE `email_key` (`email`)",
+        "ALTER TABLE {$_TABLES['mailer_subscribers']} ADD UNIQUE `email_key` (`email`)",
     ),
     '0.0.4' => array(
-        "ALTER TABLE {$_TABLES['mailer_emails']} ADD domain varchar(96) AFTER dt_reg",
-        "ALTER TABLE {$_TABLES['mailer_emails']} ADD INDEX `idx_domain` (`domain`)",
+        "ALTER TABLE {$_TABLES['mailer_subscribers']} ADD domain varchar(96) AFTER dt_reg",
+        "ALTER TABLE {$_TABLES['mailer_subscribers']} ADD INDEX `idx_domain` (`domain`)",
     ),
 );
 

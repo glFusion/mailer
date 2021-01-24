@@ -25,10 +25,11 @@ global $_TABLES;
 */
 global $_DB_table_prefix;
 
-$_TABLES['mailer']          = $_DB_table_prefix . 'mailer';
-$_TABLES['mailer_emails']   = $_DB_table_prefix . 'mailer_emails';
-$_TABLES['mailer_queue']    = $_DB_table_prefix . 'mailer_queue';
-$_TABLES['mailer_txn']      = $_DB_table_prefix . 'mailer_txn';
+$_TABLES['mailer_campaigns'] = $_DB_table_prefix . 'mailer_campaigns';
+$_TABLES['mailer_subscribers']   = $_DB_table_prefix . 'mailer_subscribers';
+$_TABLES['mailer_queue'] = $_DB_table_prefix . 'mailer_queue';
+$_TABLES['mailer_txn']  = $_DB_table_prefix . 'mailer_txn';
+$_TABLES['mailer_provider_campaigns'] = $_DB_table_prefix . 'mailer_provider_campaigns';
 
 Mailer\Config::set('pi_version', '0.0.4');
 Mailer\Config::set('gl_version', '1.7.8');

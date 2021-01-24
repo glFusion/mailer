@@ -51,7 +51,7 @@ function service_queueMessage_mailer($args, &$output, &$svc_msg)
 
     // Create the mail item, overriding permissions, expiration and
     // disabling the unsubscribe link (which is meaningless here).
-    $M = new Mailer\Models\Mailer();
+    $M = new Mailer\Models\Campaign();
     $M->mlr_title = $subject;
     $M->mlr_content = $message;
     $M->owner_id = 2;

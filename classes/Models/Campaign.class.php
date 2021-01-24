@@ -1,6 +1,6 @@
 <?php
 /**
- * Class to manage mailing lists.
+ * Class to manage mailing campaigns.
  *
  * @author      Lee Garner <lee@leegarner.com>
  * @copyright   Copyright (c) 2010-2021 Lee Garner <lee@leegarner.com>
@@ -19,7 +19,7 @@ use Mailer\API;
  * Class for mailer items.
  * @package mailer
  */
-class Mailer
+class Campaign
 {
     /** Indicate whether the current user is an administrator/
      * @var boolean */
@@ -37,13 +37,61 @@ class Mailer
      * @var boolean */
     private $mailHTML = true;
 
-    /** Properties.
-     * @var array */
-    private $properties = array();
+    /** Mailer record ID.
+     * @var string */
+    private $mlr_id = '';
+
+    /** Mailer title/subject.
+     * @var string */
+    private $mlr_title = '';
+
+    /** Owner (author) ID.
+     * @var integer */
+    private $owner_id = 0;
+
+    /** Group ID for access control.
+     * @var integer */
+    private $group_id = 13;
+
+    /** Owner permission.
+     * @var integer */
+    private $perm_owner = 3;
+
+    /** Group permission.
+     * @var integer */
+    private $perm_group = 3;
+
+    /** Members permission.
+     * @var integer */
+    private $perm_members = 2;
+
+    /** Anonymous permission.
+     * @var integer */
+    private $perm_anon = 2;
+
+    /** Days to keep mailer online.
+     * @var integer */
+    private $exp_days = 90;
+
+    /** Last sent timestamp.
+     * @var integer */
+    private $mlr_sent_time = 0;
 
     /** Mailer body content.
      * @var string */
     private $mlr_content = '';
+
+    /** Email provider name.
+     * @var string */
+    private $provider = '';
+
+    /** Email provider campaign ID.
+     * @var string */
+    private $provider_mlr_id = '';
+
+    /** Status of test email.
+     * @var boolean */
+    private $tested = 0;
 
 
     /**
@@ -61,23 +109,12 @@ class Mailer
 
         $mlr_id = COM_sanitizeId($mlr_id, false);
         if ($mlr_id == '') {
-            $this->mlr_uid = $_USER['uid'];
             $this->mlr_title = '';
-            $this->mlr_hits = 0;
             $this->mlr_content = '';
-            $this->mlr_date = $_CONF['_now']->toMySQL(true);
-            $this->mlr_help = '';
-            $this->mlr_inblock = 0;
-            $this->mlr_nf = 0;
-            $this->postmode = 'text';
-            $this->mlr_format = Config::get('displayblocks');
+            $this->mlr_date = $_CONF['_now']->toUnix();
             $this->exp_days = Config::get('exp_days');
-            $this->commentcode = -1;
-            $this->unixdate = 0;
             $this->owner_id = $_USER['uid'];
-            $this->group_id = isset($_GROUPS['mailer Admin']) ?
-                    $_GROUPS['mailer Admin'] :
-                    SEC_getFeatureGroup('mailer.edit');
+            $this->group_id = SEC_getFeatureGroup('mailer.edit');
             $A = array();
             SEC_setDefaultPermissions($A, Config::get('default_permissions'));
             $this->perm_owner = $A['perm_owner'];
@@ -90,30 +127,16 @@ class Mailer
                 $this->mlr_id = '';
             }
         }
-
         $this->isAdmin = SEC_hasRights('mailer.admin') ? 1 : 0;
-        $this->show_unsub = 1;   // always set, but may be overridden
     }
 
 
-    public static function getById($mlr_id)
-    {
-        global $_TABLES;
-
-        $retval = new self;
-        $result = DB_query("SELECT *,
-            UNIX_TIMESTAMP(mlr_date) AS unixdate
-            FROM {$_TABLES['mailer']}
-            WHERE mlr_id ='" . DB_escapeString($mlr_id) . "'" .
-            COM_getPermSQL('AND', 0, 2));
-        if ($result && DB_numRows($result) == 1) {
-            $row = DB_fetchArray($result, false);
-            $retval->SetVars($row, true);
-        }
-        return $retval;
-    }
-
-
+    /**
+     * Set the mailer record ID.
+     *
+     * @param   string  $id     Mailer ID
+     * @return  object  $this
+     */
     public function withID($id)
     {
         $this->mlr_id = $id;
@@ -121,12 +144,23 @@ class Mailer
     }
 
 
+    /**
+     * Get the mailer record ID.
+     *
+     * @return  string      Record ID
+     */
     public function getID()
     {
         return $this->mlr_id;
     }
 
 
+    /**
+     * Set the mailer title.
+     *
+     * @param   string  $title  Title string
+     * @return  object  $this
+     */
     public function withTitle($title)
     {
         $this->mlr_title = $title;
@@ -134,31 +168,73 @@ class Mailer
     }
 
 
+    /**
+     * Get the mailer title.
+     *
+     * @return  string      Title string
+     */
     public function getTitle()
     {
         return $this->mlr_title;
     }
 
+
+    /**
+     * Set the mailer content.
+     *
+     * @param   string  $content    Content
+     * @return  object  $this
+     */
     public function withContent($content)
     {
         $this->mlr_content = $content;
         return $this;
     }
 
+
+    /**
+     * Get the mailer content.
+     *
+     * @return  string      Mailer content
+     */
     public function getContent()
     {
         return $this->mlr_content;
     }
 
+
+    /**
+     * Set the mailer date.
+     *
+     * @param   string  $date   Date string
+     * @return  object  $this
+     */
     public function withDate($date)
     {
-        $this->mlr_date = $date;
-        return $This;
+        $this->mlr_date = (int)$date;
+        return $this;
     }
 
+
+    /**
+     * Get the mailer date.
+     *
+     * @return  string      Mailer date
+     */
     public function getDate()
     {
         return $this->date;
+    }
+
+
+    /**
+     * Check if this mailer is HTML-formatted.
+     *
+     * @return  boolean     True if HTML, False if Text
+     */
+    public function isHTML()
+    {
+        return $this->mailHTML;
     }
 
 
@@ -168,24 +244,10 @@ class Mailer
      * @param   string  $var    Name of property to set.
      * @param   mixed   $value  New value for property.
      */
-    public function __set($var, $value='')
+    public function X__set($var, $value='')
     {
         switch ($var) {
-        case 'mlr_id':
-            $this->properties[$var] = COM_sanitizeId($value, false);
-            break;
 
-        case 'mlr_title':
-        //case 'mlr_content':
-        case 'mlr_date':
-        case 'mlr_postmode':
-        case 'mlr_help':
-        case 'postmode':
-            // String values
-            $this->properties[$var] = trim($value);
-            break;
-
-        case 'mlr_uid':
         case 'mlr_hits':
         case 'mlr_sent_time':
         case 'perm_owner':
@@ -194,9 +256,6 @@ class Mailer
         case 'perm_anon':
         case 'owner_id':
         case 'group_id':
-        //case 'commentcode':
-        case 'unixdate':
-        case 'mlr_format':
             // Integer values
             $this->$var = (int)$value;
             break;
@@ -204,12 +263,6 @@ class Mailer
         case 'exp_days':
             $this->properties[$var] = (int)$value;
             if ($this->$var < 0) $this->$var = 0;
-            break;
-
-        case 'mlr_inblock':
-        case 'mlr_nf':
-        case 'show_unsub':
-            $this->properties[$var] = $value == 1 ? 1 : 0;
             break;
 
         default:
@@ -227,6 +280,7 @@ class Mailer
      */
     public function __get($var)
     {
+        echo $var;die;
         if (array_key_exists($var, $this->properties)) {
             return $this->properties[$var];
         } else {
@@ -279,17 +333,18 @@ class Mailer
             return false;
         }
 
-        $result = DB_query("SELECT *,
-                UNIX_TIMESTAMP(mlr_date) AS unixdate
-                FROM {$_TABLES['mailer']}
-                WHERE mlr_id='$mlr_id'" .
-                COM_getPermSQL('AND', 0, 2));
+        $sql = "SELECT mlr.*, prv.provider, prv.provider_mlr_id, prv.tested
+            FROM {$_TABLES['mailer_campaigns']} mlr
+            LEFT JOIN {$_TABLES['mailer_provider_campaigns']} prv
+                ON prv.mlr_id = mlr.mlr_id AND prv.provider = '" . Config::get('provider') .
+            "' WHERE mlr.mlr_id ='" . DB_escapeString($mlr_id) . "'" .
+            COM_getPermSQL('AND', 0, 2);
+        $result = DB_query($sql);
         if (!$result || DB_numRows($result) != 1) {
             return false;
         } else {
             $row = DB_fetchArray($result, false);
             $this->setVars($row, true);
-            $this->isNew = false;
             return true;
         }
     }
@@ -323,37 +378,36 @@ class Mailer
 
         // Insert or update the record, as appropriate
         if ($this->mlr_id == '') {
-            $sql1 = "INSERT INTO {$_TABLES['mailer']} SET ";
+            $sql1 = "INSERT INTO {$_TABLES['mailer_campaigns']} SET ";
             $sql3 = '';
             $this->mlr_id = COM_makeSid();
         } else {
-            $sql1 = "UPDATE {$_TABLES['mailer']} SET ";
+            $sql1 = "UPDATE {$_TABLES['mailer_campaigns']} SET ";
             $sql3 = " WHERE mlr_id = '" . $this->getID() . "'";
         }
 
         $sql2 = "mlr_id = " . $this->getID() . ",
-                mlr_uid = '" . (int)$this->mlr_uid . "',
                 mlr_title='" . DB_escapeString($this->mlr_title) . "',
                 mlr_content='" . DB_escapeString($this->mlr_content) . "',
-                mlr_hits='" . (int)$this->mlr_hits . "',
-                mlr_date='" . $_CONF['_now']->toMySQL(true) . "',
+                mlr_date = UNIX_TIMESTAMP(),
                 mlr_sent_time = " . (int)$this->mlr_sent_time . ",
-                mlr_format ='" . (int)$this->mlr_format . "',
-                commentcode='" . (int)$this->commentcode . "',
                 owner_id='" . (int)$this->owner_id . "',
                 group_id='" . (int)$this->group_id . "',
                 perm_owner='" . (int)$this->perm_owner . "',
                 perm_group='" . (int)$this->perm_group . "',
                 perm_members='" . (int)$this->perm_members . "',
                 perm_anon='" . (int)$this->perm_anon . "',
-                mlr_help = '" . DB_escapeString($this->mlr_help) . "',
-                mlr_nf = '" . (int)$this->mlr_nf . "',
-                mlr_inblock = '" . (int)$this->mlr_inblock . "',
-                postmode = '" . DB_escapeString($this->mlr_postmode) . "',
-                exp_days = '" . (int)$this->exp_days . "',
-                show_unsub = '{$this->show_unsub}' ";
+                exp_days = '" . (int)$this->exp_days . "'";
         $sql = $sql1 . $sql2 . $sql3;
         DB_query($sql);
+
+        if (!DB_error()) {
+            $API = API::getInstance();
+            $status = $API->createCampaign($this);
+            if ($status) {
+                $API->saveCampaignID();
+            }
+        }
 
         // Queue immediately or send a test if requested
         if (isset($A['mlr_sendnow'])) {
@@ -367,19 +421,26 @@ class Mailer
 
     /**
      * Delete the current mailer record from the database.
+     *
+     * @return  boolean     True after deleteion, False if unable to delete
      */
     public function Delete()
     {
         global $_TABLES;
 
-        if ($this->mlr_id == '' || !$this->isAdmin)
+        if ($this->isNew() == '' || !$this->isAdmin) {
             return false;
+        }
 
         // Delete any pending emails
         DB_delete($_TABLES['mailer_queue'], 'mlr_id', $this->mlr_id);
 
+        // Delete from the provider cross-ref table
+        // TODO: Maybe delete from the remote provider as well?
+        DB_delete($_TABLES['mailer_provider_campaigns'], 'mlr_id', $this->mlr_id);
+
         // Delete the mailer
-        DB_delete($_TABLES['mailer'], 'mlr_id', $this->mlr_id);
+        DB_delete($_TABLES['mailer_campaigns'], 'mlr_id', $this->mlr_id);
         $this->mlr_id = '';
 
         return true;
@@ -393,10 +454,18 @@ class Mailer
     {
         global $_CONF, $_TABLES;
 
-        $sql = "DELETE FROM {$_TABLES['mailer']}
+        /*$select = "DELETE FROM {$_TABLES['mailer_campaigns']}
             WHERE exp_days > 0
             AND '" . $_CONF['_now']->toMySQL(true) .
-                "' > DATE_ADD(mlr_date, INTERVAL exp_days DAY)";
+            "' > DATE_ADD(mlr_date, INTERVAL exp_days DAY)";*/
+        $sql = "DELETE t1, t2
+            FROM {$_TABLES['mailer_campaigns']} t1
+            INNER JOIN {$_TABLES['mailer_provider_campaigns']} t2
+                ON t1.mlr_id = t2.mlr_id
+            WHERE t1.exp_days > 0
+            AND '" . $_CONF['_now']->toMySQL(true) .
+            "' > DATE_ADD(t1.mlr_date, INTERVAL t1.exp_days DAY)";
+        echo $sql;die;
         DB_query($sql, 1);
     }
 
@@ -502,17 +571,14 @@ class Mailer
             break;
         }
 
-        $ownername = COM_getDisplayName($this->owner_id);
-        $authorname = COM_getDisplayName($this->mlr_uid);
-        $curtime = COM_getUserDateTimeFormat($this->unixdate);
+        $authorname = COM_getDisplayName($this->owner_id);
+        $mlrtime = COM_getUserDateTimeFormat($this->mlr_date);
         $T->set_var(array(
-            //'change_editormode'     => 'onchange="change_editmode(this);"',
-            //'comment_options'       => COM_optionList($_TABLES['commentcodes'],
-            //                        'code,name', $A['commentcode']),
-            'owner_username'        => DB_getItem($_TABLES['users'],
-                                      'username',"uid = {$this->owner_id}"),
-            'owner_name'            => $ownername,
-            'owner'                 => $ownername,
+            'owner_username'        => DB_getItem(
+                $_TABLES['users'],
+                'username',
+                "uid = {$this->owner_id}"
+            ),
             'owner_id'              => $this->owner_id,
             'group_dropdown'        => SEC_getGroupDropdown($this->group_id, 3),
             'permissions_editor'    => SEC_getPermissionsHTML(
@@ -520,26 +586,17 @@ class Mailer
                                 $this->perm_members, $this->perm_anon),
             'start_block_editor'    => COM_startBlock($LANG_MLR['mailereditor']), '',
                                 COM_getBlockTemplate('_admin_block', 'header'),
-            'username'              => DB_getItem($_TABLES['users'],
-                                      'username', "uid = {$this->mlr_uid}"),
-            'name'                  => $authorname,
-            'author'                => $authorname,
-            'mlr_uid'                => $this->mlr_uid,
-            'mlr_id'                 => $this->mlr_id,
+            'owner_name'            => $authorname,
+            'mlr_id'                => $this->mlr_id,
             'example_url'           => COM_buildURL(Config::get('url') .
                                 '/index.php?page=' . $this->mlr_id),
-            'mlr_help'               => $this->mlr_help,
-            'inblock_checked'       => $this->mlr_inblock ? 'checked="checked"' : '',
-            'block'.$this->mlr_format.'_sel' => 'selected="selected"',
-            'mlr_formateddate'       => $curtime[0],
-            'mlr_date'               => $curtime[1],
+            'mlr_formateddate'       => $mlrtime[0],
+            'mlr_date'               => $mlrtime[1],
             'mlr_title'              => htmlspecialchars($this->mlr_title),
             'content'               => htmlspecialchars($this->mlr_content),
             'lang_allowedhtml'      => Config::get('filter_html') == 1 ?
                                     COM_allowedHTML() : $LANG_MLR['all_html_allowed'],
-            'mlr_hits'               => (int)$this->mlr_hits,
             'exp_days'               => (int)$this->exp_days,
-            'mlr_hits_formatted'     => COM_numberFormat($this->mlr_hits),
             'end_block'             => COM_endBlock(
                                 COM_getBlockTemplate('_admin_block', 'footer')),
             'gltoken_name'          => CSRF_TOKEN,
@@ -554,7 +611,7 @@ class Mailer
             ) );
         }
 
-        if (SEC_hasRights('mailer.admin') && $this->oldid) {
+        if (SEC_hasRights('mailer.admin') && $this->mlr_id) {
             $T->set_var('candelete', 'true');
         }
 
@@ -581,24 +638,11 @@ class Mailer
 
 
     /**
-     * Update the views counter.
+     * Update the sent timestamp to the current time.
      *
-     * @param  integer $count      Number to add, one by default
+     * @return  object  $this
      */
-    public function UpdateHits($count=1)
-    {
-        global $_TABLES;
-
-        $count = (int)$count;
-
-        // increment hit counter for page
-        DB_query("UPDATE {$_TABLES['mailer']}
-                SET mlr_hits = mlr_hits + $count
-                WHERE mlr_id = '$this->mlr_id'");
-    }
-
-
-    public function updateSentTime($ts=NULL)
+    public function updateSentTime()
     {
         global $_TABLES, $_CONF;
 
@@ -606,15 +650,21 @@ class Mailer
             $ts = $_CONF['_now']->toUnix();
         }
         $ts = (int)$ts;
-        DB_query("UPDATE {$_TABLES['mailer']} SET 
-            mlr_sent_time= $ts
+        DB_query("UPDATE {$_TABLES['mailer_campaigns']} SET
+            mlr_sent_time= UNIX_TIMESTAMP()
             WHERE mlr_id = '{$this->mlr_id}'");
+        return $this;
     }
 
 
+    /**
+     * Quick way to check if this is a new record.
+     *
+     * @return  boolean     1 if new, 0 if not.
+     */
     public function isNew()
     {
-        return $this->isNew ? 1 : 0;
+        return $this->mlr_id == '' ? 1 : 0;
     }
 
 
@@ -638,7 +688,6 @@ class Mailer
             'mlr_title'          => $this->mlr_title,
             'mlr_url'            => $mlr_url,
             'mlr_content'        => PLG_replacetags($this->mlr_content),
-            'mlr_hits'           => COM_numberFormat($this->mlr_hits),
             'theme'             => $_CONF['theme'],
         ) );
         $T->parse('output', 'print');
@@ -658,21 +707,6 @@ class Mailer
            $LANG01, $LANG11, $LANG_MLR, $_IMAGE_TYPE;
 
         $retval = '';
-
-        if ($this->mlr_inblock == 1) {
-            $header = COM_startBlock(
-                $this->mlr_title,
-                $this->mlr_help,
-                COM_getBlockTemplate('_mailer_block', 'header')
-            );
-            $footer = COM_endBlock(
-                COM_getBlockTemplate('_mailer_block','footer')
-            );
-        } else {
-            $header = '';
-            $footer = '';
-        }
-
         $T = new \Template(Config::get('pi_path') . 'templates/');
         $T->set_file('page', 'mailer.thtml');
         $curtime = COM_getUserDateTimeFormat($this->mlr_date);
@@ -691,7 +725,7 @@ class Mailer
             $T->set_var('lastupdate', $lastupdate);
         }
 
-        $retval = $header . $T->finish($T->parse('output', 'page')) . $footer;
+        $retval = $T->finish($T->parse('output', 'page'));
         return $retval;
     }
 
@@ -705,34 +739,41 @@ class Mailer
      */
     public function queueIt($emails=NULL)
     {
+        if ($this->mlr_id == '') {
+            return false;
+        }
+        $API = API::getInstance();
+        return $API->queueEmail($this, $emails);
+    }
+
+
+    /**
+     * Send a test email.
+     */
+    public function sendTest()
+    {
         global $_TABLES;
 
         if ($this->mlr_id == '') {
             return false;
         }
-
-        $mlr_id = DB_escapeString($this->mlr_id);
-        if ($emails === NULL) {
-            $values = "SELECT '{$mlr_id}', email
-                FROM {$_TABLES['mailer_emails']}
-                WHERE status = " . Status::ACTIVE;
-        } elseif (is_array($emails)) {
-            $vals = array();
-            foreach ($emails as $email) {
-                $vals[] = "('{$mlr_id}', '" . DB_escapeString($email) . "')";
+        $API = API::getInstance();
+        $camp_id = DB_getItem(
+            $_TABLES['mailer_provider_campaigns'],
+            'provider_mlr_id',
+            "mlr_id = '{$this->getID()}' AND provider = '{$API->getName()}'"
+        );
+        if (empty($camp_id)) {
+            $camp_id = $API->createCampaign($this);
+            if (empty($camp_id)) {
+                return false;
             }
-            $values = ' VALUES ' . implode(',', $vals);
-        } else {
-            return false;
         }
-        $sql = "INSERT IGNORE INTO {$_TABLES['mailer_queue']}
-                (mlr_id, email) $values";
-        DB_query($sql);
-        if (!DB_error()) {
-            DB_query(
-                "UPDATE {$_TABLES['mailer']}
-                SET mlr_sent_time = UNIX_TIMESTAMP()
-                WHERE mlr_id = " . $this->getID()
+        // Now there should be a campaign ID
+        if ($API->sendTest($camp_id)) {
+            DB_query("UPDATE {$_TABLES['mailer_provider_campaigns']}
+                SET tested = 1
+                WHERE mlr_id = '{$this->getID()}' AND provider = '{$API->getName()}'"
             );
             return true;
         } else {
@@ -762,7 +803,7 @@ class Mailer
         // Get the users' token for the unsubscribe link
         if (empty($token)) {
             $token = DB_getItem(
-                $_TABLES['mailer_emails'],
+                $_TABLES['mailer_subscribers'],
                 'token',
                 "email='" . DB_escapeString($email) . "'"
             );
@@ -784,8 +825,7 @@ class Mailer
         global $_TABLES;
 
         if (
-            DB_count($_TABLES['mailer'], 'mlr_uid', $old_uid) +
-            DB_count($_TABLES['mailer'], 'owner_id', $old_uid) == 0
+            DB_count($_TABLES['mailer_campaigns'], 'owner_id', $old_uid) == 0
         ) {
             // No mailings owned by this user, nothing to do.
             return;
@@ -808,17 +848,16 @@ class Mailer
         }
         if ($new_uid > 0) {
             DB_query(
-                "UPDATE {$_TABLES['mailer']} SET
-                    mlr_uid = $rootuser,
+                "UPDATE {$_TABLES['mailer_campaigns']} SET
                     owner_id = $rootuser
-                WHERE mlr_uid = $uid OR owner_id = $uid"
+                WHERE owner_id = $uid"
             );
         } else {
             COM_errorLog("Mailer: Error finding root user");
         }
     }
 
-    
+
     /**
      * List all the saved messages.
      *
@@ -844,6 +883,12 @@ class Mailer
                 'align' => 'center',
             ),
             array(
+                'text' => 'Tested',
+                'field' => 'tested',
+                'sort' => false,
+                'align' => 'center',
+            ),
+            array(
                 'text' => $LANG_MLR['send'],
                 'field' => 'send',
                 'sort' => false,
@@ -861,7 +906,7 @@ class Mailer
             ),
             array(
                 'text' => $LANG_MLR['writtenby'],
-                'field' => 'mlr_uid',
+                'field' => 'owner_id',
                 'sort' => false,
             ),
             array(
@@ -891,10 +936,13 @@ class Mailer
             'form_url' => Config::get('admin_url') . '/index.php?mailers=x',
         );
 
+        $provider_id = API::getInstance()->getName();
         $query_arr = array(
             'table' => 'mailer',
-            'sql' => "SELECT *
-                FROM {$_TABLES['mailer']}
+            'sql' => "SELECT mlr.*, prv.provider, prv.provider_mlr_id, prv.tested
+                FROM {$_TABLES['mailer_campaigns']} mlr
+                LEFT JOIN {$_TABLES['mailer_provider_campaigns']} prv
+                    ON prv.mlr_id = mlr.mlr_id AND prv.provider = '$provider_id'
                 WHERE 1=1 " .
                 COM_getPermSQL('AND', 0, 3),
             'query_fields' => array('mlr_title', 'mlr_id'),
@@ -911,7 +959,7 @@ class Mailer
         return $retval;
     }
 
-    
+
     /**
      * Get the display value for a list field, either mailer or subscriber.
      *
@@ -945,6 +993,24 @@ class Mailer
             );
             break;
 
+        case 'tested':
+            if ($fieldvalue == 1) {
+                $icon = 'uk-icon-check';
+                $cls = 'uk-text-success';
+            } else {
+                $icon = 'uk-icon-remove';
+                $cls = '';
+            }
+            $retval = COM_createLink(
+                '<i class="uk-icon ' . $icon . '"></i>',
+                $admin_url . '/index.php?sendtest=' . $A['mlr_id'],
+                array(
+                    'class' => 'tooltip ' . $cls,
+                    'title' => 'Send a test now',
+                )
+            );
+            break;
+
         case 'send':
             $retval = COM_createLink(
                 '<i class="uk-icon uk-icon-envelope"></i>',
@@ -964,10 +1030,10 @@ class Mailer
                 )
             );
             break;
-    
+
         case 'deletequeue':     // Delete an entry from the queue
             $retval = COM_createLink(
-                "<img src=\"{$_CONF['layout_url']}/images/admin/delete.png\" 
+                "<img src=\"{$_CONF['layout_url']}/images/admin/delete.png\"
                 height=\"16\" width=\"16\" border=\"0\"
                 onclick=\"return confirm('Do you really want to delete this item?');\">",
                 $admin_url . "/index.php?deletequeue=x&amp;mlr_id={$A['mlr_id']}&amp;email={$A['email']}"
@@ -976,17 +1042,17 @@ class Mailer
 
         case 'mlr_title':
             $url = COM_buildUrl(
-                $_CONF['site_url'] . '/mailer/index.php?page=' . $A['mlr_id']
+                $_CONF['site_url'] . '/mailer/index.php?mode=view&mor_id=' . $A['mlr_id']
             );
             $retval = COM_createLink(
-                $A['mlr_title'], 
-                $url, 
+                $A['mlr_title'],
+                $url,
                 array('title'=>$LANG_MLR['title_display'])
             );
             break;
 
-        case 'mlr_uid':
-            $retval = COM_getDisplayName ($A['mlr_uid']);
+        case 'owner_id':
+            $retval = COM_getDisplayName ($A['owner_id']);
             break;
 
         case 'mlr_centerblock':
@@ -1013,13 +1079,6 @@ class Mailer
             }
             break;
 
-        case 'uid':
-            if (!empty($A['uid'])) {
-                $retval = COM_createLink(COM_getDisplayName($A['uid']),
-                    $_CONF['site_url'].'/users.php?mode=profile&uid=' . $A['uid']) .
-                    ' (' . $A['uid'] . ')';
-            }
-            break;
         default:
             $retval = $fieldvalue;
             break;

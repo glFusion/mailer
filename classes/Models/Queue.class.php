@@ -37,7 +37,7 @@ class Queue
             $sql = "INSERT IGNORE INTO {$_TABLES['mailer_queue']}
                 (mlr_id, email)
                 SELECT '$mlr_id', email
-                FROM {$_TABLES['mailer_emails']}
+                FROM {$_TABLES['mailer_subscribers']}
                 WHERE status = " . Status::ACTIVE;
             DB_query($sql);
             $Mailer->updateSentTime();
@@ -150,7 +150,7 @@ class Queue
         // Get the queued entries. Order by mlr_id so we can minimize DB calls.
         $sql = "SELECT q.q_id, q.mlr_id, q.email, e.token
             FROM {$_TABLES['mailer_queue']} q
-            LEFT JOIN {$_TABLES['mailer_emails']} e
+            LEFT JOIN {$_TABLES['mailer_subscribers']} e
             ON q.email = e.email
             ORDER BY q.mlr_id ASC
             $sql_limit ";

@@ -19,7 +19,7 @@ if (!in_array('mailer', $_PLUGINS)) {
 }
 use Mailer\Models\Subscriber;
 use Mailer\Models\Status;
-use Mailer\Models\Mailer;
+use Mailer\Models\Campaign;
 use Mailer\Menu;
 use Mailer\Config;
 use Mailer\Logger;
@@ -50,7 +50,7 @@ function MLR_listArchives()
         'table' => 'mailer',
         'sql' => "SELECT mlr_id, mlr_title,
                     UNIX_TIMESTAMP(mlr_date) AS unixdate
-                FROM {$_TABLES['mailer']} " .
+                FROM {$_TABLES['mailer_campaigns']} " .
                 COM_getPermSQL('WHERE', 0, 2),
         'query_fields' => array('mlr_title', 'mlr_content'),
     );
@@ -141,7 +141,7 @@ case 'unsub':
     break;
 
 case 'print':
-    $N = Mailer::getById($mlr_id);
+    $N = new Campaign($mlr_id);
     echo $N->printPage();
     exit;
     break;
@@ -190,10 +190,9 @@ case 'view':
     // Display the mailer
     $content .= $header;
     if (!empty($mlr_id)) {
-        $N = Mailer::getById($mlr_id);
+        $N = new Campaign($mlr_id);
         if ($N->getID() > 0) {  // confirm page exists
             $content .= $N->displayPage();
-            $N->UpdateHits();
         } else {
             $content .= COM_showmessageText($LANG_MLR['not_found']);
             $content .= MLR_listArchives();

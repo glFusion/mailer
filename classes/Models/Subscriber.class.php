@@ -77,7 +77,7 @@ class Subscriber
     {
         global $_TABLES;
 
-        //$sql = "SELECT * FROM {$_TABLES['mailer_emails']}
+        //$sql = "SELECT * FROM {$_TABLES['mailer_subscribers']}
         //    WHERE id = " . (int)$id;
         return self::_create('id', $id);
     }
@@ -102,7 +102,7 @@ class Subscriber
         global $_TABLES;
 
          $sql = "SELECT me.*, u.fullname
-            FROM {$_TABLES['mailer_emails']} me
+            FROM {$_TABLES['mailer_subscribers']} me
             LEFT JOIN {$_TABLES['users']} u
             ON u.uid = me.uid WHERE me.{$fld} = '$value'";
         $res = DB_query($sql);
@@ -168,7 +168,7 @@ class Subscriber
     {
         global $_TABLES;
 
-        DB_delete($_TABLES['mailer_emails'], 'id', $this->getID());
+        DB_delete($_TABLES['mailer_subscribers'], 'id', $this->getID());
         $this->id = 0;
     }
 
@@ -209,12 +209,12 @@ class Subscriber
             token = '" . DB_escapeString($this->token) . "',
             status = {$this->getStatus()}";
         if ($this->getID() == 0) {
-            $sql1 = "INSERT INTO {$_TABLES['mailer_emails']} SET ";
+            $sql1 = "INSERT INTO {$_TABLES['mailer_subscribers']} SET ";
             $sql3 = '';
         } else {
-            $sql1 = "UPDATE {$_TABLES['mailer_emails']} SET ";
+            $sql1 = "UPDATE {$_TABLES['mailer_subscribers']} SET ";
             $sql3 = " WHERE id = {$this->getID()}";
-        }
+            }
         $sql = $sql1 . $sql2 . $sql3;
         //echo $sql;die;
         DB_query($sql);
@@ -238,7 +238,7 @@ class Subscriber
 
         $purge_days = (int)Config::get('confirm_period');
         if ($purge_days > 0) {
-            $sql = "DELETE FROM {$_TABLES['mailer_emails']}
+            $sql = "DELETE FROM {$_TABLES['mailer_subscribers']}
                 WHERE status = '" . Status::PENDING . "'
                 AND '" . $_CONF['_now']->toMySQL(true) .
                     "' > DATE_ADD(dt_reg, INTERVAL $purge_days DAY)";
@@ -421,7 +421,7 @@ class Subscriber
 
         $status = (int)$status;
         $this->status = $status;
-        $sql = "UPDATE {$_TABLES['mailer_emails']} SET
+        $sql = "UPDATE {$_TABLES['mailer_subscribers']} SET
             status = $status
             WHERE id = {$this->getID()}";
         if (!$force) {
@@ -536,6 +536,26 @@ class Subscriber
     }
 
 
+    public static function getPluginAttributes($uid=1)
+    {
+        global $_PLUGINS;
+
+        $retval = array();
+        foreach ($_PLUGINS as $pi_name) {
+            $output = PLG_callFunctionForOnePlugin(
+                'plugin_getMergeFields_' . $pi_name,
+                array(1 => $uid)
+            );
+            if (is_array($output)) {
+                foreach ($output as $key=>$value) {
+                    $retval[$key] = $value;
+                }
+            }
+        }
+        return $retval;
+    }
+ 
+
     /**
      * Set an attribute (merge field).
      *
@@ -565,13 +585,81 @@ class Subscriber
         global $_TABLES;
 
         $retval = array();
-        $sql = "SELECT * FROM {$_TABLES['mailer_emails']}
+        $sql = "SELECT * FROM {$_TABLES['mailer_subscribers']}
             WHERE status = " . Status::BLACKLIST;
         $res = DB_query($sql);
         while ($A = DB_fetchArray($res, false)) {
             $retval[] = new self($A);
         }
         return $retval;
+    }
+
+
+    /**
+     * Synchronize the local cache table with the provider for a single user.
+     * First, delete all list entries and then add all the lists that the
+     * member is subscribed to. This is quicker than trying to determine which
+     * lists are not in the subscribed group.
+     *
+     * @param   integer $uid    User ID
+     * @return  string          User Email address
+     */
+    public function syncToProvider()
+    {
+        global $_TABLES;
+
+        $API = API::getInstance();
+        if (!$API->supportsSync()) {
+            return true;
+        }
+
+        $sql = "SELECT * FROM {$_TABLES['mailer_subscribers']}";
+        $res = DB_query($sql);
+        while ($A = DB_fetchArray($res, false)) {
+            $Sub = new self($A);
+            $status = $API->subscribeOrUpdate($Sub);
+            if ($status !=- Status::SUB_SUCCESS) {
+                COM_errorLog(__FUNCTION__ . ' ' . $Sub->getEmail() . " Status: Failure " . $status); 
+                COM_errorLog($API->getLastResponse()['body']);
+            }
+        }
+        return true;
+    }
+
+
+    /**
+     * Synchronize subscriber data from the API provider.
+     *
+     * @return  integer     Number of subscribers received/processed.
+     */
+    public static function syncFromProvider()
+    {
+        $API = API::getInstance();
+        if (!$API->supportsSync()) {
+            // Nothing to do for the Internal API
+            return 0;
+        }
+
+        // Get the subscribers 20 at a time
+        $args = array(
+            'count' => 20,
+            'offset' => 0,
+        );
+        $processed = 0;
+        while (true) {
+            $contacts = $API->listMembers(NULL, $args);
+            foreach ($contacts as $apiInfo) {
+                $Sub = self::getByEmail($apiInfo['email_address']);
+                $Sub->withStatus($apiInfo['status'])->Save();
+                $processed++;
+            }
+            if (count($out) < $args['count']) {
+                // Got the last segment
+                break;
+            }
+            $args['offset'] += $args['count'];
+        }
+        return $processed;
     }
 
 
@@ -627,7 +715,7 @@ class Subscriber
         $query_arr = array(
             'table' => 'mailer_emails',
             'sql' => "SELECT ml.*, u.uid, u.fullname
-                FROM {$_TABLES['mailer_emails']} ml
+                FROM {$_TABLES['mailer_subscribers']} ml
                 LEFT JOIN {$_TABLES['users']} u
                     ON ml.email = u.email
                 WHERE 1=1 ",

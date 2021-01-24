@@ -3,7 +3,7 @@
  * API functions for the Mailer plugin.
  *
  * @author      Lee Garner <lee@leegarner.com>
- * @copyright   Copyright (c) 2010-2011 Lee Garner <lee@leegarner.com>
+ * @copyright   Copyright (c) 2010-2021 Lee Garner <lee@leegarner.com>
  * @copyright   Copyright (c) 2008 Wayne Patterson <suprsidr@gmail.com>
  * @package     mailer
  * @version     v0.0.4
@@ -48,7 +48,7 @@ spl_autoload_register(function ($class)
 });
 use Mailer\Config;
 use Mailer\Models\Subscriber;
-use Mailer\Models\Mailer;
+use Mailer\Models\Campaign;
 use Mailer\Models\Status;
 use Mailer\Models\Queue;
 Config::getInstance();
@@ -83,7 +83,7 @@ function plugin_cclabel_mailer()
 {
     global $LANG_MLR;
 
-    if (SEC_hasRights('mailer.admin,mailer.edit', 'OR')) {
+    if (plugin_ismoderator_mailer()) {
         return array(
             $LANG_MLR['mailer'],
             Config::get('admin_url') . '/index.php',
@@ -119,6 +119,21 @@ function plugin_commentsupport_mailer()
 
 
 /**
+ * See if this is an admin or moderator.
+ *
+ * @return  boolean     True for admins, False for regular users
+ */
+function plugin_ismoderator_mailer()
+{
+    static $isMod = NULL;
+    if ($isMod === NULL) {
+        $isMod = SEC_hasRights('mailer.admin,mailer.edit', 'OR');
+    }
+    return $isMod;
+}
+
+
+/**
  * Get the administrative menu option for this plugin.
  *
  * @return  array   Text=>Url for menu option
@@ -127,9 +142,9 @@ function plugin_getadminoption_mailer()
 {
     global $_CONF, $_TABLES, $LANG_MLR;
 
-    if (SEC_hasRights('mailer.admin,mailer.edit', 'OR')) {
+    if (plugin_ismoderator_mailer()) {
         $result = DB_query("SELECT count(*) AS cnt
-            FROM {$_TABLES['mailer']}" .
+            FROM {$_TABLES['mailer_campaigns']}" .
             COM_getPermSQL('WHERE', 0, 3));
         $A = DB_fetchArray ($result);
         return array(
@@ -174,7 +189,7 @@ function plugin_user_delete_mailer($uid)
         $Sub->unsubscribe();
     }
 
-    Mailer::changeOwner($uid);
+    Campaign::changeOwner($uid);
 }
 
 
@@ -256,7 +271,7 @@ function plugin_itemsaved_mailer($id, $type, $old_id = '')
     if ($contentInfo) {
         if ($contentInfo['id'] > 1) {
             $Sub = Subscriber::getByUid($contentInfo['id']);
-//            $Sub->updateMember();
+            $Sub->update();
         }
     }
 }
@@ -292,10 +307,11 @@ function plugin_autouninstall_mailer ()
     $out = array (
         // give the name of the tables, without $_TABLES[]
         'tables' => array(
-            'mailer',
-            'mailer_emails',
+            'mailer_campaigns',
+            'mailer_subscribers',
             'mailer_queue',
             'mailer_txn',
+            'mailer_provider_campaigns',
         ),
         // give the full name of the group, as in the db
         'groups' => array('Mailer Admin'),
@@ -325,7 +341,7 @@ function phpblock_mailer()
 
     if (!Config::get('blk_show_subs') && !COM_isAnonUser()) {
         // Anon always sees the block, no way to know if they're subscribed
-        $c = DB_count($_TABLES['mailer_emails'], 'email', $_USER['email']);
+        $c = DB_count($_TABLES['mailer_subscribers'], 'email', $_USER['email']);
         if ($c > 0) return '';
     }
 
@@ -392,8 +408,7 @@ function plugin_templatesetvars_mailer($templatename, &$template)
 
         case 3:     // Automatic subscription, don't need a template for this
             $pluginFields =
-                '<input type="hidden" name="mailer_subscribe value="1"'.
-                XHTML . '>'.LB;
+                '<input type="hidden" name="mailer_subscribe value="1" />' . LB;
             break;
         }
     }
@@ -478,7 +493,7 @@ function plugin_runScheduledTask_mailer()
     Subscriber::purgeUnconfirmed();
 
     // Delete expired mailings
-    Mailer::purgeExpired();
+    Campaign::purgeExpired();
 
     // Process the mail queue
     Queue::process();
