@@ -1,20 +1,21 @@
 <?php
 /**
- * Super-simple, minimum abstraction MailChimp API v3 wrapper.
+ * Mailchimp API provider.
  *
- * @author      Drew McLellan <drew.mclellan@gmail.com>
- * @version     2.2
- * @package     mailchimp
- * @version     v0.1.0
- * @license     http://opensource.org/licenses/MIT
- *              MIT License
+ * @author      Lee Garner <lee@leegarner.com>
+ * @copyright   Copyright (c) 2020-2021 Lee Garner <lee@leegarner.com>
+ * @package     mailer
+ * @version     v0.0.4
+ * @since       v0.0.4
+ * @license     http://opensource.org/licenses/gpl-2.0.php
+ *              GNU Public License v2 or later
  * @filesource
  */
-//namespace DrewM\MailChimp;
 namespace Mailer\API\Mailchimp;
 use Mailer\Config;
 use Mailer\Models\Status;
 use Mailer\Models\ApiInfo;
+use Mailer\Models\Campaign;
 
 
 /**
@@ -91,8 +92,11 @@ class API extends \Mailer\API
      * @param   integer $count      Maximum number of members to retrieve.
      * @return  array       Array of data
      */
-    public function listMembers($list_id, $opts=array())
+    public function listMembers($list_id=NULL, $opts=array())
     {
+        if ($list_id == NULL) {
+            $list_id = Config::get('mc_def_list');
+        }
         $params = array(
             'count' => 10,
             'status' => 'subscribed',
@@ -103,24 +107,33 @@ class API extends \Mailer\API
             case 'unsubscribed_since':
                 $params['status'] = 'unsubscribed';
             case 'since_last_changed':
-            case 'since_timestamp_opt':
-            case 'before_last_changed':
+            //case 'since_timestamp_opt':
+            //case 'before_last_changed':
                 $dt = new \Date($val);
                 $params[$key] = $dt->format(\DateTime::ATOM);
                 break;
             case 'count':
                 $val = min($val, 1000);
                 break;
-            /*case 'fields':
-                continue 2;
-                break;*/
             }
             $params[$key] = urlencode($val);
-            //$params[$key] = $val;
         }
         $url = http_build_query($params);
-        //echo $url;die;
-        return $this->get("lists/$list_id/members?$url");
+        $status = $this->get("lists/$list_id/members?$url");
+        $retval = array();
+        if ($status) {
+            $body = json_decode($this->getLastResponse()['body']);
+            if (isset($body->members) && is_array($body->members)) {
+                foreach ($body->members as $member) {
+                    $info = new ApiInfo;
+                    $info['provider_uid'] = $member->id;
+                    $info['email_address'] = $member->email_address;
+                    $info['status'] = self::_intStatus($member->status);
+                    $retval[] = $info;
+               }
+            }
+        }
+        return $retval;
     }
 
 
@@ -170,8 +183,8 @@ class API extends \Mailer\API
     /**
      * Unsubscribe an email address from one or more lists.
      *
-     * @param   string  $email      Email address
-     * @param   array   $lists      Array of list IDs
+     * @param   object  $Sub    Subscriber object
+     * @param   array   $lists  Array of list IDs
      * @return  boolean     True on success, False on error
      */
     public function unsubscribe($Sub, $lists=array())
@@ -376,10 +389,29 @@ class API extends \Mailer\API
             ) ),
         );
 
-        $hash = $this->subscriberHash($email);
-        //$response = $this->patch("/lists/$list_id/members/$hash", $args);
-        $response = $this->put("/lists/$list_id/members/$hash", $args);
+        $hash = $this->subscriberHash($Sub->getEmail());
+        foreach ($lists as $list_id) {
+            //$response = $this->patch("/lists/$list_id/members/$hash", $args);
+            $response = $this->put("/lists/{$list_id}/members/$hash", $args);
+        }
         return $response;
+    }
+
+
+    /**
+     * Subscribe new or update an existing contact.
+     *
+     * @param   object  $Sub    Subscriber object
+     * @param   array   $lists  Array of list IDs
+     * @return  integer     Response from API call
+     */
+    public function subscribeOrUpdate($Sub, $lists=array())
+    {
+        if ($Sub->getStatus() == Status::BLACKLIST) {
+            $this->updateMember($Sub);  // update status only
+        } else {
+            $this->subscribe($Sub);
+        }
     }
 
 
@@ -420,6 +452,104 @@ class API extends \Mailer\API
         default:
             return Status::UNSUBSCRIBED;
         }
+    }
+
+
+    /**
+     * Create a campaign.
+     *
+     * @param   object  $Mlr    Campaign object
+     * @return  string      Campaign ID
+     */
+    public function createCampaign(Campaign $Mlr)
+    {
+        global $_CONF;
+
+        $content = $Mlr->getContent();
+
+        // Convert image URLs to fuly-qualified
+        \LGLib\SmartResizer::create()
+            ->withLightbox(false)
+            ->withFullUrl(true)
+            ->convert($content);
+
+        $args = array(
+            'type' => 'regular',
+            'settings' => array(
+                'subject_line' => $Mlr->getTitle(),
+                'title' => $Mlr->getTitle(),
+                'inline_css' => true,
+                'from_name' => Config::senderName(),
+                'reply_to' => Config::senderEmail(),
+            ),
+            'recipients' => array(
+                'list_id' => Config::get('mc_def_list'),
+            ),
+            'content_type' => 'template',
+        );
+        $status = $this->post('/campaigns', $args);
+        if (!$status) {
+            COM_errorLog($this->getLastResponse()['body']);
+        }
+        $body = json_decode($this->getLastResponse()['body']);
+        if (isset($body->id)) {
+            $args = array(
+                'html' => $content,
+            );
+            $status = $this->put('/campaigns/' . $body->id . '/content', $args);
+            if (!$status) {
+                COM_errorLog($this->getLastResponse()['body']);
+                return NULL;
+            } else {
+                $this->saveCampaignInfo($Mlr, $body->id);
+                return $body->id;
+            }
+        } else {
+            COM_errorLog("Error getting last response from Mailchimp campaign creation");
+            return NULL;
+        }
+    }
+
+
+    /**
+     * Send a previously-created campaign.
+     *
+     * @param   string  $campaign_id    Mailchimp campaign ID
+     * @param   array   $emails         Email addresses override
+     * @param   string  $token          Campaign token
+     * @return  boolean     Status from sending
+     */
+    public function sendCampaign($campaign_id, $emails=array(), $token='')
+    {
+        //$status = $this->get('/campaigns/' . $body->id . '/send-checklist');
+        $status = $this->post('/campaigns/' . $body->id . '/actions/send');
+        if (!$status) {
+            COM_errorLog($this->getLastResponse()['body']);
+        }
+        return $status;
+    }
+
+
+    /**
+     * Send a test email.
+     * This uses the current user's email address.
+     *
+     * @param   string  $camp_id    Campaign ID
+     * @return  boolean     True on success, False on error
+     */
+    public function sendTest($camp_id)
+    {
+        global $_USER;
+
+        $args = array(
+            'test_emails' => array($_USER['email']),
+            'send_type' => 'html',
+        );
+        $status = $this->post('campaigns/' . $camp_id . '/actions/test', $args);
+        if (!$status) {
+            COM_errorLog($this->getLastResponse()['body']);
+        }
+        return $status;
     }
 
 }

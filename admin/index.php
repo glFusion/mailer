@@ -16,7 +16,7 @@ require_once '../../../lib-common.php';
 require_once '../../auth.inc.php';
 use Mailer\Config;
 use Mailer\Models\Status;
-use Mailer\Models\Mailer;
+use Mailer\Models\Campaign;
 use Mailer\Models\Queue;
 use Mailer\Models\Subscriber;
 use Mailer\API;
@@ -76,9 +76,9 @@ $expected = array(
     // actions
     'blacklist_x', 'whitelist_x', 'delsubscriber',
     'edit', 'clone', 'mlr_save',
-    'delete', 'sendnow',
+    'delete', 'sendnow', 'sendtest',
     'deletequeue', 'purgequeue', 'resetqueue', 'flushqueue',
-    'clear_warning', 'clearsub',
+    'clear_warning', 'clearsub', 'api_action',
     'import_form', 'import_users', 'import_users_confirm', 'import', 'export',
     // views
     'mailers', 'subscribers', 'queue',
@@ -108,10 +108,29 @@ if (isset($_REQUEST['email'])) {
 $content = '';
 
 switch ($action) {
-case 'sendnow':
-    $Mailer = new Mailer($_GET['mlr_id']);
+case 'api_action':
+    // Perform actions for the current API
+    $API = Mailer\API::getInstance();
+    $content = $API->handleActions(array(
+        'get' => $_GET,
+        'post' => $_POST,
+    ) );
+    COM_refresh(Config::get('admin_url') . '/index.php?mailers');
+    break;
+
+case 'sendtest':
+    $Mailer = new Campaign($actionval);
     if (!$Mailer->isNew()) {
-        $Mailer->queueIt();
+        $Mailer->sendTest();
+    }
+    COM_refresh(Config::get('admin_url') . '/index.php?mailers');
+    break;
+
+case 'sendnow':
+    $Mailer = new Campaign($_GET['mlr_id']);
+    if (!$Mailer->isNew()) {
+        API::getInstance()->sendCampaign($Mailer);
+        //$Mailer->queueIt();
     }
     COM_refresh(Config::get('admin_url') . '/index.php?mailers');
     break;
@@ -161,27 +180,24 @@ case 'whitelist_x':
 
 case 'clearsub':
     if (SEC_checkToken()) {
-        DB_query("TRUNCATE {$_TABLES['mailer_emails']}");
+        DB_query("TRUNCATE {$_TABLES['mailer_subscribers']}");
     }
     $view = 'subscribers';
     break;
 
 case 'clone':
-    $M = new Mailer($mlr_id);
-    if ($M->isNew) {     // can't clone a non-existant mailer
+    $M = new Campaign($mlr_id);
+    if ($M->isNew()) {     // can't clone a non-existant mailer
+        $view = 'mailers';
         break;
     }
-    $M->withID(0)
-      ->withTitle($M->mlr_title . ' -Copy');
-    $M->unixdate = time();
-    $M->mlr_date = date('Y-m-d H:i;s');
-    $M->isNew = true;
-    $status = $M->Save();
+    $status = $M->withID('')
+                ->Save();
     COM_refresh(Config::get('admin_url') . '/index.php?mailers');
     break;
 
 case 'delete':
-    (new Mailer($mlr_id))->Delete();
+    (new Campaign($mlr_id))->Delete();
     COM_refresh(Config::get('admin_url') . '/index.php?mailers');
     break;
 
@@ -249,7 +265,7 @@ case 'import_users':
 
 case 'export':
     $list = array();
-    $sql = "SELECT email FROM {$_TABLES['mailer_emails']}";
+    $sql = "SELECT email FROM {$_TABLES['mailer_subscribers']}";
     $result = DB_query( $sql );
     while ( $A = DB_fetchArray( $result ) ) {
         $list[] = strtolower($A['email']);
@@ -265,7 +281,7 @@ case 'export':
 
 case 'mlr_save':
     $mlr_id = isset($_POST['mlr_id']) ? $_POST['mlr_id'] : '';
-    $M = new Mailer($mlr_id);
+    $M = new Campaign($mlr_id);
     $status = $M->Save($_POST);
     if (!$status) {
         $content .= Menu::Admin('mailers');
@@ -319,14 +335,14 @@ default:
 $content .= Menu::Admin($view);
 switch ($view) {
 case 'edit':
-    $M = new Mailer($mlr_id);
+    $M = new Campaign($mlr_id);
     $content .= Menu::adminMailers($view);
     $content .= $M->Edit();
     break;
 
 case 'mailers':
     $content .= Menu::adminMailers($view);
-    $content .= Mailer::adminList();
+    $content .= Campaign::adminList();
     break;
 
 case 'subscribers':

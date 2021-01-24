@@ -16,6 +16,7 @@ use Mailer\Config;
 use Mailer\Models\Subscriber;
 use Mailer\Models\Status;
 use Mailer\Models\ApiInfo;
+use Mailer\Models\Campaign;
 
 
 /**
@@ -57,16 +58,45 @@ class API extends \Mailer\API
      * @param   integer $count      Maximum number of members to retrieve.
      * @return  array       Array of data
      */
-    public function listMembers($list_id, $opts=array())
+    public function listMembers($list_id=NULL, $opts=array())
     {
+        if ($list_id == NULL) {
+            $list_id = Config::get('sb_def_list');
+        }
+        $params = array(
+            'limit' => 10,
+            'offset' => 0,
+        );
+        foreach ($opts as $key=>$val) {
+            switch ($key) {
+            case 'since_last_changed':
+                $dt = new \Date($val);
+                $params['modifiedSince'] = $dt->format(\DateTime::ATOM);
+                break;
+            case 'count':
+                $params['limit'] = min($val, 1000);
+                break;
+            case 'offset':
+                $params[$key] = (int)$val;
+                break;
+            }
+        }
         $retval = array();
-        $response = $this->get("contacts/lists/$list_id/contacts");
-        if (is_array($response) && isset($response['contacts'])) {
-            foreach ($response['contacts'] as $resp) {
-                $retval[$resp['id']] = new Subscriber;
-                $retval[$resp['id']]['id'] = $resp['id'];
-                $retval[$resp['id']]['email_address'] = $resp['email'];
-                $retval[$resp['id']]['merge_fields'] = $resp['attributes'];
+        $status = $this->get("contacts/lists/{$list_id}/contacts", $params);
+        if ($status) {
+            $body = json_decode($this->getLastResponse()['body']);
+            if (isset($body->contacts) && is_array($body->contacts)) {
+                foreach ($body->contacts as $member) {
+                    $info = new ApiInfo;
+                    $info['provider_uid'] = $member->id;
+                    $info['email_address'] = $member->email;
+                    if ($member->status == Status::BLACKLIST) {
+                        $info['status'] = Status::BLACKLIST;
+                    } else {
+                        $info['status'] = Status::ACTIVE;
+                    }
+                    $retval[] = $info;
+                }
             }
         }
         return $retval;
@@ -83,7 +113,7 @@ class API extends \Mailer\API
      */
     public function lists($offset=0, $count=25)
     {
-        $retvla = array();
+        $retval = array();
         $params = array(
             'offset' => $offset,
             'limit' => $count,
@@ -129,23 +159,23 @@ class API extends \Mailer\API
     /**
      * Unsubscribe an email address from one or more lists.
      *
-     * @param   string  $email      Email address
+     * @param   object  $Sub    Subscriber object
      * @param   array   $lists      Array of list IDs
      * @return  boolean     True on success, False on error
      */
-    public function unsubscribe($email='', $lists=array())
+    public function unsubscribe($Sub, $lists=array())
     {
         $status = false;
-        if (empty($lists) && !empty($Config::get('sb_def_list'))) {
+        if (empty($lists) && !empty(Config::get('sb_def_list'))) {
             $lists = array(Config::get('sb_def_list'));
         }
         $args = array(
-            'emails' => array($email),
+            'emails' => array($Sub->getEmail()),
         );
         foreach ($lists as $list) {
             $this->put("/contacts/lists/{$list}/contacts/remove", $args);
         }
-        Subscriber::getByEmail($email)->updateStatus(Status::UNSUBSCRIBED);
+        $Sub->updateStatus(Status::UNSUBSCRIBED);
         return true;
     }
 
@@ -174,7 +204,7 @@ class API extends \Mailer\API
         $args = array(
             'email' => $Sub->getEmail(),
             'includeListIds' => $lists,
-            'redirectionUrl' => $_CONF['site_url'] . '/index.php',
+            'redirectionUrl' => $_CONF['site_url'] . '/index.php?plugin=mailer&msg=2',
             'templateId' => Config::get('sb_dbo_tpl'),
             'updateEnabled' => true,
             'attributes' => $Sub->getAttributes(),
@@ -186,6 +216,9 @@ class API extends \Mailer\API
             $path = '/contacts/doubleOptinConfirmation';
         }
         $status = $this->post($path, $args);
+        if (!$status) {
+            COM_errorLog("Sendinblue error: " . $this->getLastResponse()['body']);
+        }
         return $status ? Status::SUB_SUCCESS : Status::SUB_ERROR;
     }
 
@@ -207,6 +240,20 @@ class API extends \Mailer\API
         $email = urlencode($Sub->getEmail());
         $response = $this->put("contacts/$email", $params);
         return $response;
+    }
+
+
+    /**
+     * Subscribe new or update existing contact.
+     * Sendinblue uses the same function for both.
+     *
+     * @param   object  $Sub    Subscriber object
+     * @param   array   $lists  Array of list IDs
+     * @return  integer     Response from API call
+     */
+    public function subscribeOrUpdate($Sub, $lists=array())
+    {
+        return $this->subscribe($Sub);
     }
 
 
@@ -239,6 +286,83 @@ class API extends \Mailer\API
             }
         }
         return $retval;
+    }
+
+
+    /**
+     * Create the campaign.
+     *
+     * @param   object  $Mlr    Mailer object
+     * @param   string  $email  Optional email address
+     * @param   string  $token  Optional token
+     * @return  integer     Status code, 0 = success
+     */
+    public function createCampaign(Campaign $Mlr)
+    {
+        $content = $Mlr->getContent() . '<div style="clear:both;"></div>';
+
+        // Convert image URLs to fully-qualified.
+        \LGLib\SmartResizer::create()
+            ->withLightbox(false)
+            ->withFullUrl(true)
+            ->convert($content);
+
+        $args = array(
+            'sender' => array(
+                'name' => Config::senderName(),
+                'email' => Config::senderEmail(),
+            ),
+            'name'  => $Mlr->getTitle(),
+            'htmlContent' => $content,
+            'subject' => $Mlr->getTitle(),
+            'recipients' => array('listIds' => array(Config::get('sb_def_list'))),
+            'inlineImageActivation' => true,
+        );
+        // Create the campaign
+        $status = $this->post('/emailCampaigns', $args);
+        if ($status) {
+            $body = json_decode($this->getLastResponse()['body']);
+            if (isset($body->id)) {
+                $this->saveCampaignInfo($Mlr, $body->id);
+                return $body->id;
+            }
+        }
+        return NULL;
+    }
+
+
+
+    /**
+     * Send the campaign.
+     *
+     * @param   string  $campaign_id    Provider's campaign ID
+     * @param   array   $emails         Email addresses (optional)
+     * @param   string  $token          Token (not used)
+     */
+    public function sendCampaign($campaign_id, $emails=array(), $token='')
+    {
+        $status = $this->post('/emailCampaigns/' . $campaign_id . '/sendNow');
+        if (!$status) {
+            COM_errorLog($this->getLastResponse()['body']);
+        }
+        return $status;
+    }
+
+
+    /**
+     * Send a test email.
+     * This requires a preconfigured test list at Sendinblue.
+     *
+     * @param   string  $camp_id    Campaign ID
+     * @return  boolean     True on success, False on error
+     */
+    public function sendTest($camp_id)
+    {
+        $status = $this->post('emailCampaigns/' . $camp_id . '/sendTest');
+        if (!$status) {
+            COM_errorLog($this->getLastResponse()['body']);
+        }
+        return $status;
     }
 
 }

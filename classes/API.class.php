@@ -5,7 +5,7 @@
  *
  * @author      Lee Garner <lee@leegarner.com>
  * @author      Drew McLellan <drew.mclellan@gmail.com>
- * @version     0.0.4
+ * @copyright   Copyright (c) 2010-2021 Lee Garner <lee@leegarner.com>
  * @package     mailer
  * @version     v0.1.0
  * @license     http://opensource.org/licenses/MIT
@@ -15,6 +15,7 @@
  */
 namespace Mailer;
 use Mailer\Models\Subscriber;
+use Mailer\Models\Campaign;
 
 
 /**
@@ -43,29 +44,21 @@ class API
      * @const integer */
     const TIMEOUT = 10;
 
-    /**
-     * SSL Verification.
-     * Read before disabling:
-     * http://snippets.webaware.com.au/howto/stop-turning-off-curlopt_ssl_verifypeer-and-fix-your-php-config/
-     * @var boolean
-     */
-    protected $verify_ssl = true;
-
     /** Indicator of the request status.
      * @var boolean */
     private $request_successful = false;
 
     /** Last error encountered.
      * @var string */
-    private $last_error         = '';
+    private $last_error = '';
 
     /** Last response received.
      * @var array */
-    private $last_response      = array();
+    private $last_response = array();
 
     /** Details of last request.
      * @var array */
-    private $last_request       = array();
+    private $last_request = array();
 
     /** HTTP Headers to send for authentication, etc.
      * @var array */
@@ -74,6 +67,10 @@ class API
     /** Attributes or Merge Fields.
      * @var array */
     protected $attributes = array();
+
+    /** Provider name.
+     * @var string */
+    protected $name = '';
 
 
     /**
@@ -86,9 +83,6 @@ class API
         static $api = NULL;
         if ($api === NULL) {
             $api = self::create();
-            /*$cls = '\\Mailer\\API\\' . Config::get('provider') . '\\API';
-            $api = new $cls;
-            $api->withList();   // set the default list*/
         }
         return $api;
     }
@@ -108,12 +102,37 @@ class API
         try {
             $cls = '\\Mailer\\API\\' . $name . '\\API';
             $api = new $cls;
+            $api->withName($name);
         } catch (\Exception $e) {
             COM_errorLog("ERROR: " . print_r($e,true));
             $api = new self;
         }
         $api->withList();   // set the default list
         return $api;
+    }
+
+
+    /**
+     * Set the name of the API provider.
+     *
+     * @param   string  $name   API provider name
+     * @return  object  $this
+     */
+    protected function withName($name)
+    {
+        $this->name = $name;
+        return $this;
+    }
+
+
+    /**
+     * Get the name of the provider.
+     *
+     * @return  string      Provider name
+     */
+    public function getName()
+    {
+        return $this->name;
     }
 
 
@@ -131,7 +150,7 @@ class API
         }
         $this->list_id = $list_id;
         return $this;
-    } 
+    }
 
 
     /**
@@ -166,20 +185,95 @@ class API
     }
 
 
+    /**
+     * Clear the Errors array. Used between operations.
+     *
+     * @retur   object  $this
+     */
     protected function resetErrors()
     {
         $this->errors = array();
+        return $this;
     }
 
+
+    /**
+     * Add an error message to the Errors array.
+     *
+     * @param   string  $msg    Error message
+     * @return  object  $this
+     */
     protected function addError($msg)
     {
         $this->errors[] = $msg;
         return $this;
     }
 
+
+    /**
+     * Get the contents of the Errors array.
+     *
+     * @return  array       Error messages
+     */
     public function getErrors()
     {
         return $this->errors;
+    }
+
+
+    /**
+     * Queue email to be sent.
+     * For a public provider, this sends the message.
+     *
+     * @param   object  $Mlr    Mailer object
+     * @param   array   $emails Email addresses (not used)
+     * @return  integer     Status from sendEmail()
+     */
+    public function queueEmail(Campaign $Mlr, $emails=NULL)
+    {
+        return $this->createAndSend($Mlr);
+    }
+
+
+    /**
+     * Create and immediately send a campaign.
+     *
+     * @param   object  $Mlr    Campaign object
+     * @return  boolean     Status from sending
+     */
+    public function createAndSend($Mlr)
+    {
+        $status = false;
+        $id = $this->createCampaign($Mlr);
+        if ($id) {
+            $status = $this->sendCampaign($id);
+        }
+        return $status;
+    }
+
+
+
+    /**
+     * Send a test email. Not all APIs support this.
+     *
+     * @return  boolean     Status from sending email
+     */
+    public function sendTest($campaign_id)
+    {
+        return true;
+    }
+
+
+    /**
+     * Delete an email campaign.
+     * Default to no-op as this must be provided by each API.
+     *
+     * @param   object  $Mlr    Campaign object
+     * @return  boolean     Status from deletion request
+     */
+    public function deleteCampaign(Campaign $Mlr)
+    {
+        return true;
     }
 
 
@@ -205,7 +299,7 @@ class API
      */
     public function getFeatures()
     {
-        return array('subscribers');
+        return array('mailers', 'subscribers');
     }
 
 
@@ -220,6 +314,39 @@ class API
     public static function sendDoubleOptin(Subscriber $Sub)
     {
         return true;
+    }
+
+
+    /**
+     * Check if the API supports synchronizing the local table.
+     * Actual providers do support this, the Internal provider does not.
+     *
+     * @return  boolean     True if synchronization is supported
+     */
+    public function supportsSync()
+    {
+        return true;
+    }
+
+
+    /**
+     * Record the mailer ID and provider's campaign ID after creation.
+     *
+     * @param   object  $Mlr    Mailer record ID
+     * @return  object  $this
+     */
+    protected function saveCampaignInfo($Mlr, $provider_id, $tested=0)
+    {
+        global $_TABLES;
+
+        $provider_id = DB_escapeString($provider_id);
+        $sql = "INSERT INTO {$_TABLES['mailer_provider_campaigns']} SET
+            mlr_id = '{$Mlr->getID()}',
+            provider = '{$this->name}',
+            provider_mlr_id = '$provider_id'
+            ON DUPLICATE KEY UPDATE
+            provider_mlr_id = '$provider_id'";
+        DB_query($sql);
     }
 
 
@@ -348,7 +475,7 @@ class API
         curl_setopt($ch, CURLOPT_VERBOSE, true);
         curl_setopt($ch, CURLOPT_HEADER, true);
         curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, $this->verify_ssl);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
         curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
         curl_setopt($ch, CURLOPT_ENCODING, '');
         curl_setopt($ch, CURLINFO_HEADER_OUT, true);
@@ -637,6 +764,25 @@ class API
     public function getLastError()
     {
         return $this->last_error ?: false;
+    }
+
+
+    /**
+     * Add links to the menu help to perform actions for the gateway.
+     *
+     * @return  string      HTML for links, buttons, etc.
+     */
+    public function getMenuHelp()
+    {
+        return '';
+    }
+
+
+    /**
+     * Handle API-specific actions requested through the admin page.
+     */
+    public function handleActions($opts)
+    {
     }
 
 }
