@@ -41,17 +41,17 @@ function MLR_do_upgrade($dvlp=false)
 
         if (!_MLRtableHasColumn('mailer_emails', 'domain')) {
             // Clean up bad domains and set the domain in the emails table
-            $sql = "SELECT id, email FROM {$_TABLES['mailer_emails']}";
+            $sql = "SELECT id, email FROM {$_TABLES['mailer_subscribers']}";
             $res = DB_query($sql, 1);
             while ($A = DB_fetchArray($res, false)) {
                 $pieces = split('@', $A['email']);
                 $id = (int)$A['id'];
                 if (count($pieces) != 2 || !Mailer\API::isValidDomain($pieces[1])) {
                     COM_errorLog("Invalid domain, deleted {$A['email']}");
-                    DB_delete($_TABLES['mailer_emails'], 'id', $id);
+                    DB_delete($_TABLES['mailer_subscribers'], 'id', $id);
                 } else {
                     $domain = DB_escapeString($pieces[1]);
-                    $_MLR_UPGRADE[$current_ver][] = "UPDATE {$_TABLES['mailer_emails']}
+                    $_MLR_UPGRADE[$current_ver][] = "UPDATE {$_TABLES['mailer_subscribers']}
                         SET domain = '$domain'
                         WHERE id = '$id'";
                 }
