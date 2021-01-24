@@ -68,34 +68,9 @@
     </div>
 
     <div class="uk-form-row">
-        <label class="uk-form-label" for="mlr_uid">{$LANG_MLR['writtenby']}:</label>
-        <div class="uk-form-controls">
-            <span id="mlr_uid">{name}</span>
-            <input type="hidden" name="mlr_uid" value="{mlr_uid}" />
-        </div>
-    </div>
-
-    <div class="uk-form-row">
         <label class="uk-form-label" for="mlr_date">{$LANG_MLR['date']}:</label>
         <div class="uk-form-controls">
             <span id="mlr_date">{mlr_formateddate}</span>
-        </div>
-    </div>
-
-    <div class="uk-form-row">
-        <label class="uk-form-label" for="mlr_inblock">{$LANG_MLR['inblock_msg']}</label>
-        <div class="uk-form-controls">
-            <input id="mlr_inblock" type="checkbox" name="mlr_inblock"
-                value="1" {inblock_checked} />&nbsp;{$LANG_MLR['inblock_info']}
-        </div>
-    </div>
-
-    <div class="uk-form-row">
-        <label class="uk-form-label" for="mlr_help">{$LANG_ADMIN['help_url']}</label>
-        <div class="uk-form-controls">
-            <input id="mlr_help" type="text" name="mlr_help"
-                value="{mlr_help}" size="50" />&nbsp;{$LANG21[51]}<br />
-            {$LANG21[52]}
         </div>
     </div>
 
