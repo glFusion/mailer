@@ -52,12 +52,7 @@ class Notifier
         $T->parse('output', 'message');
         $body = $T->finish($T->get_var('output'));
         $altbody = strip_tags($body);
-
-        // Create the "from" address using the site or noreply mail address
-        $fromEmail = isset($_CONF[Config::get('email_from')]) ?
-            $_CONF[Config::get('email_from')] : $_CONF['noreply_mail'];
-        $from = array($fromEmail, $_CONF['site_name']);
-
+        $from = array(Config::senderEmail(), Config::senderName());
         COM_mail($email, $title, $body, $from, true, 0, '', $altbody);
     }
 

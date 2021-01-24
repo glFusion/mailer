@@ -133,4 +133,44 @@ final class Config
         return self::getInstance()->_get($key);
     }
 
+
+    /**
+     * Get the email "from" address. Use the noreply address if none supplied.
+     *
+     * @return  string      Sender email address
+     */
+    public static function senderEmail()
+    {
+        global $_CONF;
+
+        static $from_email = NULL;
+        if ($from_email === NULL) {
+            $from_email = self::get('sender_email');
+            if ($from_email == '') {
+                $from_email = $_CONF['noreply_email'];
+            }
+        }
+        return $from_email;
+    }
+
+
+    /**
+     * Get the email "from" address. Use the noreply address if none supplied.
+     *
+     * @return  string      Sender email address
+     */
+    public static function senderName()
+    {
+        global $_CONF;
+
+        static $from_name= NULL;
+        if ($from_name === NULL) {
+            $from_name = self::get('sender_name');
+            if ($from_name == '') {
+                $from_name = $_CONF['site_name'];
+            }
+        }
+        return $from_name;
+    }
+
 }
