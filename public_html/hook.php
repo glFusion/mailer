@@ -21,6 +21,10 @@ Mailer\Logger::Debug("Got Mailer php:://input: " . var_export(@file_get_contents
 
 if (isset($_GET['p'])) {
     $WH = Mailer\Webhook::getInstance($_GET['p']);
-    $WH->Dispatch();
+    if ($WH->getProvider() == $_GET['p']) {
+        $WH->Dispatch();
+    } else {
+        COM_errorLog("Unable to instantiate mailer webhook for {$_GET['p']}");
+    }
 }
 

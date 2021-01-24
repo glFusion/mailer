@@ -2,12 +2,12 @@
 /**
  * Base class for mailer webhooks
  *
- * @author      
- * @version     2.2
+ * @author      Lee Garner <lee@leegarner.com>
+ * @copyright   Copyright (c) 2010-2021 Lee Garner <lee@leegarner.com>
  * @package     mailer
  * @version     v0.1.0
- * @license     http://opensource.org/licenses/MIT
- *              MIT License
+ * @license     http://opensource.org/licenses/gpl-2.0.php
+ *              GNU Public License v2 or later
  * @filesource
  */
 namespace Mailer;
@@ -19,7 +19,12 @@ namespace Mailer;
  */
 class Webhook
 {
+    /** Provider name.
+     * @var string */
     protected $provider = '';
+
+    /** Data payload.
+     * @var array */
     protected $payload = array();
 
 
@@ -31,15 +36,41 @@ class Webhook
      */
     public static function getInstance()
     {
-        $cls = '\\Mailer\\API\\' . Config::get('provider') . '\\Webhook';
-        $wh = new $cls;
+        try {
+            $this->provider = Config::get('provider');
+            $cls = '\\Mailer\\API\\' . $this->provider . '\\Webhook';
+            $wh = new $cls;
+        } catch (\Exception $e) {
+            COM_errorLog("ERROR: " . print_r($e,true));
+            $wh = new self;
+            $this->provider = '';
+        }
         return $wh;
     }
 
 
+    /**
+     * Get the provider name.
+     * Can be used to validate that the webhook was loaded.
+     *
+     * @return  string      Provider name
+     */
+    public function getProvider()
+    {
+        return $this->provider;
+    }
+
+
+    /**
+     * Check that this webhook is unique to avoid processing duplicates.
+     * Also logs the transaction before returning true.
+     *
+     * @param   object  $Txn    Transaction object
+     * @return  boolean     True if unique, False if duplicate
+     */
     public function isUnique($Txn)
     {
-        global $_TABLES;
+        global $_TABLES, $_CONF;
 
         if (empty($Txn['txn_id'])) {
             return false;
@@ -47,7 +78,12 @@ class Webhook
 
         $type = DB_escapeString($Txn['type']);
         $txn_id = DB_escapeString($Txn['txn_id']);
-        $txn_date = DB_escapeString($Txn['txn_date']);
+        if (is_numeric($Txn['txn_date'])) {
+            $d = new \Date($Txn['txn_date'], $_CONF['timezone']);
+            $txn_date = $d->toMySQL(true);
+        } else {
+            $txn_date = DB_escapeString($Txn['txn_date']);
+        }
         $count = DB_count(
             $_TABLES['mailer_txn'],
             array('provider', 'type', 'txn_id', 'txn_date'),
