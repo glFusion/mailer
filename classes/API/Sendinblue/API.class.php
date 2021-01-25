@@ -173,7 +173,7 @@ class API extends \Mailer\API
             'emails' => array($Sub->getEmail()),
         );
         foreach ($lists as $list) {
-            $this->put("/contacts/lists/{$list}/contacts/remove", $args);
+            $this->post("/contacts/lists/{$list}/contacts/remove", $args);
         }
         $Sub->updateStatus(Status::UNSUBSCRIBED);
         return true;
@@ -203,7 +203,6 @@ class API extends \Mailer\API
 
         $args = array(
             'email' => $Sub->getEmail(),
-            'includeListIds' => $lists,
             'redirectionUrl' => $_CONF['site_url'] . '/index.php?plugin=mailer&msg=2',
             'templateId' => Config::get('sb_dbo_tpl'),
             'updateEnabled' => true,
@@ -211,13 +210,26 @@ class API extends \Mailer\API
         );
         if ($Sub->getStatus() == Status::ACTIVE) {
             // Not requiring double-opt-in
-            $path = '/contacts';
+            $path = 'contacts';
+            $args['listIds'] = $lists;
         } else {
-            $path = '/contacts/doubleOptinConfirmation';
+            $path = 'contacts/doubleOptinConfirmation';
+            $args['includeListIds'] = $lists;
         }
         $status = $this->post($path, $args);
         if (!$status) {
             COM_errorLog("Sendinblue error: " . $this->getLastResponse()['body']);
+        } else {
+            // Now add to the list, existing contacts may not be added
+            $args = array(
+                'emails' => array($Sub->getEmail()),
+            );
+            foreach ($lists as $list_id) {
+                $status = $this->post('contacts/lists/' . $list_id . '/contacts/add', $args);
+                if (!$status) {
+                    break;
+                }
+            }
         }
         return $status ? Status::SUB_SUCCESS : Status::SUB_ERROR;
     }
@@ -292,10 +304,10 @@ class API extends \Mailer\API
     /**
      * Create the campaign.
      *
-     * @param   object  $Mlr    Mailer object
+     * @param   object  $Mlr    Campaign object
      * @param   string  $email  Optional email address
      * @param   string  $token  Optional token
-     * @return  integer     Status code, 0 = success
+     * @return  string      Campaign ID
      */
     public function createCampaign(Campaign $Mlr)
     {
@@ -315,21 +327,24 @@ class API extends \Mailer\API
             'name'  => $Mlr->getTitle(),
             'htmlContent' => $content,
             'subject' => $Mlr->getTitle(),
-            'recipients' => array('listIds' => array(Config::get('sb_def_list'))),
+            'recipients' => array('listIds' => array((int)Config::get('sb_def_list'))),
             'inlineImageActivation' => true,
         );
+        var_dump($args);
         // Create the campaign
-        $status = $this->post('/emailCampaigns', $args);
+        $status = $this->post('emailCampaigns', $args);
         if ($status) {
             $body = json_decode($this->getLastResponse()['body']);
             if (isset($body->id)) {
                 $this->saveCampaignInfo($Mlr, $body->id);
                 return $body->id;
             }
+        } else {
+            var_dump($this->getLastResponse());die;
         }
+
         return NULL;
     }
-
 
 
     /**
@@ -341,7 +356,7 @@ class API extends \Mailer\API
      */
     public function sendCampaign($campaign_id, $emails=array(), $token='')
     {
-        $status = $this->post('/emailCampaigns/' . $campaign_id . '/sendNow');
+        $status = $this->post('emailCampaigns/' . $campaign_id . '/sendNow');
         if (!$status) {
             COM_errorLog($this->getLastResponse()['body']);
         }
@@ -363,6 +378,23 @@ class API extends \Mailer\API
             COM_errorLog($this->getLastResponse()['body']);
         }
         return $status;
+    }
+
+
+    /**
+     * Delete a campaign.
+     *
+     * @param   object  $Mlr    Campaign object
+     * @return  boolean     Result of deletion request
+     */
+    public function deleteCampaign(Campaign $Mlr)
+    {
+        $camp_id = $Mlr->getProviderCampaignId();
+        if (!empty($camp_id)) {
+            return $this->delete('emailCampaigns/' . $camp_id);
+        } else {
+            return false;
+        }
     }
 
 }
