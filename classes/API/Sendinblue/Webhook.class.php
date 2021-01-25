@@ -83,14 +83,9 @@ class Webhook extends \Mailer\Webhook
             }
             break;
 
-        /*case 'list_addition':
-            $email = LGLIB_getVar($this->payload, 'email');
-            $Sub = Subscriber::getByEmail($email);
-            if ($Sub->getID() > 0) {
-                $Sub->delete();
-                $retval = true;
-            }
-            break;*/
+        case 'list_addition':
+            // No-op, handled by Subscriber::subscribe()
+            break;
 
         default:
             Logger::Debug("Unhandled Sendinblue event: " . var_export($this->payload,true));
