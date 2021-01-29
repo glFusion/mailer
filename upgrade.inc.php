@@ -3,16 +3,13 @@
  * Upgrade routines for the Mailer plugin.
  *
  * @author      Lee Garner <lee@leegarner.com>
- * @copyright   Copyright (c) 2010 Lee Garner <lee@leegarner.com>
+ * @copyright   Copyright (c) 2010-2021 Lee Garner <lee@leegarner.com>
  * @package     forms
- * @version     v0.0.2
- * @license     http://opensource.org/licenses/gpl-2.0.php 
+ * @version     v0.1.0
+ * @license     http://opensource.org/licenses/gpl-2.0.php
  *              GNU Public License v2 or later
  * @filesource
  */
-
-// Required to get the config values
-global $_CONF, $_MLR_CONF;
 
 
 /**
@@ -30,32 +27,15 @@ function MLR_do_upgrade($dvlp=false)
     $code_ver = plugin_chkVersion_mailer();
     $current_ver = $installed_ver;
 
-    if ($current_ver < '0.0.3') {
-        $current_ver = '0.0.3';
-        if (!MLR_do_upgrade_sql($current_ver, $dvlp)) return false;
-        if (!MLR_do_set_version($current_ver)) return false;
-    }
-
-    if ($current_ver < '0.0.4') {
-        $current_ver = '0.0.4';
-
-        if (!_MLRtableHasColumn('mailer_emails', 'domain')) {
-            // Clean up bad domains and set the domain in the emails table
-            $sql = "SELECT id, email FROM {$_TABLES['mailer_subscribers']}";
-            $res = DB_query($sql, 1);
-            while ($A = DB_fetchArray($res, false)) {
-                $pieces = split('@', $A['email']);
-                $id = (int)$A['id'];
-                if (count($pieces) != 2 || !Mailer\API::isValidDomain($pieces[1])) {
-                    COM_errorLog("Invalid domain, deleted {$A['email']}");
-                    DB_delete($_TABLES['mailer_subscribers'], 'id', $id);
-                } else {
-                    $domain = DB_escapeString($pieces[1]);
-                    $_MLR_UPGRADE[$current_ver][] = "UPDATE {$_TABLES['mailer_subscribers']}
-                        SET domain = '$domain'
-                        WHERE id = '$id'";
-                }
-            }
+    $versions = array();
+    foreach ($versions as $version) {
+        $current_ver = $version;
+        $function = 'MLR_do_upgrade_' . $current_ver;
+        if (
+            function_exists($function) &&
+            !$function()
+        ) {
+            return false;
         }
         if (!MLR_do_upgrade_sql($current_ver, $dvlp)) return false;
         if (!MLR_do_set_version($current_ver)) return false;
@@ -66,7 +46,6 @@ function MLR_do_upgrade($dvlp=false)
     global $mailerConfigData;
     require_once __DIR__ . '/install_defaults.php';
     _update_config(Mailer\Config::PI_NAME, $mailerConfigData);
-
     return true;
 }
 
@@ -131,7 +110,7 @@ function MLR_do_set_version($ver)
 
 
 /**
- * Check if a column exists in a table
+ * Check if a column exists in a table.
  *
  * @param   string  $table      Table Key, defined in shop.php
  * @param   string  $col_name   Column name to check
@@ -145,6 +124,4 @@ function _MLRtableHasColumn($table, $col_name)
     $res = DB_query("SHOW COLUMNS FROM {$_TABLES[$table]} LIKE '$col_name'");
     return DB_numRows($res) == 0 ? false : true;
 }
-
-
 
