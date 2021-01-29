@@ -5,8 +5,7 @@
  * @author      Lee Garner <lee@leegarner.com>
  * @copyright   Copyright (c) 2020-2021 Lee Garner <lee@leegarner.com>
  * @package     mailer
- * @version     v0.0.4
- * @since       v0.0.4
+ * @version     v0.1.0
  * @license     http://opensource.org/licenses/gpl-2.0.php
  *              GNU Public License v2 or later
  * @filesource
@@ -206,6 +205,9 @@ class API extends \Mailer\API
                 'LASTNAME' => Config::get('mc_mrg_lname')
             ) ),
         );
+        if (empty($args['merge_fields'])) {
+            unset($args['merge_fields']);
+        }
         foreach ($lists as $list_id) {
             //$status = $this->delete("/lists/$list_id/members/$hash");
             $status = $this->patch("/lists/{$list_id}/members/{$hash}", $args);
@@ -388,6 +390,9 @@ class API extends \Mailer\API
                 'LASTNAME' => Config::get('mc_mrg_lname'),
             ) ),
         );
+        if (empty($args['merge_fields'])) {
+            unset($args['merge_fields']);
+        }
 
         $hash = $this->subscriberHash($Sub->getEmail());
         foreach ($lists as $list_id) {
