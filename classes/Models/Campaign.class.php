@@ -5,7 +5,7 @@
  * @author      Lee Garner <lee@leegarner.com>
  * @copyright   Copyright (c) 2010-2021 Lee Garner <lee@leegarner.com>
  * @package     mailer
- * @version     v0.0.4
+ * @version     v0.1.0
  * @license     http://opensource.org/licenses/gpl-2.0.php
  *              GNU Public License v2 or later
  * @filesource
@@ -24,10 +24,6 @@ class Campaign
     /** Indicate whether the current user is an administrator/
      * @var boolean */
     private $isAdmin = 0;
-
-    /** Flag to indicate whether the mailer item is new or an edit/
-     * @var boolean */
-    public $isNew = 1;
 
     /** Array of error messages.
      * @var mixed */
@@ -49,29 +45,13 @@ class Campaign
      * @var integer */
     private $owner_id = 0;
 
-    /** Group ID for access control.
-     * @var integer */
-    private $group_id = 13;
-
-    /** Owner permission.
-     * @var integer */
-    private $perm_owner = 3;
-
-    /** Group permission.
-     * @var integer */
-    private $perm_group = 3;
-
-    /** Members permission.
-     * @var integer */
-    private $perm_members = 2;
-
-    /** Anonymous permission.
-     * @var integer */
-    private $perm_anon = 2;
-
     /** Days to keep mailer online.
      * @var integer */
     private $exp_days = 90;
+
+    /** Last updated timestamp.
+     * @var integer */
+    private $mlr_date = 0;
 
     /** Last sent timestamp.
      * @var integer */
@@ -105,22 +85,12 @@ class Campaign
     {
         global $_USER, $_CONF;
 
-        $this->isNew = true;
-
         $mlr_id = COM_sanitizeId($mlr_id, false);
         if ($mlr_id == '') {
-            $this->mlr_title = '';
-            $this->mlr_content = '';
             $this->mlr_date = $_CONF['_now']->toUnix();
             $this->exp_days = Config::get('exp_days');
             $this->owner_id = $_USER['uid'];
-            $this->group_id = SEC_getFeatureGroup('mailer.edit');
-            $A = array();
-            SEC_setDefaultPermissions($A, Config::get('default_permissions'));
-            $this->perm_owner = $A['perm_owner'];
-            $this->perm_group = $A['perm_group'];
-            $this->perm_members = $A['perm_members'];
-            $this->perm_anon = $A['perm_anon'];
+            $this->grp_access = Config::get('grp_access');
         } else {
             $this->mlr_id = $mlr_id;
             if (!$this->Read()) {
@@ -206,24 +176,114 @@ class Campaign
     /**
      * Set the mailer date.
      *
-     * @param   string  $date   Date string
+     * @param   integer $ts     Timestamp
      * @return  object  $this
      */
-    public function withDate($date)
+    public function withDate($ts)
     {
-        $this->mlr_date = (int)$date;
+        $this->mlr_date = (int)$ts;
         return $this;
     }
 
 
     /**
-     * Get the mailer date.
+     * Get the last-updated timestamp, optionally formatted.
      *
-     * @return  string      Mailer date
+     * @param   string|null $fmt    Format string
+     * @return  string|integer      Formatted date string or integer timestamp
      */
-    public function getDate()
+    public function getDate($fmt = NULL)
     {
-        return $this->date;
+        global $_CONF;
+
+        if ($fmt === NULL) {
+            return (int)$this->mlr_date;
+        } else {
+            $dt = new \Date($this->mlr_date, $_CONF['timezone']);
+            return $dt->format($fmt, true);
+        }
+    }
+
+
+    /**
+     * Set the mailer last-sent timestamp.
+     *
+     * @param   integer $ts     Timestamp
+     * @return  object  $this
+     */
+    public function withSentTime($ts)
+    {
+        $this->mlr_sent_time = (int)$ts;
+        return $this;
+    }
+
+
+    /**
+     * Get the last-sent timestamp, optionally formatted.
+     *
+     * @param   string|null $fmt    Format string
+     * @return  string|integer      Formatted date string or integer timestamp
+     */
+    public function getSentTime($fmt = NULL)
+    {
+        global $_CONF;
+
+        if ($fmt === NULL) {
+            return (int)$this->mlr_sent_time;
+        } else {
+            $dt = new \Date($this->mlr_sent_time, $_CONF['timezone']);
+            return $dt->format($fmt, true);
+        }
+    }
+
+
+    /**
+     * Set the owner user ID.
+     *
+     * @param   integer $uid    User ID
+     * @return  object  $this
+     */
+    public function withUid($uid)
+    {
+        $this->uid = (int)$uid;
+        return $this;
+    }
+
+
+    /**
+     * Set the group allowed to read the email.
+     *
+     * @param   integer $grp_id     Authorized group ID
+     * @return  object  $this
+     */
+    public function withGroup($grp_id)
+    {
+        $this->grp_access = (int)$grp_id;
+        return $this;
+    }
+
+
+    /**
+     * Set the number of days before purging the campaign.
+     *
+     * @param   integer $days   Days to keep the campaign
+     * @return  object  $this
+     */
+    public function withExpDays($days)
+    {
+        $this->exp_days = (int)$days;
+        return $this;
+    }
+
+
+    /**
+     * Get the provider's campaign ID.
+     *
+     * @return  string      Campaign ID for the provider.
+     */
+    public function getProviderCampaignId()
+    {
+        return $this->provider_mlr_id;
     }
 
 
@@ -239,76 +299,27 @@ class Campaign
 
 
     /**
-     * Set a property's value.
-     *
-     * @param   string  $var    Name of property to set.
-     * @param   mixed   $value  New value for property.
-     */
-    public function X__set($var, $value='')
-    {
-        switch ($var) {
-
-        case 'mlr_hits':
-        case 'mlr_sent_time':
-        case 'perm_owner':
-        case 'perm_group':
-        case 'perm_members':
-        case 'perm_anon':
-        case 'owner_id':
-        case 'group_id':
-            // Integer values
-            $this->$var = (int)$value;
-            break;
-
-        case 'exp_days':
-            $this->properties[$var] = (int)$value;
-            if ($this->$var < 0) $this->$var = 0;
-            break;
-
-        default:
-            // Undefined values (do nothing)
-            break;
-        }
-    }
-
-
-    /**
-     * Get the value of a property.
-     *
-     * @param   string  $var    Property name
-     * @return  mixed           Property value, NULL if undefined
-     */
-    public function __get($var)
-    {
-        echo $var;die;
-        if (array_key_exists($var, $this->properties)) {
-            return $this->properties[$var];
-        } else {
-            return NULL;
-        }
-    }
-
-
-    /**
      * Sets all variables to the matching values from $rows.
      *
-     * @param   array   $row        Array of values, from DB or $_POST
-     * @param   boolean $fromDB     True if read from DB, false if from $_POST
+     * @param   array   $A      Array of values, from DB or $_POST
+     * @param   boolean $fromDB True if read from DB, false if from $_POST
+     * @return  object  $this
      */
-    public function setVars($row, $fromDB=false)
+    public function setVars($A, $fromDB=false)
     {
-        if (!is_array($row)) return;
+        if (!is_array($A)) return;
 
-        foreach ($row as $name=>$value) {
-            $this->$name = $value;
+        $this->withID($A['mlr_id'])
+             ->withTitle($A['mlr_title'])
+             ->withContent($A['mlr_content'])
+             ->withSentTime($A['mlr_sent_time'])
+             ->withUid($A['owner_id'])
+             ->withGroup($A['grp_access'])
+             ->withExpDays($A['exp_days']);
+        if (isset($A['mlr_date'])) {
+            $this->withDate($A['mlr_date']);
         }
-
-        if (!$fromDB) {
-            list($this->perm_owner, $this->perm_group,
-                $this->perm_members, $this->perm_anon) =
-                SEC_getPermissionValues($row['perm_owner'], $row['perm_group'],
-                    $row['perm_members'], $row['perm_anon']);
-        }
+        return $this;
     }
 
 
@@ -338,7 +349,7 @@ class Campaign
             LEFT JOIN {$_TABLES['mailer_provider_campaigns']} prv
                 ON prv.mlr_id = mlr.mlr_id AND prv.provider = '" . Config::get('provider') .
             "' WHERE mlr.mlr_id ='" . DB_escapeString($mlr_id) . "'" .
-            COM_getPermSQL('AND', 0, 2);
+            SEC_buildAccessSql();
         $result = DB_query($sql);
         if (!$result || DB_numRows($result) != 1) {
             return false;
@@ -392,28 +403,22 @@ class Campaign
                 mlr_date = UNIX_TIMESTAMP(),
                 mlr_sent_time = " . (int)$this->mlr_sent_time . ",
                 owner_id='" . (int)$this->owner_id . "',
-                group_id='" . (int)$this->group_id . "',
-                perm_owner='" . (int)$this->perm_owner . "',
-                perm_group='" . (int)$this->perm_group . "',
-                perm_members='" . (int)$this->perm_members . "',
-                perm_anon='" . (int)$this->perm_anon . "',
+                grp_access='" . (int)$this->grp_access. "',
                 exp_days = '" . (int)$this->exp_days . "'";
         $sql = $sql1 . $sql2 . $sql3;
         DB_query($sql);
 
         if (!DB_error()) {
             $API = API::getInstance();
-            $status = $API->createCampaign($this);
-            if ($status) {
-                $API->saveCampaignID();
+            $camp_id = $API->createCampaign($this);
+            // Queue immediately or send a test if requested
+            if ($camp_id) {
+                if (isset($A['mlr_sendnow'])) {
+                    $API->sendCampaign($camp_id);
+                } elseif (isset($A['mlr_sendtest'])) {
+                    $API->sendTest($camp_id);
+                }
             }
-        }
-
-        // Queue immediately or send a test if requested
-        if (isset($A['mlr_sendnow'])) {
-            Queue::addMailer($this->mlr_id);
-        } elseif (isset($A['mlr_sendtest'])) {
-            $this->mailIt();
         }
         return DB_Error() ? false : true;
     }
@@ -428,18 +433,17 @@ class Campaign
     {
         global $_TABLES;
 
-        if ($this->isNew() == '' || !$this->isAdmin) {
+        if ($this->isNew() || !$this->isAdmin) {
             return false;
         }
 
-        // Delete any pending emails
-        DB_delete($_TABLES['mailer_queue'], 'mlr_id', $this->mlr_id);
+        // Delete from the list provider
+        API::getInstance()->deleteCampaign($this);
 
         // Delete from the provider cross-ref table
-        // TODO: Maybe delete from the remote provider as well?
         DB_delete($_TABLES['mailer_provider_campaigns'], 'mlr_id', $this->mlr_id);
 
-        // Delete the mailer
+        // Delete the campaign from the local DB.
         DB_delete($_TABLES['mailer_campaigns'], 'mlr_id', $this->mlr_id);
         $this->mlr_id = '';
 
@@ -454,10 +458,6 @@ class Campaign
     {
         global $_CONF, $_TABLES;
 
-        /*$select = "DELETE FROM {$_TABLES['mailer_campaigns']}
-            WHERE exp_days > 0
-            AND '" . $_CONF['_now']->toMySQL(true) .
-            "' > DATE_ADD(mlr_date, INTERVAL exp_days DAY)";*/
         $sql = "DELETE t1, t2
             FROM {$_TABLES['mailer_campaigns']} t1
             INNER JOIN {$_TABLES['mailer_provider_campaigns']} t2
@@ -465,7 +465,7 @@ class Campaign
             WHERE t1.exp_days > 0
             AND '" . $_CONF['_now']->toMySQL(true) .
             "' > DATE_ADD(t1.mlr_date, INTERVAL t1.exp_days DAY)";
-        echo $sql;die;
+        //echo $sql;die;
         DB_query($sql, 1);
     }
 
@@ -495,22 +495,6 @@ class Campaign
 
 
     /**
-     * Get the current user's access level to this item.
-     *
-     * @return  integer     Access level
-     */
-    public function Access()
-    {
-        $access = SEC_hasAccess(
-            $this->owner_id, $this->group_id,
-            $this->perm_owner, $this->perm_group,
-            $this->perm_members, $this->perm_anon
-        );
-        return $access;
-    }
-
-
-    /**
      * Check that the current user has at least a specified access level.
      *
      * @param   integer     Required access level, default=3
@@ -519,11 +503,18 @@ class Campaign
      */
     public function hasAccess($level=3)
     {
-        if (SEC_hasRights('mailer.admin, mailer.edit', 'OR'))
-            return true;        // Admin has all rights
+        global $_USER;
 
-        return $this->Access() >= $level ? true : false;
-
+        if (
+            $this->owner_id == $_USER['uid'] ||
+            SEC_hasRights('mailer.admin, mailer.edit', 'OR')
+        ) {
+            return true;        // Admin and owner have all rights
+        } elseif (SEC_inGroup($this->grp_access)) {
+            return 2 >= $level;
+        } else {
+            return false;
+        }
     }
 
 
@@ -573,53 +564,31 @@ class Campaign
 
         $authorname = COM_getDisplayName($this->owner_id);
         $mlrtime = COM_getUserDateTimeFormat($this->mlr_date);
+        $sent = COM_getUserDateTimeFormat($this->mlr_sent_time);
         $T->set_var(array(
             'owner_username'        => DB_getItem(
                 $_TABLES['users'],
                 'username',
                 "uid = {$this->owner_id}"
             ),
-            'owner_id'              => $this->owner_id,
-            'group_dropdown'        => SEC_getGroupDropdown($this->group_id, 3),
-            'permissions_editor'    => SEC_getPermissionsHTML(
-                                $this->perm_owner, $this->perm_group,
-                                $this->perm_members, $this->perm_anon),
-            'start_block_editor'    => COM_startBlock($LANG_MLR['mailereditor']), '',
-                                COM_getBlockTemplate('_admin_block', 'header'),
-            'owner_name'            => $authorname,
-            'mlr_id'                => $this->mlr_id,
-            'example_url'           => COM_buildURL(Config::get('url') .
-                                '/index.php?page=' . $this->mlr_id),
-            'mlr_formateddate'       => $mlrtime[0],
-            'mlr_date'               => $mlrtime[1],
-            'mlr_title'              => htmlspecialchars($this->mlr_title),
-            'content'               => htmlspecialchars($this->mlr_content),
-            'lang_allowedhtml'      => Config::get('filter_html') == 1 ?
-                                    COM_allowedHTML() : $LANG_MLR['all_html_allowed'],
-            'exp_days'               => (int)$this->exp_days,
-            'end_block'             => COM_endBlock(
-                                COM_getBlockTemplate('_admin_block', 'footer')),
-            'gltoken_name'          => CSRF_TOKEN,
-            'gltoken'               => SEC_createToken(),
+            'owner_id'          => $this->owner_id,
+            'group_dropdown'    => SEC_getGroupDropdown($this->grp_access, 3, 'grp_access'),
+            'owner_name'        => $authorname,
+            'mlr_id'            => $this->mlr_id,
+            'mlr_formateddate'  => $mlrtime[0],
+            'mlr_date'          => $mlrtime[1],
+            'mlr_title'         => htmlspecialchars($this->mlr_title),
+            'content'           => htmlspecialchars($this->mlr_content),
+            'exp_days'          => (int)$this->exp_days,
+            'gltoken_name'      => CSRF_TOKEN,
+            'gltoken'           => SEC_createToken(),
+            'mlr_sent_time_formatted' => $sent[0],
+            'candelete' => SEC_hasRights('mailer.admin') && !$this->isNew(),
         ) );
-
-        if($this->mlr_sent_time != '') {
-            $sent_time = date('Y-m-d H:i;s', $this->mlr_sent_time);
-            $T->set_var(array(
-                'mlr_sent_time_formated'     => $sent_time,
-                'mlr_sent_time'              => $this->mlr_sent_time,
-            ) );
-        }
-
-        if (SEC_hasRights('mailer.admin') && $this->mlr_id) {
-            $T->set_var('candelete', 'true');
-        }
-
         $T->parse('output','form');
         $retval = $T->finish($T->get_var('output'));
         return $retval;
-
-    }   // function Edit()
+    }
 
 
     /**
@@ -943,8 +912,7 @@ class Campaign
                 FROM {$_TABLES['mailer_campaigns']} mlr
                 LEFT JOIN {$_TABLES['mailer_provider_campaigns']} prv
                     ON prv.mlr_id = mlr.mlr_id AND prv.provider = '$provider_id'
-                WHERE 1=1 " .
-                COM_getPermSQL('AND', 0, 3),
+                WHERE 1=1 " . SEC_buildAccessSql(),
             'query_fields' => array('mlr_title', 'mlr_id'),
         );
 

@@ -177,6 +177,7 @@ $LANG_MLR = array(
     'invalid' => 'Invalid Address',
     'duplicate' => 'Duplicate Address',
     'never' => 'Never',
+    'tbd' => 'To Be Determined',
 );
 
 

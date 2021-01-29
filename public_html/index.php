@@ -51,7 +51,7 @@ function MLR_listArchives()
         'sql' => "SELECT mlr_id, mlr_title,
                     UNIX_TIMESTAMP(mlr_date) AS unixdate
                 FROM {$_TABLES['mailer_campaigns']} " .
-                COM_getPermSQL('WHERE', 0, 2),
+                SEC_buildAccessSql('WHERE'),
         'query_fields' => array('mlr_title', 'mlr_content'),
     );
     $options = array();
