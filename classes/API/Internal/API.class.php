@@ -344,9 +344,25 @@ class API extends \Mailer\API
      * @param   object  $Mlr    Mailer object
      * @return  string      Campaign ID
      */
-    public function createCampaign($Mlr)
+    public function createCampaign(Campaign $Mlr)
     {
         $this->saveCampaignInfo($Mlr, $Mlr->getID());
+        return $Mlr->getID();
+    }
+
+
+    /**
+     * Delete an email campaign.
+     * Nothing do to for the campaign, just delete pending emails.
+     *
+     * @param   object  $Mlr    Campaign object
+     * @return  boolean     Status from deletion request
+     */
+    public function deleteCampaign(Campaign $Mlr)
+    {
+        global $_TABLES;
+        DB_delete($_TABLES['mailer_queue'], 'mlr_id', $Mlr->getID());
+        return true;
     }
 
 
