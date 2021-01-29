@@ -3,11 +3,10 @@
  * Web service functions for the Mailer plugin.
  *
  * @author      Lee Garner <lee@leegarner.com>
- * @copyright   Copyright (c) 2011-2020 Lee Garner <lee@leegarner.com>
+ * @copyright   Copyright (c) 2011-2021 Lee Garner <lee@leegarner.com>
  * @package     mailer
- * @version     v0.0.4
- * @since       v0.0.4
- * @license     http://opensource.org/licenses/gpl-2.0.php 
+ * @version     v0.1.0
+ * @license     http://opensource.org/licenses/gpl-2.0.php
  *              GNU Public License v2 or later
  * @filesource
  */
