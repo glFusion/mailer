@@ -142,19 +142,13 @@ case 'delsubscriber':
             $Sub = Subscriber::getById($sub_id);
             $Sub->unsubscribe();
             $Sub->delete();
-            //$del_subs[] = (int)$sub_id;
         }
-        /*$sub_list = join(',', $del_subs);
-        $sql = "DELETE FROM {$_TABLES['mailer_emails']}
-            WHERE id IN ($sub_list)";
-        DB_query($sql);*/
     } else {
         $del_sub = (int)$_REQUEST['sub_id'];
         if ($del_sub > 0) {
             $Sub = Subscriber::getInstance($del_sub);
             $Sub->unsubscribe();
             $Sub->delete();
-            //DB_delete($_TABLES['mailer_emails'], 'id', $del_sub);
         }
     }
     $view = 'subscribers';
@@ -372,29 +366,6 @@ case 'import_users_confirm':
 
 case 'clear_warning':
     $content .= COM_startBlock($LANG_MLR['are_you_sure']);
-    /*$menu_arr = array(
-        array(
-            'url' => $_CONF['site_admin_url'],
-            'text'=>$LANG_ADMIN['admin_home'],
-        ),
-        array(
-            'url' => Config::get('admin_url'). '/index.php?export=x',
-            'text' => $LANG_MLR['export'],
-        ),
-        array(
-            'url'=>'javascript:back()',
-            'text'=>'Back',
-        )
-    );*/
-    //list($blackListEmails, $blackListDomains) = MLR_fetchBlacklist();
-    //list($emails) = MLR_fetchWhitelist();
-    //$content .= ADMIN_createMenu($menu_arr, '', plugin_geticon_mailer());
-    /*$content .= $LANG_MLR['blacklisted_emails'] .
-                implode(',', $blackListEmails)."<br />";
-    $content .= $LANG_MLR['blacklisted_domains'] .
-                implode(',', $blackListDomains)."<br />";
-    $content .= $LANG_MLR['whitelisted_emails'] .
-        wordwrap(implode(',', $emails), 120, "<br />", true);*/
     $content .= '<form action="' . Config::get('admin_url') .
             '/index.php" method="post"><input type="submit" value="' .
             $LANG_MLR['clear'] .
@@ -405,9 +376,6 @@ case 'clear_warning':
 }
 
 $display = Menu::siteHeader($LANG_MLR['mailer_admin']);
-/*if (!empty($msg)) {
-    $display .= COM_showMessagetext($msg, '', true);
-}*/
 $display .= $content;
 $display .= Menu::siteFooter();
 echo $display;
