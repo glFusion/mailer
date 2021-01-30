@@ -13,7 +13,7 @@
  */
 
 $_SQL= array(
-'mailer' => "CREATE TABLE {$_TABLES['mailer_campaigns']} (
+'mailer_campaigns' => "CREATE TABLE {$_TABLES['mailer_campaigns']} (
   `mlr_id` varchar(20) NOT NULL,
   `mlr_title` varchar(128) NOT NULL DEFAULT '',
   `mlr_content` text NOT NULL,
@@ -26,7 +26,7 @@ $_SQL= array(
   KEY `mailer_mlr_date` (`mlr_date`)
 ) ENGINE=MyISAM",
 
-'mailer_emails' => "CREATE TABLE {$_TABLES['mailer_subscribers']} (
+'mailer_subscribers' => "CREATE TABLE {$_TABLES['mailer_subscribers']} (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
   `uid` int(11) unsigned NOT NULL DEFAULT 1,
   `dt_reg` datetime DEFAULT NULL,

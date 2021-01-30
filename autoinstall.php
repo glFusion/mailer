@@ -48,18 +48,28 @@ $INSTALL_plugin['mailer'] = array(
     ),
     array(
         'type' => 'table',
-        'table' => $_TABLES['mailer'],
-        'sql'   => $_SQL['mailer'],
+        'table' => $_TABLES['mailer_campaigns'],
+        'sql'   => $_SQL['mailer_campaigns'],
     ),
     array(
         'type' => 'table',
-        'table' => $_TABLES['mailer_emails'],
-        'sql'   => $_SQL['mailer_emails'],
+        'table' => $_TABLES['mailer_subscribers'],
+        'sql'   => $_SQL['mailer_subscribers'],
     ),
     array(
         'type' => 'table',
         'table' => $_TABLES['mailer_queue'],
         'sql'   => $_SQL['mailer_queue'],
+    ),
+    array(
+        'type' => 'table',
+        'table' => $_TABLES['mailer_txn'],
+        'sql'   => $_SQL['mailer_txn'],
+    ),
+    array(
+        'type' => 'table',
+        'table' => $_TABLES['mailer_provider_campaigns'],
+        'sql' => $_sql['mailer_provider_campaigns'],
     ),
     array(
         'type' => 'group',
