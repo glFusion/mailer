@@ -245,11 +245,15 @@ class API extends \Mailer\API
      */
     public function updateMember($Sub, $lists=array())
     {
+        $attribs = $Sub->getAttributes();
+        if ($Sub->getEmail() != $Sub->getOldEmail()) {
+            $attribs['EMAIL'] = $Sub->getEmail();
+        }
         $params = array(
             'status' => $Sub->getStatus(),
-            'attributes' => $Sub->getAttributes(),
+            'attributes' => $attribs,
         );
-        $email = urlencode($Sub->getEmail());
+        $email = urlencode($Sub->getOldEmail());
         $response = $this->put("contacts/$email", $params);
         return $response;
     }

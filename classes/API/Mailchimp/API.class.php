@@ -28,6 +28,10 @@ class API extends \Mailer\API
      * @var string */
     private $api_key;
 
+    /** Subscriber Hash (provider's user ID).
+     * @var string */
+    private $hash = '';
+
     /** Mailchimp endpoint.
      * @var string */
     protected $api_endpoint = 'https://<dc>.api.mailchimp.com/3.0';
@@ -393,8 +397,7 @@ class API extends \Mailer\API
         if (empty($args['merge_fields'])) {
             unset($args['merge_fields']);
         }
-
-        $hash = $this->subscriberHash($Sub->getEmail());
+        $hash = $this->subscriberHash($Sub->getOldEmail());
         foreach ($lists as $list_id) {
             //$response = $this->patch("/lists/$list_id/members/$hash", $args);
             $response = $this->put("/lists/{$list_id}/members/$hash", $args);
