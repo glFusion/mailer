@@ -221,7 +221,11 @@ function plugin_profileedit_mailer($uid, $panel, $fieldset)
         }
         $T = new Template(__DIR__ . '/templates/');
         $T->set_file('profile', 'profile.thtml');
-        $T->set_var('mailer_checked', $chk);
+        $T->set_var(array(
+            'mailer_checked' => $chk,
+            'mailer_old_email' => $Sub->getEmail(),
+            'mailer_old_fullname' => $Sub->getFullname(),
+        ) );
         $T->parse('output', 'profile');
         $retval .= $T->finish($T->get_var('output'));
     }
@@ -243,7 +247,9 @@ function plugin_profilesave_mailer($uid=0)
     } else {
         $uid = (int)$uid;
     }
+
     $Sub = Subscriber::getByUid($uid);
+    $Sub->profileUpdated($_POST);
     if (isset($_POST['mailer_subscribe'])) {
         // User requesting addition, double opt-in not needed
         if (Config::get('dbl_optin_members')) {

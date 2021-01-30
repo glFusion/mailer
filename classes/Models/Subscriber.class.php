@@ -3,10 +3,9 @@
  * Layout for a Subscriber record.
  *
  * @author      Lee Garner <lee@leegarner.com>
- * @copyright   Copyright (c) 2020 Lee Garner <lee@leegarner.com>
+ * @copyright   Copyright (c) 2020-2021 Lee Garner <lee@leegarner.com>
  * @package     mailer
- * @version     v0.0.4
- * @since       v0.0.4
+ * @version     v0.1.0
  * @license     http://opensource.org/licenses/gpl-2.0.php
  *              GNU Public License v2 or later
  * @filesource
@@ -24,16 +23,51 @@ use Mailer\Config;
  */
 class Subscriber
 {
+    /** DB record ID.
+     * @var integer */
     private $id = 0;
+
+    /** glFusion user ID.
+     * @var integer */
     private $uid = 1;
+
+   /** Date registered.
+     * @var string */
     private $dt_reg = '';
+
+    /** Email domain, for grouping outbound emails.
+     * @var string */
     private $domain = '';
+
+    /** Full email address.
+     * @var string */
     private $email_address = '';
+
+    /** Subscrition status (unsubscribed, pending, active, etc.).
+     * @var string */
     private $status = 0;
+
+    /** Security token to validate unsubscribe requests.
+     * @var string */
     private $token = '';
-    private $merge_fields = array();
-    private $fullname = '';     // from users table
-    private $_attributes = array(); // ephemeral
+
+    /** Merge fields.
+     * @var array */
+    private $_merge_fields = array();
+
+    /** User's full name, if known as a glFusion user.
+     * @var string */
+    private $_fullname = '';
+
+    /** Temporary attributes array used to construct merge fields.
+     * @var array */
+    private $_attributes = array();
+
+    /** Old email address.
+     * Used when changing addresses so that the original subscriber can
+     * be found at the API provider.
+     * @var string */
+    private $_old_email = '';
 
 
     /**
@@ -50,6 +84,7 @@ class Subscriber
                  ->withToken($A['token'])
                  ->withFullname($A['uid'] == 1 ? '' : $A['fullname'])
                  ->withStatus($A['status']);
+            $this->_old_email = $A['email'];
         }
     }
 
@@ -77,8 +112,6 @@ class Subscriber
     {
         global $_TABLES;
 
-        //$sql = "SELECT * FROM {$_TABLES['mailer_subscribers']}
-        //    WHERE id = " . (int)$id;
         return self::_create('id', $id);
     }
 
@@ -92,19 +125,27 @@ class Subscriber
     public static function getByEmail($email)
     {
         $retval = self::_create('email', DB_escapeString($email))
-            ->withEmail($email);
+            ->withEmail($email)
+            ->withOldEmail($email);
         return $retval;
     }
 
 
+    /**
+     * Load a subscriber object from the DB based on a field and value.
+     *
+     * @param   string  $fld    DB field to query
+     * @param   mixed   $value  Value of the field
+     * @return  object      Subscriber object
+     */
     private static function _create($fld, $value)
     {
         global $_TABLES;
 
-         $sql = "SELECT me.*, u.fullname
-            FROM {$_TABLES['mailer_subscribers']} me
+         $sql = "SELECT sub.*, u.fullname
+            FROM {$_TABLES['mailer_subscribers']} sub
             LEFT JOIN {$_TABLES['users']} u
-            ON u.uid = me.uid WHERE me.{$fld} = '$value'";
+            ON u.uid = sub.uid WHERE sub.{$fld} = '$value'";
         $res = DB_query($sql);
         if (DB_numRows($res) == 1) {
             $A = DB_fetchArray($res, false);
@@ -177,6 +218,8 @@ class Subscriber
      * Unsubscribe this subscriber.
      * This is called from the user preferences or other administration
      * form and will submit the unsubscription request to the API.
+     *
+     * @return  boolean     Result of API operation
      */
     public function unsubscribe()
     {
@@ -251,31 +294,12 @@ class Subscriber
     }
 
 
-    /*public function offsetSet($key, $value)
-    {
-        if ($value === NULL) {
-            unset($this->properties[$key]);
-        } else {
-            $this->properties[$key] = $value;
-        }
-    }
-
-    public function offsetExists($key)
-    {
-        return isset($this->properties[$key]);
-    }
-
-    public function offsetUnset($key)
-    {
-        unset($this->properties[$key]);
-    }
-
-    public function offsetGet($key)
-    {
-        return isset($this->properties[$key]) ? $this->properties[$key] : null;
-    }*/
-
-
+    /**
+     * Set the subscription record ID.
+     *
+     * @param   integer $id     Record ID
+     * @return  object  $this
+     */
     public function withID($id)
     {
         $this->id = (int)$id;
@@ -283,34 +307,71 @@ class Subscriber
     }
 
 
+    /**
+     * Get the subscription record ID.
+     *
+     * @return  integer     DB record ID
+     */
     public function getID()
     {
         return (int)$this->id;
     }
 
 
+    /**
+     * Set the subscriber's glFusion user ID.
+     *
+     * @param   integer $uid    User ID
+     * @return  object  $this
+     */
     public function withUid($uid)
     {
         $this->uid = (int)$uid;
         return $this;
     }
 
+
+    /**
+     * Get the subscriber's glFusion user ID.
+     *
+     * @return  integer     User ID
+     */
     public function getUid()
     {
         return (int)$this->uid;
     }
 
+
+    /**
+     * Set the subscriber's email domain.
+     *
+     * @param   string  $domain     Email domain
+     * @return  object  $this
+     */
     public function withDomain($domain)
     {
         $this->domain = $domain;
         return $this;
     }
 
+
+    /**
+     * Get the email domaiin.
+     *
+     * @return  string  Email domain
+     */
     public function getDomain()
     {
         return $this->domain;
     }
 
+
+    /**
+     * Set the subscriber's email address.
+     *
+     * @param   string  $email  Email address
+     * @return  object  $this
+     */
     public function withEmail($email)
     {
         $pieces = explode('@', $email);
@@ -321,11 +382,48 @@ class Subscriber
         return $this;
     }
 
+
+    /**
+     * Get the subscriber's email address.
+     *
+     * @return  string      Email address
+     */
     public function getEmail()
     {
         return $this->email_address;
     }
 
+
+    /**
+     * Set the old email address to be used when the email changes.
+     *
+     * @param   string  $email  Email address
+     * @return  object  $this
+     */
+    public function withOldEmail($email)
+    {
+        $this->_old_email = $email;
+        return $this;
+    }
+
+
+    /**
+     * Get the subscriber's original email address.
+     *
+     * @return  string      Email address
+     */
+    public function getOldEmail()
+    {
+        return $this->_old_email;
+    }
+
+
+    /**
+     * Set the registration date as a MySQL datetime string.
+     *
+     * @param   string  $dt_str     Datetime string, empty for `now`
+     * @return  object  $this
+     */
     public function withRegDate($dt_str='')
     {
         global $_CONF;
@@ -336,18 +434,37 @@ class Subscriber
         return $this;
     }
 
+
+    /**
+     * Get the date registered.
+     *
+     * @return  string      Datetime string
+     */
     public function getRegDate()
     {
         return $this->dt_reg;
     }
 
 
+    /**
+     * Set the subscription status.
+     *
+     * @param   integer $status     Status to set
+     * @return  object  $this
+     */
     public function withStatus($status)
     {
         $this->status = (int)$status;
         return $this;
     }
 
+
+    /**
+     * Set the security token.
+     *
+     * @param   string  $token      Token, blank to create a new one
+     * @return  object  $this
+     */
     public function withToken($token='')
     {
         if ($token == '') {
@@ -357,12 +474,24 @@ class Subscriber
         return $this;
     }
 
+
+    /**
+     * Get the security token.
+     *
+     * @return  string      Security token value
+     */
     public function getToken()
     {
         return $this->token;
     }
 
 
+    /**
+     * Set the user's fullname.
+     *
+     * @param   string  $name   Full name
+     * @return  object  $this
+     */
     public function withFullname($name)
     {
         $this->fullname = $name;
@@ -371,7 +500,18 @@ class Subscriber
 
 
     /**
-     * Get member information.
+     * Get the user's full name.
+     *
+     * @return  string      Full name
+     */
+    public function getFullname()
+    {
+        return $this->fullname;
+    }
+
+
+    /**
+     * Get member information from the API.
      *
      * @return  array   Array of member information
      */
@@ -389,18 +529,7 @@ class Subscriber
      */
     public function update()
     {
-        $params = $this->getAttributes();
-        /*if (!isset($params['attributes'])) {
-            $params['attributes'] = array();
-        }
-        $rc = LGLIB_invokeService('lglib', 'parseName',
-            array('name' => $this->fullname),
-            $parts, $svc_msg
-        );
-        if ($rc == PLG_RET_OK) {
-            $params['attributes']['FIRSTNAME'] = $parts['fname'];
-            $params['attributes']['LASTNAME'] = $parts['lname'];
-        }*/
+        //$params = $this->getAttributes();
         $API = API::getInstance();
         return $API->updateMember($this);
     }
@@ -466,7 +595,38 @@ class Subscriber
 
 
     /**
+     * Called when a user's profile is updated.
+     * Update the database and provider when the glFusion profile is saved.
+     *
+     * @return  object  $this
+     */
+    public function profileUpdated()
+    {
+        $updates = false;
+        if (
+            isset($_POST['mailer_old_fullname']) &&
+            $_POST['mailer_old_fullname'] != $_POST['fullname']
+        ) {
+            $updates = true;
+            $this->withFullname($_POST['fullname']);
+        }
+        if (
+            isset($_POST['mailer_old_email']) &&
+            $_POST['mailer_old_email'] != $_POST['email']
+        ) {
+            $updates = true;
+            $this->withEmail($_POST['email']);
+        }
+        if ($updates) {
+            $this->update();
+        }
+        return $this;
+    }
+
+
+    /**
      * Import our current users to our subscriber list.
+     * Only imports those not already in the email table.
      *
      * @return  string  success message
      */
@@ -474,17 +634,18 @@ class Subscriber
     {
         global $_TABLES, $LANG_MLR;
 
-        $sql = "SELECT `email` FROM {$_TABLES['users']}";
+        $sql = "SELECT u.uid as u_uid,u.email,mlr.uid
+            FROM {$_TABLES['users']} u
+            LEFT JOIN {$_TABLES['mailer_subscribers']} mlr
+                ON u.uid = mlr.uid
+            WHERE u.uid > 2 AND u.status= 3 AND mlr.uid IS NULL";
         $result = DB_query($sql);
         while ($A = DB_fetchArray($result)) {
             if ($A['email'] != '') {
-                echo "here";die;
-                $Sub = new self;
-                $Sub->withEmail($A['email'])
-                     ->withRegDate()
-                     ->withToken(self::_createToken());
-                 var_dump($Sub);die;
-                     //->subscribe(Status::ACTIVE);
+                $Sub = self::getByEmail($A['email']);
+                $Sub->withRegDate()
+                    ->withToken(self::_createToken())
+                    ->subscribe(Status::ACTIVE);
             }
         }
         return $LANG_MLR['import_complete'];
@@ -527,10 +688,10 @@ class Subscriber
         }
         $attributes = $this->_attributes;
         foreach ($map as $orig=>$repl) {
-            if (isset($attributes[$orig])) {
+            if (isset($attributes[$orig]) && !empty($repl)) {
                 $attributes[$repl] = $attributes[$orig];
-                unset($attributes[$orig]);
             }
+            unset($attributes[$orig]);
         }
         return $attributes;
     }
@@ -554,7 +715,7 @@ class Subscriber
         }
         return $retval;
     }
- 
+
 
     /**
      * Set an attribute (merge field).
@@ -619,7 +780,7 @@ class Subscriber
             $Sub = new self($A);
             $status = $API->subscribeOrUpdate($Sub);
             if ($status !=- Status::SUB_SUCCESS) {
-                COM_errorLog(__FUNCTION__ . ' ' . $Sub->getEmail() . " Status: Failure " . $status); 
+                COM_errorLog(__FUNCTION__ . ' ' . $Sub->getEmail() . " Status: Failure " . $status);
                 COM_errorLog($API->getLastResponse()['body']);
             }
         }
@@ -713,7 +874,7 @@ class Subscriber
         );
 
         $query_arr = array(
-            'table' => 'mailer_emails',
+            'table' => 'mailer_subscribers',
             'sql' => "SELECT ml.*, u.uid, u.fullname
                 FROM {$_TABLES['mailer_subscribers']} ml
                 LEFT JOIN {$_TABLES['users']} u
