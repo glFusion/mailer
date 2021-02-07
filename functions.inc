@@ -62,7 +62,7 @@ if (file_exists($langfile)) {
     require_once $langfile;
 } else {
     $lang = 'english';
-    require_once __DIR__ . '/language/english.php';
+    require_once __DIR__ . '/language/english_utf-8.php';
 }
 if (file_exists(__DIR__ . '/language/custom/' . $lang. '.php')) {
     // Include custom language strings, if available
