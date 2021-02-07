@@ -494,7 +494,7 @@ class Subscriber
      */
     public function withFullname($name)
     {
-        $this->fullname = $name;
+        $this->_fullname = $name;
         return $this;
     }
 
@@ -517,6 +517,7 @@ class Subscriber
      */
     public function getInfo()
     {
+        var_dump($this);die;
         $API = API::getInstance();
         return $API->getMemberInfo($this);
     }
@@ -663,8 +664,12 @@ class Subscriber
     {
         global $_PLUGINS;
 
+        // Get the merge fields from plugins.
+        $this->_attributes = self::getPluginAttributes($this->uid);
+
+        // Add in the first and last name, if possible.
         $rc = LGLIB_invokeService('lglib', 'parseName',
-            array('name' => $this->fullname),
+            array('name' => $this->_fullname),
             $parts, $svc_msg
         );
         if ($rc == PLG_RET_OK) {
@@ -672,20 +677,7 @@ class Subscriber
             $this->_attributes['LASTNAME'] = $parts['lname'];
         }
 
-        // Get the merge fields from plugins.
-        if ($this->uid > 1) {
-            foreach ($_PLUGINS as $pi_name) {
-                $output = PLG_callFunctionForOnePlugin(
-                    'plugin_getMergeFields_' . $pi_name,
-                    array(1 => $this->uid)
-                );
-                if (is_array($output)) {
-                    foreach ($output as $key=>$value) {
-                        $this->_attributes[$key] = $value;
-                    }
-                }
-            }
-        }
+        // Update that attribute field names to match the API requirement.
         $attributes = $this->_attributes;
         foreach ($map as $orig=>$repl) {
             if (isset($attributes[$orig]) && !empty($repl)) {
@@ -697,11 +689,21 @@ class Subscriber
     }
 
 
+    /**
+     * Get the subscriber's attributes from each plugin.
+     *
+     * @param   integer $uid    glFusion user ID
+     * @return  array       Array of key=>value pairs
+     */
     public static function getPluginAttributes($uid=1)
     {
         global $_PLUGINS;
 
         $retval = array();
+        if ($uid < 2) {
+            return $retval;
+        }
+
         foreach ($_PLUGINS as $pi_name) {
             $output = PLG_callFunctionForOnePlugin(
                 'plugin_getMergeFields_' . $pi_name,
@@ -790,16 +792,23 @@ class Subscriber
 
     /**
      * Synchronize subscriber data from the API provider.
+     * First marks all records as `unsubscribed`, then marks those found by
+     * the provider as `subscribed`.
      *
      * @return  integer     Number of subscribers received/processed.
      */
     public static function syncFromProvider()
     {
+        global $_TABLES;
+
         $API = API::getInstance();
         if (!$API->supportsSync()) {
             // Nothing to do for the Internal API
             return 0;
         }
+
+        // Mark all internal records as unsubscribed.
+        DB_query("UPDATE {$_TABLES['mailer_subscribers']} SET status = " . Status::UNSUBSCRIBED);
 
         // Get the subscribers 20 at a time
         $args = array(
@@ -810,6 +819,7 @@ class Subscriber
         while (true) {
             $contacts = $API->listMembers(NULL, $args);
             foreach ($contacts as $apiInfo) {
+                echo $apiInfo['email_address'] . "\n";
                 $Sub = self::getByEmail($apiInfo['email_address']);
                 $Sub->withStatus($apiInfo['status'])->Save();
                 $processed++;
@@ -820,6 +830,11 @@ class Subscriber
             }
             $args['offset'] += $args['count'];
         }
+        DB_delete(
+            $_TABLES['mailer_subscribers'],
+            'status',
+            Status::UNSUBSCRIBED
+        );
         return $processed;
     }
 
