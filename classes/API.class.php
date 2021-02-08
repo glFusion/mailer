@@ -99,11 +99,12 @@ class API
         if ($name == '') {
             $name = Config::get('provider');
         }
-        try {
-            $cls = '\\Mailer\\API\\' . $name . '\\API';
+
+        $cls = '\\Mailer\\API\\' . $name . '\\API';
+        if (class_exists($cls)) {
             $api = new $cls;
             $api->withName($name);
-        } catch (\Exception $e) {
+        } else {
             COM_errorLog("ERROR: " . print_r($e,true));
             $api = new self;
         }
@@ -783,6 +784,17 @@ class API
      */
     public function handleActions($opts)
     {
+    }
+
+
+    /**
+     * List members in the mailing list.
+     *
+     * @return  array   Empty array
+     */
+    public function listMembers()
+    {
+        return array();
     }
 
 }
