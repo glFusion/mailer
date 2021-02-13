@@ -110,12 +110,16 @@ class Webhook extends \Mailer\Webhook
                 case 'update':
                     if ($type == 'active') {
                         $status = Status::ACTIVE;
+                    } elseif ($status == 'unsubscribed') {
+                        $status = Status::UNSUBSCRIBED;
                     } else {
                         $status = Status::PENDING;
                     }
                     if ($Sub->getID() == 0) {
+                        // Create a new subscriber record
                         $Sub->withStatus($status)->Save();
                     } else {
+                        // Update the existing record
                         $Sub->updateStatus($status);
                     }
                     $retval = true;
