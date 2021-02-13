@@ -506,7 +506,7 @@ class Subscriber
      */
     public function getFullname()
     {
-        return $this->fullname;
+        return $this->_fullname;
     }
 
 
@@ -815,16 +815,18 @@ class Subscriber
             'count' => 20,
             'offset' => 0,
         );
+
         $processed = 0;
         while (true) {
             $contacts = $API->listMembers(NULL, $args);
             foreach ($contacts as $apiInfo) {
-                echo $apiInfo['email_address'] . "\n";
-                $Sub = self::getByEmail($apiInfo['email_address']);
-                $Sub->withStatus($apiInfo['status'])->Save();
-                $processed++;
+                if ($apiInfo['status'] == Status::ACTIVE) {
+                    $Sub = self::getByEmail($apiInfo['email_address']);
+                    $Sub->withStatus($apiInfo['status'])->Save();
+                    $processed++;
+                }
             }
-            if (count($out) < $args['count']) {
+            if (count($contacts) < $args['count']) {
                 // Got the last segment
                 break;
             }
