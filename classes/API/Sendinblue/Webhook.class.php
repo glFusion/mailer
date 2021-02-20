@@ -57,6 +57,7 @@ class Webhook extends \Mailer\Webhook
         case 'contact_updated':
             $data = $this->payload['content'][0];
             $email = LGLIB_getVar($data, 'email');
+            $force_update = false;
             if (!empty($email)) {
                 $Sub = Subscriber::getByEmail($email);
                 $attribs = LGLIB_getVar($data, 'attributes', 'array');
@@ -64,13 +65,16 @@ class Webhook extends \Mailer\Webhook
                     isset($attribs['DOUBLE_OPT-IN']) &&
                     $attribs['DOUBLE_OPT-IN']['id'] == 1
                 ) {
-                    if ($Sub->getID() == 0) {
-                        $Sub->withStatus(Status::ACTIVE)->Save();
-                    } else {
-                        $Sub->updateStatus(Status::ACTIVE);
-                    }
-                    $retval = true;
+                    $Sub->withStatus(Status::ACTIVE);
+                    $force_update = true;   // make sure it gets saved
                 }
+                $sub_attr = $Sub->getAttributes();
+                foreach ($sub_attr as $key=>$val) {
+                    if (isset($attribs[$key])) {
+                        $Sub->setAttribute($key, $attribs[$key]);
+                    }
+                }
+                $Sub->updateUser($force_update);
             }
             break;
 
