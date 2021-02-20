@@ -133,6 +133,17 @@ $mailerConfigData = array(
         'set' => true,
         'group' => 'mailer',
     ),
+    array(
+        'name' => 'def_adm_view',
+        'default_value' => 'subscribers',
+        'type' => 'select',
+        'subgroup' => 0,
+        'fieldset' => 0,
+        'selection_array' => 7,
+        'sort' => 90,
+        'set' => true,
+        'group' => 'mailer',
+    ),
 
     // Internal queue options
     array(
@@ -338,6 +349,40 @@ $mailerConfigData = array(
         'group' => 'mailer',
     ),
 
+    // MailerLite integration
+    array(
+        'name' => 'fs_mailerlite',
+        'default_value' => NULL,
+        'type' => 'fieldset',
+        'subgroup' => 0,
+        'fieldset' => 40,
+        'selection_array' => NULL,
+        'sort' => 40,
+        'set' => true,
+        'group' => 'mailer',
+    ),
+    array(
+        'name' => 'ml_api_key',
+        'default_value' => '',
+        'type' => 'passwd',
+        'subgroup' => 0,
+        'fieldset' => 40,
+        'selection_array' => 0,
+        'sort' => 10,
+        'set' => true,
+        'group' => 'mailer',
+    ),
+    array(
+        'name' => 'ml_def_list',
+        'default_value' => '',
+        'type' => 'text',
+        'subgroup' => 0,
+        'fieldset' => 40,
+        'selection_array' => 0,
+        'sort' => 20,
+        'set' => true,
+        'group' => 'mailer',
+    ),
 );
 
 

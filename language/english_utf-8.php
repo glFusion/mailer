@@ -221,6 +221,7 @@ $LANG_confignames['mailer'] = array(
     'dbl_optin_members' => 'Double Opt-In for Members',
     'log_level' => 'Logging Level',
     'blk_show_subs' => 'Show signup block to subscribers',
+    'def_adm_view' => 'Default Admin View',
     'provider' => 'List Provider',
     'mc_api_key' => 'Mailchimp API Key',
     'mc_def_list' => 'Default List ID',
@@ -229,6 +230,8 @@ $LANG_confignames['mailer'] = array(
     'sb_api_key' => 'Mailchimp API Key',
     'sb_def_list' => 'Default List ID',
     'sb_dbo_tpl' => 'Double Opt-In Template ID',
+    'ml_api_key' => 'MailerLite API Key',
+    'ml_def_list' => 'Default List (Group) ID',
 );
 
 $LANG_configsubgroups['mailer'] = array(
@@ -242,6 +245,7 @@ $LANG_fs['mailer'] = array(
     'fs_internal' => 'Internal',
     'fs_mailchimp' => 'Mailchimp',
     'fs_sendinblue' => 'Sendinblue',
+    'fs_mailerlite' => 'MailerLite',
 );
 
 // Note: entries 0, 1, 9, and 12 are the same as in $LANG_configselects['Core']
@@ -271,6 +275,10 @@ $LANG_configselects['mailer'] = array(
         '500 CRITICAL' => 500,
         '550 ALERT' => 550,
         '600 EMERGENCY' => 600,
+    ),
+    7 => array(
+        'Mailings' => 'mailings',
+        'Subscribers' => 'subscribers',
     ),
     12 => array('No access' => 0, 'Read-Only' => 2, 'Read-Write' => 3),
     13 => array('None' => 0, 'Left' => 1, 'Right' => 2, 'Both' => 3),

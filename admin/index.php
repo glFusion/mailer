@@ -84,7 +84,7 @@ $expected = array(
     // views
     'mailers', 'subscribers', 'queue',
 );
-$action = 'mailers';
+$action = Config::get('def_adm_view');
 foreach($expected as $provided) {
     if (isset($_POST[$provided])) {
         $action = $provided;
