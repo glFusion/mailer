@@ -767,12 +767,11 @@ class Subscriber
      * Update records when a profile update is received from the list provider.
      * The _attributes array must already be set with the new values.
      */
-    public function updateUser()
+    public function updateUser($update_sub=false)
     {
         global $_TABLES;
 
         $update_gl = false;
-        $update_sub = false;
         $fullname = trim(implode(' ', array(
             LGLIB_getVar($this->_attributes, 'FIRSTNAME'),
             LGLIB_getVar($this->_attributes, 'LASTNAME'),
