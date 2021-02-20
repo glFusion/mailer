@@ -69,7 +69,7 @@ $INSTALL_plugin['mailer'] = array(
     array(
         'type' => 'table',
         'table' => $_TABLES['mailer_provider_campaigns'],
-        'sql' => $_sql['mailer_provider_campaigns'],
+        'sql' => $_SQL['mailer_provider_campaigns'],
     ),
     array(
         'type' => 'group',
