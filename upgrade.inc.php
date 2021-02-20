@@ -42,6 +42,7 @@ function MLR_do_upgrade($dvlp=false)
     }
 
     // Update any configuration item changes
+    CTL_clearCache();
     USES_lib_install();
     global $mailerConfigData;
     require_once __DIR__ . '/install_defaults.php';
