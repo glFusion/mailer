@@ -90,7 +90,7 @@ class API extends \Mailer\API
                     $info = new ApiInfo;
                     $info['provider_uid'] = $member->id;
                     $info['email_address'] = $member->email;
-                    if ($member->status == Status::BLACKLIST) {
+                    if ($member->emailBlacklisted) {
                         $info['status'] = Status::BLACKLIST;
                     } else {
                         $info['status'] = Status::ACTIVE;
