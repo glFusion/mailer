@@ -145,7 +145,7 @@ class Subscriber
          $sql = "SELECT sub.*, u.uid as gl_uid, u.fullname
             FROM {$_TABLES['mailer_subscribers']} sub
             LEFT JOIN {$_TABLES['users']} u
-            ON u.{$fld} = sub.{$fld} WHERE sub.{$fld} = '$value'
+            ON u.uid = sub.uid WHERE sub.{$fld} = '$value'
             LIMIT 1";
         $res = DB_query($sql);
         if (DB_numRows($res) == 1) {
@@ -951,7 +951,7 @@ class Subscriber
             'sql' => "SELECT ml.*, u.uid, u.fullname
                 FROM {$_TABLES['mailer_subscribers']} ml
                 LEFT JOIN {$_TABLES['users']} u
-                    ON ml.email = u.email
+                    ON ml.uid = u.uid
                 WHERE 1=1 ",
             'query_fields' => array('ml.email', 'u.fullname'),
             'default_filter' => COM_getPermSQL('AND', 0, 3)
