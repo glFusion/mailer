@@ -3,10 +3,9 @@
  * This file contains the Mailchimp webhook handler
  *
  * @author      Lee Garner <lee@leegarner.com>
- * @copyright   Copyright (c) 2019-2020 Lee Garner
+ * @copyright   Copyright (c) 2019-2021 Lee Garner
  * @package     mailer
- * @version     v0.0.4
- * @since       v0.0.4
+ * @version     v0.1.0
  * @license     http://opensource.org/licenses/gpl-2.0.php
  *              GNU Public License v2 or later
  * @filesource
@@ -105,7 +104,7 @@ class Webhook extends \Mailer\Webhook
             $Sub->withStatus(Status::UNSUBSCRIBED)->Save();
             Logger::Audit("Webhook $action: $email unsubscribed from $list_id");
             break;
-        
+
         case 'upemail':
             if ($_CONF_MLCH['handle_upemail']) {
                 // Handle email address changes.
@@ -142,19 +141,27 @@ class Webhook extends \Mailer\Webhook
                 Logger::Audit("Webhook: updated user {$oldUser->getEmail()} email from $old_email to $new_email");
             }
             break;
-        
-        case 'Xprofile':
-            // Before enabling profile updates, check to make sure that callbacks to
-            // Mailchimp won't create a loop.
-            $groups = array();
-            if (is_array($data['merges'])) {
-                if (is_array($_POST['data']['merges']['GROUPINGS'])) {
-                    foreach ($_POST['data']['merges']['GROUPINGS'] as $id=>$data) {
-                        $groups[$data['name']] = explode(', ', $data['groups']);
+
+        case 'profile':
+            // Handle profile updates made via the list provider's preference section.
+            // Do not notify the list provider to avoid webhook loops.
+            $email = LGLIB_getVar($data, 'email');
+            $merges = LGLIB_getVar($data, 'merges', 'array');
+            $Sub = Subscriber::getByEmail($email);
+            $Sub->getAttributes();
+            if (!empty($email) && !empty($merges) && $Sub->getId() > 0) {
+                $API = API::getInstance($this->provider);
+                $map_arr = $API->getAttributeMap();
+                foreach ($merges as $key=>$val) {
+                    $attr_key = array_search($key, $map_arr);
+                    if (!empty($attr_key)) {
+                        $Sub->setAttribute($attr_key, $val);
+                    } else {
+                        $Sub->setAttribute($key, $val);
                     }
                 }
+                $Sub->updateUser();
             }
-            //Mailchimp\Logger::System(print_r($groups, true));
             break;
 
         default:

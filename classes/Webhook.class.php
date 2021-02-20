@@ -14,7 +14,7 @@ namespace Mailer;
 
 
 /**
- * Base API class
+ * Base Webhook class
  * @package mailer
  */
 class Webhook
@@ -29,10 +29,9 @@ class Webhook
 
 
     /**
-     * Get an instance of the API class.
+     * Get an instance of the Webhook class.
      *
-     * @author  Lee Garner <lee@leegarner.com>
-     * @return  object  Mailchimp API object
+     * @return  object  Mailchimp Webhook object
      */
     public static function getInstance()
     {
