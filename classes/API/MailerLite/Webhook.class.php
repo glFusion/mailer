@@ -110,7 +110,7 @@ class Webhook extends \Mailer\Webhook
                 case 'update':
                     if ($type == 'active') {
                         $status = Status::ACTIVE;
-                    } elseif ($status == 'unsubscribed') {
+                    } elseif ($type == 'unsubscribed') {
                         $status = Status::UNSUBSCRIBED;
                     } else {
                         $status = Status::PENDING;
@@ -121,6 +121,20 @@ class Webhook extends \Mailer\Webhook
                     } else {
                         // Update the existing record
                         $Sub->updateStatus($status);
+                        if ($parts[1] == 'update') {
+                            $attrs = $Sub->getAttributes();
+                            $API = API::getInstance($this->provider);
+                            $map_arr = $API->getAttributeMap();
+                            foreach ($subscriber['fields'] as $idx=>$fld) {
+                                $attr_key = array_search($fld['key'], $map_arr);
+                                if (!empty($attr_key)) {
+                                    $Sub->setAttribute($attr_key, $fld['value']);
+                                } elseif (isset($attrs[strtoupper($fld['key'])])) {
+                                    $Sub->setAttribute(strtoupper($fld['key']), $fld['value']);
+                                }
+                            }
+                            $Sub->updateUser();
+                        }
                     }
                     $retval = true;
                     break;
