@@ -259,6 +259,7 @@ $LANG_configselects['mailer'] = array(
     5 => array(
         'Internal' => 'Internal',
         'Mailchimp' => 'Mailchimp',
+        'MailerLIte' => 'MailerLite',
         'Sendinblue' => 'Sendinblue',
     ),
     6 => array(
