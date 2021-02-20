@@ -142,14 +142,19 @@ class Subscriber
     {
         global $_TABLES;
 
-         $sql = "SELECT sub.*, u.fullname
+         $sql = "SELECT sub.*, u.uid as gl_uid, u.fullname
             FROM {$_TABLES['mailer_subscribers']} sub
             LEFT JOIN {$_TABLES['users']} u
-            ON u.uid = sub.uid WHERE sub.{$fld} = '$value'";
+            ON u.{$fld} = sub.{$fld} WHERE sub.{$fld} = '$value'
+            LIMIT 1";
         $res = DB_query($sql);
         if (DB_numRows($res) == 1) {
             $A = DB_fetchArray($res, false);
             $retval = new self($A);
+            if ($A['uid'] == 1 && $A['gl_uid'] > 1) {
+                // Link the user ID. User may have joined after subscribing.
+                $retval->withUid($A['gl_uid']);
+            }
         } else {
             // Not found, try to get information if this is a site member.
             $retval = (new self)
@@ -755,6 +760,58 @@ class Subscriber
             $retval[] = new self($A);
         }
         return $retval;
+    }
+
+
+    /**
+     * Update records when a profile update is received from the list provider.
+     * The _attributes array must already be set with the new values.
+     */
+    public function updateUser()
+    {
+        global $_TABLES;
+
+        $update_gl = false;
+        $update_sub = false;
+        $fullname = trim(implode(' ', array(
+            LGLIB_getVar($this->_attributes, 'FIRSTNAME'),
+            LGLIB_getVar($this->_attributes, 'LASTNAME'),
+        ) ) );
+        if (!empty($fullname) && $fullname != $this->_fullname) {
+            $update_gl = true;
+            $this->_fullname = $fullname;
+        }
+        $email = LGLIB_getVar($this->_attributes, 'EMAIL');
+        if (!empty($email) && $email != $this->email_address) {
+            $update_gl = true;
+            $update_sub = true;
+            $this->email_address = $email;
+        }
+
+        // If subscriber values were changed, save the subscriber
+        if ($update_sub) {
+            $this->Save();
+        }
+
+        // For site members, update the users table if changed and
+        // notify plugins to update their tables if needed.
+        if ($this->uid > 1) {
+            if ($update_gl) {
+                $sql = "UPDATE {$_TABLES['users']} SET
+                    fullname = '" . DB_escapeString($this->_fullname) . "',
+                    email = '" . DB_escapeString($this->email_address) . "'
+                    WHERE uid = {$this->uid}";
+                DB_query($sql, 1);
+            }
+            // Allow plugins to update themselves
+            PLG_callFunctionForAllPlugins(
+                'updateMergeFields',
+                array(
+                    1 => $this->uid,
+                    2 => $this->_attributes,
+                )
+            );
+        }
     }
 
 
