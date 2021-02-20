@@ -86,6 +86,20 @@ class API extends \Mailer\API
 
 
     /**
+     * Get the mapping of internal attribute names to Mailchimp merge fields.
+     *
+     * @return  array       Array of internal=>mailchimp pairs
+     */
+    public function getAttributeMap()
+    {
+        return array(
+            'FIRSTNAME' => Config::get('mc_mrg_fname'),
+            'LASTNAME' => Config::get('mc_mrg_lname')
+        );
+    }
+
+
+    /**
      * Get a list of members subscribed to a given list.
      *
      * @param   string  $list_id    Mailing List ID
@@ -204,10 +218,7 @@ class API extends \Mailer\API
         $args = array(
             'email_address' => $Sub->getEmail(),
             'status' => self::_strStatus(Status::UNSUBSCRIBED),
-            'merge_fields' => $Sub->getAttributes(array(
-                'FIRSTNAME' => Config::get('mc_mrg_fname'),
-                'LASTNAME' => Config::get('mc_mrg_lname')
-            ) ),
+            'merge_fields' => $Sub->getAttributes($this->getAttributeMap()),
         );
         if (empty($args['merge_fields'])) {
             unset($args['merge_fields']);
@@ -240,10 +251,7 @@ class API extends \Mailer\API
         $args = array(
             'email_address' => $Sub->getEmail(),
             'status' => self::_strStatus($Sub->getStatus()),
-            'merge_fields' => $Sub->getAttributes(array(
-                'FIRSTNAME' => Config::get('mc_mrg_fname'),
-                'LASTNAME' => Config::get('mc_mrg_lname')
-            ) ),
+            'merge_fields' => $Sub->getAttributes($this->getAttributeMap()),
         );
         if (empty($args['merge_fields'])) { // should have names at least
             unset($args['merge_fields']);
@@ -389,10 +397,7 @@ class API extends \Mailer\API
         $args = array(
             'email_address' => $Sub->getEmail(),
             'status' => self::_strStatus($Sub->getStatus()),
-            'merge_fields' => $Sub->getAttributes(array(
-                'FIRSTNAME' => Config::get('mc_mrg_fname'),
-                'LASTNAME' => Config::get('mc_mrg_lname'),
-            ) ),
+            'merge_fields' => $Sub->getAttributes($this->getAttributeMap()),
         );
         if (empty($args['merge_fields'])) {
             unset($args['merge_fields']);
