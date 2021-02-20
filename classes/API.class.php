@@ -105,7 +105,7 @@ class API
             $api = new $cls;
             $api->withName($name);
         } else {
-            COM_errorLog("ERROR: " . print_r($e,true));
+            COM_errorLog("ERROR: Class $cls does not exist");
             $api = new self;
         }
         $api->withList();   // set the default list
