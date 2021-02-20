@@ -79,6 +79,7 @@ $expected = array(
     'delete', 'sendnow', 'sendtest',
     'deletequeue', 'purgequeue', 'resetqueue', 'flushqueue',
     'clear_warning', 'clearsub', 'api_action',
+    'syncfrom_warning', 'syncfrom',
     'import_form', 'import_users', 'import_users_confirm', 'import', 'export',
     // views
     'mailers', 'subscribers', 'queue',
@@ -136,17 +137,16 @@ case 'sendnow':
     break;
 
 case 'delsubscriber':
-    if (is_array($_POST['delsubscriber'])) {
+    if (isset($_POST['delsubscriber']) && is_array($_POST['delsubscriber'])) {
         $del_subs = array();
         foreach ($_POST['delsubscriber'] as $idx=>$sub_id) {
             $Sub = Subscriber::getById($sub_id);
             $Sub->unsubscribe();
             $Sub->delete();
         }
-    } else {
-        $del_sub = (int)$_REQUEST['sub_id'];
-        if ($del_sub > 0) {
-            $Sub = Subscriber::getInstance($del_sub);
+    } elseif (isset($_REQUEST['id'])) {
+        $Sub = Subscriber::getById($_REQUEST['id']);
+        if ($Sub->getID() > 0) {
             $Sub->unsubscribe();
             $Sub->delete();
         }
@@ -176,6 +176,7 @@ case 'clearsub':
     if (SEC_checkToken()) {
         DB_query("TRUNCATE {$_TABLES['mailer_subscribers']}");
     }
+    COM_refresh(Config::get('admin_url') . '/index.php?subscribers');
     $view = 'subscribers';
     break;
 
@@ -273,6 +274,14 @@ case 'export':
     exit;
     break;
 
+case 'syncfrom':
+    if (SEC_checkToken()) {
+        Mailer\Models\Subscriber::syncFromProvider();
+    }
+    COM_refresh(Config::get('admin_url') . '/index.php?subscribers');
+    $view = 'subscribers';
+    break;
+
 case 'mlr_save':
     $mlr_id = isset($_POST['mlr_id']) ? $_POST['mlr_id'] : '';
     $M = new Campaign($mlr_id);
@@ -365,13 +374,30 @@ case 'import_users_confirm':
     break;
 
 case 'clear_warning':
-    $content .= COM_startBlock($LANG_MLR['are_you_sure']);
-    $content .= '<form action="' . Config::get('admin_url') .
-            '/index.php" method="post"><input type="submit" value="' .
-            $LANG_MLR['clear'] .
-            '" name="clearsub"/><input type="hidden" name="' . CSRF_TOKEN .
-            '" value="'.SEC_createToken().'"/></form>';
-    $content .= COM_endBlock();
+    // Display a warning confirmation before clearing the subscriber table.
+    $T = new Template(Config::get('pi_path') . '/templates/admin');
+    $T->set_file('form', 'clear_sub.thtml');
+    $T->set_var(array(
+        'action_url' => Config::get('admin_url') . '/index.php',
+        'token_name' => CSRF_TOKEN,
+        'token_value' => SEC_createToken(),
+    ) );
+    $T->parse('output', 'form');
+    $content .= $T->finish($T->get_var('output'));
+    break;
+
+case 'syncfrom_warning':
+    // Display a warning confirmation before syncing records from the list provider.
+    $T = new Template(Config::get('pi_path') . '/templates/admin');
+    $T->set_file('form', 'sync_from_provider.thtml');
+    $T->set_var(array(
+        'action_url' => Config::get('admin_url') . '/index.php',
+        'token_name' => CSRF_TOKEN,
+        'token_value' => SEC_createToken(),
+    ) );
+    $T->parse('output', 'form');
+    $content .= $T->finish($T->get_var('output'));
+    //$view = 'syncfrom';
     break;
 }
 

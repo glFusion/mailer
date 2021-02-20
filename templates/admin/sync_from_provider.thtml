@@ -1,0 +1,11 @@
+{# begin {templatelocation} #}
+<div class="uk-alert uk-alert-danger">
+    <h1>{$LANG_MLR['conf_syncfrom']}</h1>
+    <h2>{$LANG_MLR['dscp_syncfrom']}</h2>
+    <form action="{action_url}" method="post">
+        <input class="uk-button uk-button-danger" type="submit" value="{$LANG_MLR['sync_from_provider']}" name="syncfrom"/>
+        <input type="hidden" name="{token_name}" value="{token_value}" />
+        <a href="{action_url}" class="uk-button">{$LANG_ADMIN['cancel']}</a>
+    </form>
+</div>
+{# end {templatelocation} #}

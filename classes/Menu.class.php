@@ -149,6 +149,11 @@ class Menu
                 'text' => $LANG_MLR['clear'],
                 'active' => $view == 'clear' ? true : false,
             ),
+            array(
+                'url' => $admin_url . '/index.php?syncfrom_warning=x',
+                'text' => $LANG_MLR['sync_from_provider'],
+                'active' => $view == 'syncfrom_warning' ? true : false,
+            ),
         );
         return self::_makeSubMenu($menu_arr);
     }
