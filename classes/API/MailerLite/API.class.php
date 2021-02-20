@@ -151,11 +151,7 @@ class API extends \Mailer\API
         }
 
         // Field names must be lower case
-        $fields = $Sub->getAttributes(array(
-            'FIRSTNAME' => 'name',
-            'LASTNAME' => 'last_name',
-        ) );
-        $fields = array_change_key_case($fields, CASE_LOWER);
+        $fields = $Sub->getAttributes($this->getAttributeMap());
         $args = array(
             'email' => $Sub->getEmail(),
             'resubscribe' => true,
@@ -426,6 +422,20 @@ class API extends \Mailer\API
 
 
     /**
+     * Get the mapping of internal attribute names to Mailchimp merge fields.
+     *
+     * @return  array       Array of internal=>mailchimp pairs
+     */
+    public function getAttributeMap()
+    {
+        return array(
+            'FIRSTNAME' => 'name',
+            'LASTNAME' => 'last_name',
+        );
+    }
+
+
+    /**
      * Create the webhooks.
      * Webhooks can only be created via API for MailerLite.
      */
@@ -440,7 +450,6 @@ class API extends \Mailer\API
             'campaign.sent',
         );
         $args = array(
-            //'url' => Config::get('url') . '/hooks/MailerLite.php',
             'url' => Config::get('url') . '/hook.php?p=MailerLite',
         );
         foreach ($events as $event) {
