@@ -53,3 +53,25 @@ and unsubscription requests are received via webhooks to update the user profile
     - Note, Sendinblue can also be used as a general SMTP relay for glFusion
       by creating SMTP credentials.
 
+### MailerLite
+  - Create an account ang log in at https://app.mailerlite.com.
+  - Optionally create a new group. "Groups" represent mailing lists.
+  - Click on the account menu icon (top left) and select "Integrations".
+  - Click the "Use" button for Developer API.
+  - Make a note of your API key and the GroupID for your subscriber group.
+    Enter these values in the plugin configuration.
+  - Return to the admin page for the Mailer plugin to add webhooks.
+    MailerLite does not support adding webhooks via the GUI.
+    - Click the question mark in the main menu to expand the dialog.
+    - Click the "Create Webhooks" button.
+  - There is currently no way to verify webhook creation via the plugin or MailerLite GUI.
+    - Visit https://developers.mailerlite.com/reference#get-webhooks-list
+    - Enter your API key by clicking the icon next to the "Try It" button.
+    - Click the "Try It" button. You can expand the returned values to verify the webhooks.
+    There should be six webhooks:
+      - subscriber.create
+      - subscriber.update
+      - subscriber.unsubscribe
+      - subscriber.added_through_webform
+      - subscriber.complaint (not currently used)
+      - campaign.sent (not currently used)
