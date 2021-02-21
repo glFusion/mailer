@@ -189,32 +189,33 @@ class API extends \Mailer\API
         $old_email = $Sub->getOldEmail();
         $new_email = $Sub->getEmail();
 
-        $attribs = array_change_key_case($Sub->getAttributes(), CASE_LOWER);
-        $fields = array();
+        $attribs = $Sub->getAttributes();
+        $ml_flds = $this->getAttributeMap();
+        $params = new \stdClass;
+        $params->fields = new \stdClass;
         foreach ($attribs as $key=>$val) {
-            $fields[] = array(
-                'name' => $key,
-                'value' => $val,
-                'type' => 'TEXT',
-            );
+            switch($key) {
+            case 'FIRSTNAME':
+                $key = 'name';
+                break;
+            case 'LASTNAME':
+                $key = 'last_name';
+                break;
+            default:
+                $key = strtolower($key);
+                break;
+            }
+            $params->fields->$key = $val;
         }
-        $fields[] = array(
-            'key' => 'email',
-            'value' => $Sub->getEmail(),
-            'type' => 'TEXT',
-        );
-        $params = array(
-            'type' => '',   // TBD, see below
-            'fields' => $fields,
-        );
+        $params->fields->email = $Sub->getEmail();
         $email = urlencode($old_email);
         if ($new_email != $old_email) {
             // unsubscribe the original subscriber, then subscribe the new.
-            $params['type'] = 'unsubscribed';
+            $params->type = 'unsubscribed';
             $response = $this->put("subscribers/$email", $params);
         }
         $email = urlencode($new_email);
-        $params['type'] = self::_strStatus($Sub->getStatus());
+        $params->type = self::_strStatus($Sub->getStatus());
         $response = $this->put("subscribers/$email", $params);
         return $response;
     }
