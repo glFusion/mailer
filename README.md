@@ -27,6 +27,14 @@ and unsubscription requests are received via webhooks to update the user profile
   - LGLib plugin version 1.0.12 or later
 
 ## Provider Setup
+Comparison of the free plans by provider.
+| Provider | Subscribers | Mail Limit | SMTP Relay| Multiple Users | Multiple Lists |
+| --- | --- | --- | :---: | :---: | :---: |
+| Mailchimp | 2000 | 10000/mo | No | No | No |
+| Sendinblue | No Limit | 300/day | Yes | No | Yes |
+| MailerLite | 1000 | 12000/mo | No | Yes | Yes |
+| Mailjet | No Limit | 200/day, 6000/mo | Yes | No | Yes |
+
 ### Mailchimp
   - Create an account and log in at https://mailchimp.com.
   - Create a mailing list ("audience") and enter the list ID in the plugin configuration.
