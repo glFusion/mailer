@@ -33,7 +33,7 @@ Comparison of the free plans by provider.
 | Mailchimp | 2000 | 10000/mo | No | No | No |
 | Sendinblue | No Limit | 300/day | Yes | No | Yes |
 | MailerLite | 1000 | 12000/mo | No | Yes | Yes |
-| Mailjet | No Limit | 200/day, 6000/mo | Yes | No | Yes |
+| Mailjet (not supported)| No Limit | 200/day, 6000/mo | Yes | No | Yes |
 
 ### Mailchimp
   - Create an account and log in at https://mailchimp.com.
@@ -83,3 +83,16 @@ Comparison of the free plans by provider.
       - subscriber.added_through_webform
       - subscriber.complaint (not currently used)
       - campaign.sent (not currently used)
+
+### Mailjet
+  - Create an account ang log in at https://mailjet.com.
+  - Create or update a Contact List (from the "Contacts" menu).
+  - Click on the account menu icon (top right) and select "Account Settings".
+  - Click on "Master API Key" in the REST API section.
+  - Create a master API key if not already shown and note the API Key and Secret Key values.
+    Enter these values in the plugin configuration.
+  - Return to the Account Settings and click "Event Notifications" under the REST API section.
+  - Select "Spam", "Blocked" and "Unsub" event types and enter your webhook URL for each.
+    The URL is http(s)?://<yoursite.com>/mailer/hook.php?p=Mailjet
+  - *IMPORTANT* - Go to the Bad Behavior configuration in your site and whitelist the url
+    `/mailer/hook.php`.
