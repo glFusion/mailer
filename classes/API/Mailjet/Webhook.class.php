@@ -1,12 +1,12 @@
 <?php
 /**
- * This file contains the MailerLite webhook handler
+ * This file contains the Mailjet webhook handler.
  *
  * @author      Lee Garner <lee@leegarner.com>
- * @copyright   Copyright (c) 2019-2020 Lee Garner
+ * @copyright   Copyright (c) 2021 Lee Garner
  * @package     mailer
- * @version     v0.0.4
- * @since       v0.0.4
+ * @version     v0.1.1
+ * @since       v0.1.1
  * @license     http://opensource.org/licenses/gpl-2.0.php
  *              GNU Public License v2 or later
  * @filesource
@@ -17,11 +17,6 @@ use Mailer\Models\Status;
 use Mailer\Models\Txn;
 use Mailer\Logger;
 
-
-// this file can't be used on its own
-if (!defined ('GVERSION')) {
-    die ('This file can not be used on its own.');
-}
 
 /**
  * Class to provide webhook for the Stripe payment processor.
