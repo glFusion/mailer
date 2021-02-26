@@ -277,6 +277,43 @@ class Campaign
 
 
     /**
+     * Set the provider's name.
+     *
+     * @param   string  $provider   List API provider name
+     * @return  object  $this
+     */
+    public function withProvider($provider)
+    {
+        $this->provider = $provider;
+        return $this;
+    }
+
+
+    /**
+     * Get the provider's name.
+     *
+     * @return  string      List API provider's name
+     */
+    public function getProvider()
+    {
+        return $this->provider;
+    }
+
+
+    /**
+     * Set the provider's campaign ID.
+     *
+     * @param   string  $camp_id    Campaign ID from the list API provider
+     * @return  object  $this
+     */
+    public function withProviderCampaignId($camp_id)
+    {
+        $this->provider_mlr_id = $camp_id;
+        return $this;
+    }
+
+
+    /**
      * Get the provider's campaign ID.
      *
      * @return  string      Campaign ID for the provider.
@@ -319,6 +356,12 @@ class Campaign
         if (isset($A['mlr_date'])) {
             $this->withDate($A['mlr_date']);
         }
+        if (isset($A['provider_mlr_id'])) {
+            $this->withProviderCampaignId($A['provider_mlr_id']);
+        }
+        if (isset($A['provider'])) {
+            $this->withProvider($A['provider']);
+        }
         return $this;
     }
 
@@ -350,6 +393,7 @@ class Campaign
                 ON prv.mlr_id = mlr.mlr_id AND prv.provider = '" . Config::get('provider') .
             "' WHERE mlr.mlr_id ='" . DB_escapeString($mlr_id) . "'" .
             SEC_buildAccessSql();
+        //echo $sql;die;
         $result = DB_query($sql);
         if (!$result || DB_numRows($result) != 1) {
             return false;
@@ -407,16 +451,16 @@ class Campaign
                 exp_days = '" . (int)$this->exp_days . "'";
         $sql = $sql1 . $sql2 . $sql3;
         DB_query($sql);
-
         if (!DB_error()) {
             $API = API::getInstance();
             $camp_id = $API->createCampaign($this);
             // Queue immediately or send a test if requested
             if ($camp_id) {
+                $this->withProviderCampaignId($camp_id);
                 if (isset($A['mlr_sendnow'])) {
-                    $API->sendCampaign($camp_id);
+                    $API->sendCampaign($this);
                 } elseif (isset($A['mlr_sendtest'])) {
-                    $API->sendTest($camp_id);
+                    $API->sendTest($this);
                 }
             }
         }
