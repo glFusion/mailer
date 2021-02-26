@@ -527,15 +527,14 @@ class API extends \Mailer\API
     /**
      * Send a previously-created campaign.
      *
-     * @param   string  $campaign_id    Mailchimp campaign ID
-     * @param   array   $emails         Email addresses override
-     * @param   string  $token          Campaign token
+     * @param   string  $Mlr        Campaign Mailer
+     * @param   array   $emails     Email addresses override
+     * @param   string  $token      Campaign token
      * @return  boolean     Status from sending
      */
-    public function sendCampaign($campaign_id, $emails=array(), $token='')
+    public function sendCampaign($Mlr, $emails=array(), $token='')
     {
-        //$status = $this->get('/campaigns/' . $body->id . '/send-checklist');
-        $status = $this->post('/campaigns/' . $body->id . '/actions/send');
+        $status = $this->post('/campaigns/' . $Mlr->getProviderCampaignId() . '/actions/send');
         if (!$status) {
             COM_errorLog($this->getLastResponse()['body']);
         }

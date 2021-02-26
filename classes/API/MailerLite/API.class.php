@@ -311,13 +311,13 @@ class API extends \Mailer\API
     /**
      * Send the campaign.
      *
-     * @param   string  $campaign_id    Provider's campaign ID
-     * @param   array   $emails         Email addresses (optional)
-     * @param   string  $token          Token (not used)
+     * @param   string  $Mlr        Campaign Mailer
+     * @param   array   $emails     Email addresses (optional)
+     * @param   string  $token      Token (not used)
      */
-    public function sendCampaign($campaign_id, $emails=array(), $token='')
+    public function sendCampaign($Mlr, $emails=array(), $token='')
     {
-        $status = $this->post('campaigns/' . $campaign_id . '/actions/send');
+        $status = $this->post('campaigns/' . $Mlr->getProviderCampaignId(). '/actions/send');
         if (!$status) {
             COM_errorLog($this->getLastResponse()['body']);
         }

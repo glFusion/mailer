@@ -369,14 +369,14 @@ class API extends \Mailer\API
     /**
      * Send the campaign.
      *
-     * @param   string  $campaign_id    Campaign ID
-     * @param   array   $emails         Email override addresses
-     * @param   string  $token          Token string
+     * @param   string  $Mlr        Campaign Mailer
+     * @param   array   $emails     Email override addresses
+     * @param   string  $token      Token string
      * @return  boolean     Status from sending
      */
-    public function sendCampaign($campaign_id, $emails=array(), $token='')
+    public function sendCampaign($Mlr, $emails=array(), $token='')
     {
-        return $this->queueEmail(Campaign::getInstance($campaign_id), $emails);
+        return $this->queueEmail($Mlr, $emails);
     }
 
 
