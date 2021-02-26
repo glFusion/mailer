@@ -13,6 +13,7 @@
  */
 namespace Mailer\Models;
 use Mailer\Config;
+use Mailer\API;
 
 
 /**
@@ -159,7 +160,8 @@ class Queue
             return;
         }
 
-        $N = new Mailer();
+        $API = API::getInstance();  // instantiate the API. Should be Internal
+        $N = new Campaign;      // Create a campaign object once
         $mlr_id = '';           // mailer ID used for control-break
         // Loop through the queue, sending the email to each address
         while ($A = DB_fetchArray($res, false)) {
@@ -176,7 +178,7 @@ class Queue
                     continue;
                 }
             }
-            $N->mailIt($A['email'], $A['token']);
+            $API->sendEmail($Mlr, $A['email'], $A['token'])
 
             // todo: Make this more efficient.
             // This is a DB call for every email address, better to batch them
