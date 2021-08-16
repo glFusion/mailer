@@ -178,7 +178,7 @@ class Queue
                     continue;
                 }
             }
-            $API->sendEmail($Mlr, $A['email'], $A['token'])
+            $API->sendEmail($Mlr, $A['email'], $A['token']);
 
             // todo: Make this more efficient.
             // This is a DB call for every email address, better to batch them
