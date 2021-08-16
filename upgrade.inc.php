@@ -41,6 +41,10 @@ function MLR_do_upgrade($dvlp=false)
         if (!MLR_do_set_version($current_ver)) return false;
     }
 
+    // Finally set the version to the code version.
+    // This matters if the last update was code-only.
+    if (!MLR_do_set_version($code_ver)) return false;
+
     // Update any configuration item changes
     CTL_clearCache();
     USES_lib_install();
@@ -125,4 +129,3 @@ function _MLRtableHasColumn($table, $col_name)
     $res = DB_query("SHOW COLUMNS FROM {$_TABLES[$table]} LIKE '$col_name'");
     return DB_numRows($res) == 0 ? false : true;
 }
-
