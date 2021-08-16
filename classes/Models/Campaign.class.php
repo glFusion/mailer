@@ -808,7 +808,7 @@ class Campaign
     {
         global $LANG_MLR, $_CONF, $_USER, $_TABLES;
 
-        // Don't mail invalid mailers
+        // Don't mail invalid campaigns
         if (!$this->isValidRecord()) return false;
 
         if ($email == '') $email = $_USER['email'];
@@ -828,7 +828,7 @@ class Campaign
 
 
     /**
-     * Change the ownership of all mailers when a user is deleted.
+     * Change the ownership of all campaigns when a user is deleted.
      *
      * @param   integer $old_uid    Original user ID
      * @param   integer $new_uid    New user ID, 0 for any root group member
@@ -946,7 +946,7 @@ class Campaign
 
         $text_arr = array(
             'has_extras' => true,
-            'form_url' => Config::get('admin_url') . '/index.php?mailers=x',
+            'form_url' => Config::get('admin_url') . '/index.php?campaigns=x',
         );
 
         $provider_id = API::getInstance()->getName();
@@ -963,7 +963,7 @@ class Campaign
         $options = array();
 
         $retval .= ADMIN_list(
-            'mailer_listmailers',
+            'mailer_listcampaigns',
             array(__CLASS__, 'getListField'),
             $header_arr, $text_arr, $query_arr, $defsort_arr,
             '', '', $options

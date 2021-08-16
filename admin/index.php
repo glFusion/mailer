@@ -74,7 +74,9 @@ function MLR_display_import_form()
 // MAIN
 $expected = array(
     // actions
-    'blacklist_x', 'whitelist_x', 'delsubscriber',
+    'blacklist_x', 'blacklist',
+    'whitelist_x', 'whitelist', 'active',
+    'delsubscriber',
     'edit', 'clone', 'mlr_save',
     'delete', 'sendnow', 'sendtest',
     'deletequeue', 'purgequeue', 'resetqueue', 'flushqueue',
@@ -82,7 +84,7 @@ $expected = array(
     'syncfrom_warning', 'syncfrom',
     'import_form', 'import_users', 'import_users_confirm', 'import', 'export',
     // views
-    'mailers', 'subscribers', 'queue',
+    'campaigns', 'subscribers', 'queue',
 );
 $action = Config::get('def_adm_view');
 foreach($expected as $provided) {
@@ -116,7 +118,7 @@ case 'api_action':
         'get' => $_GET,
         'post' => $_POST,
     ) );
-    COM_refresh(Config::get('admin_url') . '/index.php?mailers');
+    COM_refresh(Config::get('admin_url') . '/index.php?campaigns');
     break;
 
 case 'sendtest':
@@ -124,7 +126,7 @@ case 'sendtest':
     if (!$Mailer->isNew()) {
         $Mailer->sendTest();
     }
-    COM_refresh(Config::get('admin_url') . '/index.php?mailers');
+    COM_refresh(Config::get('admin_url') . '/index.php?campaigns');
     break;
 
 case 'sendnow':
@@ -133,7 +135,7 @@ case 'sendnow':
         API::getInstance()->sendCampaign($Mailer);
         //$Mailer->queueIt();
     }
-    COM_refresh(Config::get('admin_url') . '/index.php?mailers');
+    COM_refresh(Config::get('admin_url') . '/index.php?campaigns');
     break;
 
 case 'delsubscriber':
@@ -154,8 +156,9 @@ case 'delsubscriber':
     $view = 'subscribers';
     break;
 
-case 'blacklist_x':
-    if (is_array($_POST['delsubscriber'])) {
+case 'blacklist_x':     // @deprecated
+case 'blacklist':
+    if (isset($_POST['delsubscriber']) && is_array($_POST['delsubscriber'])) {
         foreach ($_POST['delsubscriber'] as $id) {
             Subscriber::getById($id)->updateStatus(Status::BLACKLIST);
         }
@@ -163,8 +166,10 @@ case 'blacklist_x':
     $view = 'subscribers';
     break;
 
-case 'whitelist_x':
-    if (is_array($_POST['delsubscriber'])) {
+case 'whitelist_x':     // @deprecated
+case 'whitelist':
+case 'active':
+    if (isset($_POST['delsubscriber']) && is_array($_POST['delsubscriber'])) {
         foreach ($_POST['delsubscriber'] as $id) {
             Subscriber::getById($id)->updateStatus(Status::ACTIVE, true);
         }
@@ -183,17 +188,17 @@ case 'clearsub':
 case 'clone':
     $M = new Campaign($mlr_id);
     if ($M->isNew()) {     // can't clone a non-existant mailer
-        $view = 'mailers';
+        $view = 'campaigns';
         break;
     }
     $status = $M->withID('')
                 ->Save();
-    COM_refresh(Config::get('admin_url') . '/index.php?mailers');
+    COM_refresh(Config::get('admin_url') . '/index.php?campaigns');
     break;
 
 case 'delete':
     (new Campaign($mlr_id))->Delete();
-    COM_refresh(Config::get('admin_url') . '/index.php?mailers');
+    COM_refresh(Config::get('admin_url') . '/index.php?campaigns');
     break;
 
 case 'import':
@@ -287,13 +292,13 @@ case 'mlr_save':
     $M = new Campaign($mlr_id);
     $status = $M->Save($_POST);
     if (!$status) {
-        $content .= Menu::Admin('mailers');
-        $content .= Menu::adminMailers('edit');
+        $content .= Menu::Admin('campaigns');
+        $content .= Menu::adminCampaigns('edit');
         $content .= MLR_errorMsg('<ul>' . $M->PrintErrors() . '</ul>');
         $content .= $M->Edit();
         $view = 'none';     // Editing it here, no other display
     } else {
-        COM_refresh(Config::get('admin_url') . '/index.php?mailers');
+        COM_refresh(Config::get('admin_url') . '/index.php?campaigns');
     }
     break;
 
@@ -321,7 +326,7 @@ case 'flushqueue':
     break;
 
 case 'subscribers':
-case 'mailers':
+case 'campaigns':
 case 'queue':
     $view = $action;
     $features = API::getInstance()->getFeatures();
@@ -339,12 +344,12 @@ $content .= Menu::Admin($view);
 switch ($view) {
 case 'edit':
     $M = new Campaign($mlr_id);
-    $content .= Menu::adminMailers($view);
+    $content .= Menu::adminCampaigns($view);
     $content .= $M->Edit();
     break;
 
-case 'mailers':
-    $content .= Menu::adminMailers($view);
+case 'campaigns':
+    $content .= Menu::adminCampaigns($view);
     $content .= Campaign::adminList();
     break;
 

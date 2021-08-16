@@ -34,7 +34,7 @@ class Menu
         $menu_arr = array(
             array(
                 'url'  => Config::get('url') . '/index.php',
-                'text' => $LANG_MLR['mailers'],
+                'text' => $LANG_MLR['campaigns'],
                 'active' => $view == 'list' ? true : false,
             ),
         );
@@ -67,11 +67,11 @@ class Menu
         $retval = '';
         $admin_url = Config::getInstance()->get('admin_url');
         $menu_arr = array();
-        if (in_array('mailers', $features)) {
+        if (in_array('campaigns', $features)) {
             $menu_arr[] = array(
-                'url'   => $admin_url . '/index.php?mailers',
-                'text'  => $LANG_MLR['mailers'],
-                'active' => $view == 'mailers' ? true : false,
+                'url'   => $admin_url . '/index.php?campaigns',
+                'text'  => $LANG_MLR['campaigns'],
+                'active' => $view == 'campaigns' ? true : false,
             );
         }
         if (in_array('queue', $features)) {
@@ -166,16 +166,16 @@ class Menu
      * @param   string  $view   View being shown, so set the help text
      * @return  string      Administrator menu
      */
-    public static function adminMailers($view='')
+    public static function adminCampaigns($view='')
     {
         global $LANG_MLR, $LANG_ADMIN, $_CONF;
 
-        if ($view == '') $view = 'mailers';
+        if ($view == '') $view = 'campaigns';
         $menu_arr = array (
             array(
-                'url' => Config::get('admin_url') . '/index.php?mailers',
+                'url' => Config::get('admin_url') . '/index.php?campaigns',
                 'text' => $LANG_MLR['list'],
-                'active' => $view == 'mailers' ? true : false,
+                'active' => $view == 'campaigns' ? true : false,
             ),
             array(
                 'url' => Config::get('admin_url') . '/index.php?edit=x',

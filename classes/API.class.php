@@ -292,15 +292,15 @@ class API
 
     /**
      * Get supported administrative features to show as menu options.
-     * Possibilities are `mailers`, `subscribers` and `queue`.
-     * Third-party APIs only support subscriber management, the Internal API
-     * supports all three.
+     * Possibilities are `campaigns`, `subscribers` and `queue`.
+     * Third-party APIs may support campaigns and subscriber management.
+     * The Internal API supports all three.
      *
      * @return  array       Array of supported feature keys
      */
     public function getFeatures()
     {
-        return array('mailers', 'subscribers');
+        return array('campaigns', 'subscribers');
     }
 
 

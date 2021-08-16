@@ -181,7 +181,7 @@ class API extends \Mailer\API
      */
     public function getFeatures()
     {
-        return array('mailers', 'subscribers', 'queue');
+        return array('campaigns', 'subscribers', 'queue');
     }
 
 
@@ -302,7 +302,7 @@ class API extends \Mailer\API
      * @param   array|null  $emails Email override addresses
      * @return  boolean     Status from queuing
      */
-    public function queueEmail(Mailer $Mlr, $emails=NULL)
+    public function queueEmail(Campaign $Mlr, $emails=NULL)
     {
         global $_TABLES;
 

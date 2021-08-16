@@ -53,7 +53,7 @@ class API extends \Mailer\API
 
     /**
      * Get supported administrative features to show as menu options.
-     * Possibilities are `mailers`, `subscribers` and `queue`.
+     * Possibilities are `campaigns`, `subscribers` and `queue`.
      * Third-party APIs only support subscriber management, the Internal API
      * supports all three.
      *
@@ -61,7 +61,7 @@ class API extends \Mailer\API
      */
     public function getFeatures()
     {
-        return array('mailers', 'subscribers');
+        return array('campaigns', 'subscribers');
     }
 
 
