@@ -28,12 +28,12 @@ and unsubscription requests are received via webhooks to update the user profile
 
 ## Provider Setup
 Comparison of the free plans by provider.
-| Provider | Subscribers | Mail Limit | SMTP Relay| Multiple Users | Multiple Lists |
-| --- | --- | --- | :---: | :---: | :---: |
-| Mailchimp | 2000 | 10000/mo | No | No | No |
-| Sendinblue | No Limit | 300/day | Yes | No | Yes |
-| MailerLite | 1000 | 12000/mo | No | Yes | Yes |
-| Mailjet (not supported)| No Limit | 200/day, 6000/mo | Yes | No | Yes |
+| Provider | Subscribers | Sending Limit | SMTP Relay| Multiple Users | Multiple Lists | Segments |
+| --- | --- | --- | :---: | :---: | :---: | :---: |
+| Mailchimp | 2000 | 10000/mo | :red_circle: | :red_circle: | :red_circle: | :green_circle: |
+| Sendinblue | No Limit | 300/day | :green_circle: | :red_circle: | :green_circle: | :green_circle: | :green_circle: |
+| MailerLite | 1000 | 12000/mo | :red_circle: | :green_circle: | :green_circle: | :green_circle: |
+| Mailjet (not supported)| No Limit | 200/day, 6000/mo | :green_circle: | :red_circle: | :green_circle: | :red_circle: | :red_circle: |
 
 ### Mailchimp
   - Create an account and log in at https://mailchimp.com.
