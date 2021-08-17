@@ -20,11 +20,18 @@ Mailer\Logger::Debug("Got Mailer Webhook POST: " . var_export($_POST, true));
 Mailer\Logger::Debug("Got Mailer php:://input: " . var_export(@file_get_contents('php://input'), true));
 
 if (isset($_GET['p'])) {
-    $WH = Mailer\Webhook::getInstance($_GET['p']);
-    if ($WH->getProvider() == $_GET['p']) {
-        $WH->Dispatch();
+    $provider = COM_sanitizeId($_GET['p']);
+    if ($provider == Mailer\Config::get('provider')) {
+        $WH = Mailer\Webhook::getInstance($provider);
+        if ($WH->getProvider() == $provider) {
+            $WH->Dispatch();
+        } else {
+            Mailer\Logger::System("Unable to instantiate mailer webhook for {$provider}");
+        }
     } else {
-        COM_errorLog("Unable to instantiate mailer webhook for {$_GET['p']}");
+        Mailer\Logger::System("Got unauthorized webhook from {$provider}");
     }
+} else {
+    Mailer\Logger::System("Missing provider parameter for webhook");
 }
 

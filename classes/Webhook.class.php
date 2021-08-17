@@ -31,13 +31,16 @@ class Webhook
     /**
      * Get an instance of the Webhook class.
      *
+     * @param   string  $provider   Specific provider to instantiate
      * @return  object  Mailchimp Webhook object
      */
-    public static function getInstance()
+    public static function getInstance($provider = NULL)
     {
         static $wh = NULL;
         if ($wh === NULL) {
-            $provider = Config::get('provider');
+            if ($provider == NULL) {
+                $provider = Config::get('provider');
+            }
             try {
                 $cls = '\\Mailer\\API\\' . $provider . '\\Webhook';
                 $wh = new $cls;

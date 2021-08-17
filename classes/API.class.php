@@ -76,13 +76,14 @@ class API
     /**
      * Get an instance of the API class.
      *
+     * @param   string  $provider   Specific provider to instantiate
      * @return  object      API object
      */
-    public static function getInstance()
+    public static function getInstance($provider=NULL)
     {
         static $api = NULL;
         if ($api === NULL) {
-            $api = self::create();
+            $api = self::create($provider);
         }
         return $api;
     }
