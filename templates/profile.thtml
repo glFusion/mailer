@@ -1,5 +1,5 @@
 {# begin {templatelocation} #}
-<div class="uk-form-row uk-margin-small-top">
+<div class="uk-form-row uk-margin">
   <label class="uk-form-label" for="mailer_subscribe">
     {$LANG_MLR['user_edit_checkbox_label']}
   </label>
