@@ -175,7 +175,7 @@ function plugin_user_create_mailer($uid)
 
 
 /**
- * Unsubscribe deleted users and update mailers owned by them.
+ * Unsubscribe deleted users and update campaigns owned by them.
  *
  * @param   integer $uid    User id of deleted user
  */
@@ -264,19 +264,33 @@ function plugin_profilesave_mailer($uid=0)
 }
 
 
+/**
+ * Take action when another plugin has saved an item.
+ * This expectes to update subscriber info, so will only act if
+ * `merge_fields` is provided.
+ *
+ * @param   string  $id     Item ID
+ * @param   string  $type   Item Type (plugin name)
+ * @param   string  $old_id Old item ID, in case it was changed
+ */
 function plugin_itemsaved_mailer($id, $type, $old_id = '')
 {
     global $_TABLES;
 
     $contentInfo = PLG_getItemInfo(
-        $type, $id,
+        $type,
+        $id,
         'id,status,merge_fields',
         2
     );
 
-    if ($contentInfo) {
-        if ($contentInfo['id'] > 1) {
-            $Sub = Subscriber::getByUid($contentInfo['id']);
+    if (
+        $contentInfo &&
+        !empty($contentInfo['id']) &&
+        is_array($contentInfo['merge_fields'])
+    ) {
+        $Sub = Subscriber::getByUid($contentInfo['id']);
+        if ($Sub->getId() > 0 && $Sub->getEmail() != '') {
             $Sub->update();
         }
     }
