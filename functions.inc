@@ -277,6 +277,10 @@ function plugin_itemsaved_mailer($id, $type, $old_id = '')
 {
     global $_TABLES;
 
+    if (in_array($type, Config::get('ignore_itemsaved'))) {
+        return;
+    }
+
     $contentInfo = PLG_getItemInfo(
         $type,
         $id,
@@ -286,8 +290,7 @@ function plugin_itemsaved_mailer($id, $type, $old_id = '')
 
     if (
         $contentInfo &&
-        !empty($contentInfo['id']) &&
-        is_array($contentInfo['merge_fields'])
+        !empty($contentInfo['id'])
     ) {
         $Sub = Subscriber::getByUid($contentInfo['id']);
         if ($Sub->getId() > 0 && $Sub->getEmail() != '') {

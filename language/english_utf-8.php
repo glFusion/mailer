@@ -234,6 +234,7 @@ $LANG_confignames['mailer'] = array(
     'sb_dbo_tpl' => 'Double Opt-In Template ID',
     'ml_api_key' => 'MailerLite API Key',
     'ml_def_list' => 'Default List (Group) ID',
+    'ignore_itemsaved' => 'Plugins to ignore in itemsaved()',
 );
 
 $LANG_configsubgroups['mailer'] = array(

@@ -144,6 +144,17 @@ $mailerConfigData = array(
         'set' => true,
         'group' => 'mailer',
     ),
+    array(
+        'name' => 'ignore_itemsaved',
+        'default_value' => array('mediagallery', 'forum', 'article', 'calendar'),
+        'type' => '%text',
+        'subgroup' => 0,
+        'fieldset' => 0,
+        'selection_array' => 7,
+        'sort' => 100,
+        'set' => true,
+        'group' => 'mailer',
+    ),
 
     // Internal queue options
     array(
