@@ -1,0 +1,10 @@
+{# begin {templatelocation} #}
+{!if 0}
+<button class="uk-icon uk-icon-remove tooltip" name="delbutton" style="vertical-align:text-bottom;"
+	title="{$LANG01[124]}" onclick="return confirm('{$LANG01[125]}');"></button>&nbsp;{$LANG_ADMIN['delete']}&nbsp;
+{!endif}
+<button name="blacklist" class="uk-icon uk-icon-circle uk-text-danger tooltip" style="vertical-align:text-bottom;"
+	title="{$LANG_MLR['blacklist']}" onclick="return confirm('{$LANG_MLR['conf_black']}');"></button>&nbsp;{$LANG_MLR['blacklist']}&nbsp;
+<button name="active" class="uk-icon uk-icon-circle uk-text-success tooltip" style="vertical-align:text-bottom;"
+	title="{$LANG_MLR['subscribe']}" onclick="return confirm('{$LANG_MLR['conf_white']}');" ></button>&nbsp;{$LANG_MLR['subscribe']}&nbsp;
+{# end {templatelocation} #}

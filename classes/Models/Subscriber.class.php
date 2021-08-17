@@ -696,6 +696,8 @@ class Subscriber
 
     /**
      * Get the subscriber's attributes from each plugin.
+     * Plugins must support this, and should return at least attribute
+     * names for anonymous.
      *
      * @param   integer $uid    glFusion user ID
      * @return  array       Array of key=>value pairs
@@ -957,24 +959,10 @@ class Subscriber
             'default_filter' => COM_getPermSQL('AND', 0, 3)
         );
 
-        $chkactions ='<input name="delbutton" type="image" src="'
-            . $_CONF['layout_url'] . '/images/admin/delete.' . $_IMAGE_TYPE
-            . '" style="vertical-align:text-bottom;" title="' . $LANG01[124]
-            . '" onclick="return confirm(\'' . $LANG01[125] . '\');"'
-            . '/>&nbsp;' . $LANG_ADMIN['delete'] . '&nbsp;';
-        $chkactions .= '<input name="blacklist" type="image" src="'
-            . Config::get('admin_url') . '/images/red.png'
-            . '" style="vertical-align:text-bottom;" title="'
-            . $LANG_MLR['blacklist']
-            . '" onclick="return confirm(\'' . $LANG_MLR['conf_black'] . '\');"'
-            . '/>&nbsp;' . $LANG_MLR['blacklist'] . '&nbsp;';
-        $chkactions .= '<input name="active" type="image" src="'
-            . Config::get('admin_url') . '/images/green.png'
-            . '" style="vertical-align:text-bottom;" title="'
-            . $LANG_MLR['subscribe']
-            . '" onclick="return confirm(\'' . $LANG_MLR['conf_white'] . '\');"'
-            . '/>&nbsp;' . $LANG_MLR['subscribe'] . '&nbsp;';
-
+        $T = new \Template(Config::get('pi_path') . '/templates/admin');
+        $T->set_file('chkactions', 'sub_chkactions.thtml');
+        $T->parse('output', 'chkactions');
+        $chkactions = $T->finish($T->get_var('output'));
         $options = array(
             //'chkdelete' => true,
             'chkselect' => true,
