@@ -101,6 +101,9 @@ class Menu
             'title' => _('Mailer Administration'),
         ) );
         $hlp_text = _('Mail Handler') . ': ' . $API->getName();
+        if (empty($API->getAPIkey())) {
+            $hlp_text .= '<br />* Please configure the API key for ' . $API->getName();
+        }
         $hlp_opts = $API->getMenuHelp();
         if (!empty($hlp_opts)) {
             $hlp_text .= $hlp_opts;
