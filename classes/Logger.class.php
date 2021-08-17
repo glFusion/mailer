@@ -89,7 +89,7 @@ class Logger
      */
     public static function System($msg)
     {
-        COM_errorLog($msg);
+        COM_errorLog(Config::PI_NAME . ':: ' . $msg);
     }
 
 
