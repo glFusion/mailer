@@ -1055,11 +1055,13 @@ class Subscriber
             break;
 
         case 'uid':
-            if (!empty($A['uid'])) {
-                $retval = COM_createLink(COM_getDisplayName($A['uid']),
-                    $_CONF['site_url'].'/users.php?mode=profile&uid=' . $A['uid']) .
-                    ' (' . $A['uid'] . ')';
+            $retval = COM_getDisplayName($A['uid']);
+            if ($A['uid'] > 1) {
+                $retval = COM_createLink($retval,
+                    $_CONF['site_url'].'/users.php?mode=profile&uid=' . $A['uid']
+                );
             }
+            $retval .= ' (' . $A['uid'] . ')';
             break;
         default:
             $retval = $fieldvalue;
