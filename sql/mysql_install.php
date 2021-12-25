@@ -12,6 +12,8 @@
  * @filesource
  */
 
+global $_TABLES, $_SQL;
+
 $_SQL= array(
 'mailer_campaigns' => "CREATE TABLE {$_TABLES['mailer_campaigns']} (
   `mlr_id` varchar(20) NOT NULL,
