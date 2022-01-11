@@ -30,10 +30,10 @@ and unsubscription requests are received via webhooks to update the user profile
 Comparison of the free plans by provider.
 | Provider | Subscribers | Sending Limit | SMTP Relay| Multiple Users | Multiple Lists | Segments |
 | --- | --- | --- | :---: | :---: | :---: | :---: |
-| Mailchimp | 2000 | 10000/mo | :red_circle: | :red_circle: | :red_circle: | :green_circle: |
-| Sendinblue | No Limit | 300/day | :green_circle: | :red_circle: | :green_circle: | :green_circle: | :green_circle: |
-| MailerLite | 1000 | 12000/mo | :red_circle: | :green_circle: | :green_circle: | :green_circle: |
-| Mailjet (not supported)| No Limit | 200/day, 6000/mo | :green_circle: | :red_circle: | :green_circle: | :red_circle: | :red_circle: |
+| Mailchimp | 2000 | 10000/mo | :x: | :x: | :x: | :heavy_check_mark: |
+| Sendinblue | No Limit | 300/day | :heavy_check_mark: | :x: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| MailerLite | 1000 | 12000/mo | :x: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| Mailjet (not supported)| No Limit | 200/day, 6000/mo | :heavy_check_mark: | :x: | :heavy_check_mark: | :x: | :x: |
 
 ### Mailchimp
   - Create an account and log in at https://mailchimp.com.
@@ -85,6 +85,7 @@ Comparison of the free plans by provider.
       - campaign.sent (not currently used)
 
 ### Mailjet
+#### Not Currently Supported
   - Create an account ang log in at https://mailjet.com.
   - Create or update a Contact List (from the "Contacts" menu).
   - Click on the account menu icon (top right) and select "Account Settings".
