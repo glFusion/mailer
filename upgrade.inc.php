@@ -3,14 +3,15 @@
  * Upgrade routines for the Mailer plugin.
  *
  * @author      Lee Garner <lee@leegarner.com>
- * @copyright   Copyright (c) 2010-2021 Lee Garner <lee@leegarner.com>
+ * @copyright   Copyright (c) 2010-2022 Lee Garner <lee@leegarner.com>
  * @package     forms
- * @version     v0.1.0
+ * @version     v0.2.0
  * @license     http://opensource.org/licenses/gpl-2.0.php
  *              GNU Public License v2 or later
  * @filesource
  */
 
+require_once __DIR__ . '/sql/mysql_install.php';
 
 /**
  * Perform the upgrade starting at the current version.
@@ -23,20 +24,11 @@ function MLR_do_upgrade($dvlp=false)
 {
     global $_TABLES, $_MLR_UPGRADE, $_PLUGIN_INFO;
 
-    $installed_ver = $_PLUGIN_INFO[Mailer\Config::PI_NAME]['pi_version'];
+    $current_ver = $_PLUGIN_INFO[Mailer\Config::PI_NAME]['pi_version'];
     $code_ver = plugin_chkVersion_mailer();
-    $current_ver = $installed_ver;
 
-    $versions = array();
-    foreach ($versions as $version) {
-        $current_ver = $version;
-        $function = 'MLR_do_upgrade_' . $current_ver;
-        if (
-            function_exists($function) &&
-            !$function()
-        ) {
-            return false;
-        }
+    if (!COM_checkVersion($current_ver, '0.2.0')) {
+        $current_ver = '0.2.0';
         if (!MLR_do_upgrade_sql($current_ver, $dvlp)) return false;
         if (!MLR_do_set_version($current_ver)) return false;
     }

@@ -12,7 +12,7 @@
  * @filesource
  */
 
-global $_TABLES, $_SQL;
+global $_TABLES, $_SQL, $_MLR_UPGRADE;
 
 $_SQL= array(
 'mailer_campaigns' => "CREATE TABLE {$_TABLES['mailer_campaigns']} (
@@ -69,9 +69,21 @@ $_SQL= array(
   `tested` tinyint(1) unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`mlr_id`,`provider`)
 ) ENGINE=MyISAM",
+'mailer_userinfo' => "CREATE TABLE `{$_TABLES['mailer_userinfo']}` (
+  `uid` int(11) unsigned NOT NULL,
+  `data` text DEFAULT 'a:0:{}',
+  PRIMARY KEY (`uid`)
+) ENGINE=MyISAM",
 );
 
 global $_MLR_UPGRADE;
 $_MLR_UPGRADE = array(
+    '0.2.0' => array(
+        "CREATE TABLE `{$_TABLES['mailer_userinfo']}` (
+          `uid` int(11) unsigned NOT NULL,
+          `data` text DEFAULT 'a:0:{}',
+          PRIMARY KEY (`uid`)
+        ) ENGINE=MyISAM",
+    ),
 );
 

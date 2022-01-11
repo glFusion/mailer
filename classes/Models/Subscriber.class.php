@@ -3,9 +3,9 @@
  * Layout for a Subscriber record.
  *
  * @author      Lee Garner <lee@leegarner.com>
- * @copyright   Copyright (c) 2020-2021 Lee Garner <lee@leegarner.com>
+ * @copyright   Copyright (c) 2020-2022 Lee Garner <lee@leegarner.com>
  * @package     mailer
- * @version     v0.1.0
+ * @version     v0.2.0
  * @license     http://opensource.org/licenses/gpl-2.0.php
  *              GNU Public License v2 or later
  * @filesource
@@ -535,7 +535,6 @@ class Subscriber
      */
     public function update()
     {
-        //$params = $this->getAttributes();
         $API = API::getInstance();
         return $API->updateMember($this);
     }
@@ -608,22 +607,17 @@ class Subscriber
      */
     public function profileUpdated()
     {
-        $updates = false;
+        // Check for a changed email address or any merge fields.
+        // Otherwise, there's nothing to end.
+        $new_attr = $this->getAttributes();
         if (
-            isset($_POST['mailer_old_fullname']) &&
-            $_POST['mailer_old_fullname'] != $_POST['fullname']
+            (
+                isset($_POST['mailer_old_email']) &&
+                $_POST['mailer_old_email'] != $_POST['email']
+            ) ||
+            ($this->getUserData() != $new_attr)
         ) {
-            $updates = true;
-            $this->withFullname($_POST['fullname']);
-        }
-        if (
-            isset($_POST['mailer_old_email']) &&
-            $_POST['mailer_old_email'] != $_POST['email']
-        ) {
-            $updates = true;
-            $this->withEmail($_POST['email']);
-        }
-        if ($updates) {
+            $this->saveUserData($new_attr);
             $this->update();
         }
         return $this;
@@ -1066,6 +1060,48 @@ class Subscriber
         default:
             $retval = $fieldvalue;
             break;
+        }
+        return $retval;
+    }
+
+
+    /**
+     * Save the user's profile information such as merge fields.
+     *
+     * @param   array   Array of key-value pairs
+     */
+    public function saveUserData(array $attributes) : self
+    {
+        global $_TABLES;
+
+        $data = DB_escapeString(json_encode($attributes));
+        $sql = "INSERT INTO {$_TABLES['mailer_userinfo']} SET
+            uid = {$this->uid},
+            data = '$data'
+            ON DUPLICATE KEY UPDATE
+            data = '$data'";
+        DB_query($sql);
+        return $this;
+    }
+
+
+    /**
+     * Get the user profile data such as merge fields.
+     *
+     * @return  array   Array of key-value pairs
+     */
+    public function getUserData() : array
+    {
+        global $_TABLES;
+
+        $data = DB_getItem($_TABLES['mailer_userinfo'], 'data', "uid = {$this->uid}");
+        if ($data) {
+            $retval = @json_decode($data, true);
+        } else {
+            $retval = array();
+        }
+        if (!$retval) {
+            $retval = array();
         }
         return $retval;
     }

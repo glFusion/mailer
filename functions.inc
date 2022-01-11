@@ -211,18 +211,21 @@ function plugin_profileedit_mailer($uid, $panel, $fieldset)
     if ($panel == 'privacy' && $fieldset == 'privacy') {
         $chk = '';
         $Sub = Subscriber::getByUid($uid);
+        $oldsub = 0;
         if ($Sub->getUid() > 1) {
             if ($Sub->getStatus() == Status::BLACKLIST) {
                 // Blacklisted, don't show the option at all
                 return $retval;
             } elseif ($Sub->getStatus() == Status::ACTIVE) {
                 $chk = 'checked="checked"';
+                $oldsub = 1;
             }
         }
         $T = new Template(__DIR__ . '/templates/');
         $T->set_file('profile', 'profile.thtml');
         $T->set_var(array(
             'mailer_checked' => $chk,
+            'mailer_oldsub' => $oldsub,
             'mailer_old_email' => $Sub->getEmail(),
             'mailer_old_fullname' => $Sub->getFullname(),
         ) );
@@ -250,7 +253,11 @@ function plugin_profilesave_mailer($uid=0)
 
     $Sub = Subscriber::getByUid($uid);
     $Sub->profileUpdated($_POST);
-    if (isset($_POST['mailer_subscribe'])) {
+    if (
+        isset($_POST['mailer_subscribe']) &&
+        (!isset($_POST['mailer_oldsub']) || empty($_POST['mailer_oldsub']))
+    ) {
+        COM_errorLog("Posting change to api to subscribe");
         // User requesting addition, double opt-in not needed
         if (Config::get('dbl_optin_members')) {
             $Sub->subscribe();
@@ -258,7 +265,12 @@ function plugin_profilesave_mailer($uid=0)
             // Not requiring double-optin for members
             $Sub->subscribe(Status::ACTIVE);
         }
-    } else {
+    } elseif (
+        !isset($_POST['mailer_subscribe']) &&
+        (isset($_POST['mailer_oldsub']) && !empty($_POST['mailer_oldsub']))
+    ) {
+        // subscription checkbox not checked but was previously
+        COM_errorLog("Posting change to api to unsubscribe");
         $Sub->unsubscribe();
     }
 }

@@ -4,7 +4,7 @@
     {$LANG_MLR['user_edit_checkbox_label']}
   </label>
   <div class="uk-form-controls">
-    <input type="hidden" name="mailer_oldsub" value="{mailer_prev_check}" />
+    <input type="hidden" name="mailer_oldsub" value="{mailer_oldsub}" />
     <input type="checkbox" id="mailer_subscribe" value="1"
         name="mailer_subscribe" {mailer_checked} />
     <input type="hidden" name="mailer_old_fullname" value="{mailer_old_fullname}" />
