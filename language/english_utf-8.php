@@ -251,7 +251,7 @@ $LANG_fs['mailer'] = array(
     'fs_mailerlite' => 'MailerLite',
 );
 
-// Note: entries 0, 1, 9, and 12 are the same as in $LANG_configselects['Core']
+// @todo - deprecate in glFusion 2.x
 $LANG_configselects['mailer'] = array(
     0 => array(
         'Yes' => 1,
@@ -286,5 +286,54 @@ $LANG_configselects['mailer'] = array(
     12 => array('No access' => 0, 'Read-Only' => 2, 'Read-Write' => 3),
     13 => array('None' => 0, 'Left' => 1, 'Right' => 2, 'Both' => 3),
     14 => array('Site E-Mail' => 'site_mail', 'No-Reply Address' => 'noreply_mail'),
+);
+
+
+$LANG_configSelect['mailer'] = array(
+    0 => array(
+        1 => 'Yes',
+        0 => 'No',
+    ),
+    4 => array(
+        0 => 'No',
+        3 => 'No- Subscribe Automatically',
+        1 => 'Yes- Checked',
+        2 => 'Yes- Unchecked',
+    ),
+    5 => array(
+        'Internal' => 'Internal',
+        'Mailchimp' => 'Mailchimp',
+        'MailerLIte' => 'MailerLite',
+        'Sendinblue' => 'Sendinblue',
+    ),
+    6 => array(
+        100 => '100 DEBUG',
+        200 => '200 INFO',
+        250 => '250 NOTICE',
+        300 => '300 WARNING',
+        400 => '400 ERROR',
+        500 => '500 CRITICAL',
+        550 => '550 ALERT',
+        600 => '600 EMERGENCY',
+    ),
+    7 => array(
+        'mailings' => 'Mailings',
+         'subscribers' => 'Subscribers',
+    ),
+    12 => array(
+        0 => 'No access',
+        2 => 'Read-Only',
+        3 => 'Read-Write',
+    ),
+    13 => array(
+        0 => 'None',
+        1 => 'Left',
+        2 => 'Right',
+        3 => 'Both',
+    ),
+    14 => array(
+        'site_mail' => 'Site E-Mail',
+        'noreply_mail' => 'No-Reply Address',
+    ),
 );
 
