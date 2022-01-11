@@ -117,6 +117,7 @@ $LANG_MLR = array(
     'submit' => 'Submit',
     'sendnow' => 'Mail this mailer now?',
     'sendtest' => 'Send a test to your email address?',
+    'sendtestnow' => 'Send a test now.',
     'send' => 'Send',
     'last_sent' => 'Last Sent',
     'removed_title' => 'Removed',
@@ -184,6 +185,7 @@ $LANG_MLR = array(
     'duplicate' => 'Duplicate Address',
     'never' => 'Never',
     'tbd' => 'To Be Determined',
+    'not_supported' => 'Not supported',
 );
 
 

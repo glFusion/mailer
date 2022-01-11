@@ -949,7 +949,12 @@ class Campaign
             'form_url' => Config::get('admin_url') . '/index.php?campaigns=x',
         );
 
-        $provider_id = API::getInstance()->getName();
+        $API = API::getInstance();
+        $provider_id = $API->getName();
+        $extra = array(
+            'provider' => $provider_id,
+            'supports_testing' => $API->supportsTesting(),
+        );
         $query_arr = array(
             'table' => 'mailer',
             'sql' => "SELECT mlr.*, prv.provider, prv.provider_mlr_id, prv.tested
@@ -966,7 +971,7 @@ class Campaign
             'mailer_listcampaigns',
             array(__CLASS__, 'getListField'),
             $header_arr, $text_arr, $query_arr, $defsort_arr,
-            '', '', $options
+            '', $extra, $options
         );
         return $retval;
     }
@@ -979,9 +984,10 @@ class Campaign
      * @param   string  $fieldvalue     Value of the field
      * @param   array   $A              Array of all field name=>value pairs
      * @param   array   $icon_arr       Array of admin icons
+     * @param   array   $extra          Extra verbatim data
      * @return  string                  Display value for $fieldname
      */
-    public static function getListField($fieldname, $fieldvalue, $A, $icon_arr)
+    public static function getListField($fieldname, $fieldvalue, $A, $icon_arr, $extra)
     {
         global $_CONF, $LANG_ADMIN, $LANG_MLR, $_TABLES, $_IMAGE_TYPE;
 
@@ -1006,21 +1012,26 @@ class Campaign
             break;
 
         case 'tested':
-            if ($fieldvalue == 1) {
-                $icon = 'uk-icon-check';
-                $cls = 'uk-text-success';
+            if ($extra['supports_testing']) {
+                if ($fieldvalue == 1) {
+                    $icon = 'uk-icon-check';
+                    $cls = 'uk-text-success';
+                } else {
+                    $icon = 'uk-icon-circle';
+                    $cls = 'uk-text-warning';
+                }
+                $retval = COM_createLink(
+                    '<i class="uk-icon ' . $icon . '"></i>',
+                    $admin_url . '/index.php?sendtest=' . $A['mlr_id'],
+                    array(
+                        'class' => 'tooltip ' . $cls,
+                        'title' => $LANG_MLR['sendtestnow'],
+                    )
+                );
             } else {
-                $icon = 'uk-icon-remove';
-                $cls = '';
+                $retval = '<i class="uk-icon uk-icon-ban uk-text-disabled tooltip" title="' .
+                    $LANG_MLR['not_supported'] . '"></i>';
             }
-            $retval = COM_createLink(
-                '<i class="uk-icon ' . $icon . '"></i>',
-                $admin_url . '/index.php?sendtest=' . $A['mlr_id'],
-                array(
-                    'class' => 'tooltip ' . $cls,
-                    'title' => 'Send a test now',
-                )
-            );
             break;
 
         case 'send':
@@ -1035,7 +1046,7 @@ class Campaign
 
         case 'delete':
             $retval = COM_createLink(
-                '<i class="uk-icon uk-icon-remove uk-text-danger"></i>',
+                '<i class="uk-icon uk-icon-minus-square uk-text-danger"></i>',
                 $admin_url . "/index.php?delete=x&amp;mlr_id={$A['mlr_id']}",
                 array(
                     'onclick' => "return confirm('{$LANG_MLR['conf_delete']}');",
