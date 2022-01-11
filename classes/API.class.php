@@ -72,6 +72,11 @@ class API
      * @var string */
     protected $name = '';
 
+    /** Flag to indicate whether this API supportes test emails.
+     * Default = false.
+     * @var boolean */
+    protected $supports_testing = false;
+
 
     /**
      * Get an instance of the API class.
@@ -253,6 +258,16 @@ class API
         return $status;
     }
 
+
+    /**
+     * Check if this mailer supports sending a test email.
+     *
+     * @return  boolean     True if supported, False if not.
+     */
+    public function supportsTesting() : bool
+    {
+        return $this->supports_testing;
+    }
 
 
     /**

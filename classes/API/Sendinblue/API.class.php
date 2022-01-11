@@ -28,6 +28,11 @@ class API extends \Mailer\API
     private $api_key = '';
     protected $cfg_list_key = 'sb_def_list';
 
+    /** Flag to indicate whether this API supports test emails.
+     * @var boolean */
+    protected $supports_testing = true;
+
+
     /**
      * Create a new instance.
      *

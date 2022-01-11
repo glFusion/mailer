@@ -39,6 +39,11 @@ class API extends \Mailer\API
 
     protected $cfg_list_key = 'mc_def_list';
 
+    /** Flag to indicate whether this API supports test emails.
+     * @var boolean */
+    protected $supports_testing = true;
+
+
     /**
      * Create a new instance.
      *

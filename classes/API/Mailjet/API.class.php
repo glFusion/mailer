@@ -414,18 +414,6 @@ class API extends \Mailer\API
 
 
     /**
-     * Send a test email. Not supported by Mailjet.
-     *
-     * @param   string  $camp_id    Campaign ID
-     * @return  boolean     True on success, False on error
-     */
-    public function sendTest($camp_id)
-    {
-        return false;
-    }
-
-
-    /**
      * Delete a campaign.
      *
      * @param   object  $Mlr    Campaign object

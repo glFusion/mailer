@@ -29,6 +29,10 @@ class API extends \Mailer\API
      * @var object */
     private $phpmailer = NULL;
 
+    /** Flag to indicate whether this API supports test emails.
+     * @var boolean */
+    protected $supports_testing = true;
+
 
     /**
      * Get a list of members subscribed to a given list.
