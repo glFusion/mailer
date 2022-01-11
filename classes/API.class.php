@@ -465,7 +465,7 @@ class API
         }
 
         $url = $this->api_endpoint . '/' . $method;
-        Logger::Debug("making request via $http_verb, method $method, to $url");
+        Logger::Debug(__CLASS__ . '::' . __FUNCTION__ . "making request via $http_verb, method $method, to $url");
         Logger::Debug("Arguments: " . print_r($args,true));
         $response = $this->prepareStateForRequest($http_verb, $method, $url, $timeout);
 

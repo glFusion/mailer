@@ -15,6 +15,7 @@ use Mailer\Config;
 use Mailer\Models\Status;
 use Mailer\Models\ApiInfo;
 use Mailer\Models\Campaign;
+use Mailer\Logger;
 
 
 /**
