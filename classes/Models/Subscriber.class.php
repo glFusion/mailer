@@ -257,7 +257,7 @@ class Subscriber
             token = '" . DB_escapeString($this->token) . "',
             status = {$this->getStatus()}";
         if ($this->getID() == 0) {
-            $sql1 = "INSERT INTO {$_TABLES['mailer_subscribers']} SET ";
+            $sql1 = "INSERT IGNORE INTO {$_TABLES['mailer_subscribers']} SET ";
             $sql3 = '';
         } else {
             $sql1 = "UPDATE {$_TABLES['mailer_subscribers']} SET ";
@@ -613,6 +613,7 @@ class Subscriber
         if (
             (
                 isset($_POST['mailer_old_email']) &&
+                isset($_POST['email']) &&
                 $_POST['mailer_old_email'] != $_POST['email']
             ) ||
             ($this->getUserData() != $new_attr)
