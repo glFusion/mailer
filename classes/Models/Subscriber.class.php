@@ -15,6 +15,7 @@ use Mailer\Models\Status;
 use Mailer\Logger;
 use Mailer\API;
 use Mailer\Config;
+use glFusion\Database\Database;
 
 
 /**
@@ -124,7 +125,7 @@ class Subscriber
      */
     public static function getByEmail($email)
     {
-        $retval = self::_create('email', DB_escapeString($email))
+        $retval = self::_create('email', $email)
             ->withEmail($email)
             ->withOldEmail($email);
         return $retval;
@@ -138,38 +139,50 @@ class Subscriber
      * @param   mixed   $value  Value of the field
      * @return  object      Subscriber object
      */
-    private static function _create($fld, $value)
+    private static function _create(string $fld, $value) : self
     {
         global $_TABLES;
 
-         $sql = "SELECT sub.*, u.uid as gl_uid, u.fullname
-            FROM {$_TABLES['mailer_subscribers']} sub
-            LEFT JOIN {$_TABLES['users']} u
-            ON u.uid = sub.uid WHERE sub.{$fld} = '$value'
-            LIMIT 1";
-        $res = DB_query($sql);
-        if (DB_numRows($res) == 1) {
-            $A = DB_fetchArray($res, false);
-            $retval = new self($A);
-            if ($A['uid'] == 1 && $A['gl_uid'] > 1) {
-                // Link the user ID. User may have joined after subscribing.
-                $retval->withUid($A['gl_uid']);
+        $db = Database::getInstance();
+        $qb = $db->conn->createQueryBuilder();
+        try {
+            $stmt = $qb->select('sub.*', 'u.uid as gl_uid', 'u.fullname')
+               ->from($_TABLES['mailer_subscribers'], 'sub')
+               ->leftJoin('sub', $_TABLES['users'], 'u', 'sub.uid=u.uid')
+               ->setFirstResult(0)
+               ->setMaxResults(1)
+               ->where('sub.' . $fld . '= ?')
+               ->setParameter(0, $value)
+               ->execute();
+            $A = $stmt->fetch(Database::ASSOCIATIVE);
+            if (!empty($A)) {
+                $retval = new self($A);
+                if ($A['uid'] == 1 && $A['gl_uid'] > 1) {
+                    // Link the user ID. User may have joined after subscribing.
+                    $retval->withUid($A['gl_uid']);
+                }
+            } else {
+                // Not found, try to get information if this is a site member.
+                $retval = (new self)
+                    ->withRegDate()
+                    ->withToken();
+                $stmt = $db->conn->executeQuery(
+                    "SELECT uid, fullname, email
+                    FROM {$_TABLES['users']}
+                    WHERE $fld = ?",
+                    array($value),
+                    array(Database::STRING)
+                );
+                $B = $stmt->fetch(Database::ASSOCIATIVE);
+                if (!empty($B)) {
+                    $retval->withUid($B['uid'])
+                           ->withEmail($B['email'])
+                           ->withFullname($B['fullname']);
+                }
             }
-        } else {
-            // Not found, try to get information if this is a site member.
-            $retval = (new self)
-                ->withRegDate()
-                ->withToken();
-            $sql = "SELECT uid, fullname, email
-                FROM {$_TABLES['users']}
-                WHERE $fld = '$value'";
-            $res = DB_query($sql);
-            if (DB_numRows($res) == 1) {
-                $B = DB_fetchArray($res, false);
-                $retval->withUid($B['uid'])
-                       ->withEmail($B['email'])
-                       ->withFullname($B['fullname']);
-            }
+        } catch (\Exception $e) {
+            Logger::logException($e);
+            $retval = new self;
         }
         return $retval;
     }
@@ -214,7 +227,16 @@ class Subscriber
     {
         global $_TABLES;
 
-        DB_delete($_TABLES['mailer_subscribers'], 'id', $this->getID());
+        $db = Database::getInstance();
+        try {
+            $db->conn->delete(
+                $_TABLES['mailer_subscribers'],
+                array('id' => $this->getID()),
+                array(Database::INTEGER)
+            );
+        } catch (\Exception $e) {
+            Logger::logException($e);
+        }
         $this->id = 0;
     }
 
@@ -250,30 +272,44 @@ class Subscriber
     {
         global $_TABLES;
 
-        $sql2 = "email = '" . DB_escapeString($this->email_address) . "',
-            uid = {$this->getUid()},
-            domain = '" . DB_escapeString($this->domain) . "',
-            dt_reg = '" . DB_escapeString($this->dt_reg) . "',
-            token = '" . DB_escapeString($this->token) . "',
-            status = {$this->getStatus()}";
+        $db = Database::getInstance();
+        $qb = $db->conn->createQueryBuilder();
+        $qb->setParameter('email', $this->email_address, Database::STRING)
+           ->setParameter('uid', $this->getUid(), Database::INTEGER)
+           ->setParameter('domain', $this->domain, Database::STRING)
+           ->setParameter('dt_reg', $this->dt_reg, Database::STRING)
+           ->setParameter('token', $this->token, Database::STRING)
+           ->setParameter('status', $this->getStatus(), Database::INTEGER);
+
         if ($this->getID() == 0) {
-            $sql1 = "INSERT IGNORE INTO {$_TABLES['mailer_subscribers']} SET ";
-            $sql3 = '';
+            $qb->insert($_TABLES['mailer_subscribers'])
+               ->setValue('email', ':email')
+               ->setValue('uid', ':uid')
+               ->setValue('domain', ':domain')
+               ->setValue('dt_reg', ':dt_reg')
+               ->setValue('token', ':token')
+               ->setValue('status', ':status');
         } else {
-            $sql1 = "UPDATE {$_TABLES['mailer_subscribers']} SET ";
-            $sql3 = " WHERE id = {$this->getID()}";
-            }
-        $sql = $sql1 . $sql2 . $sql3;
-        //echo $sql;die;
-        DB_query($sql);
-        if (!DB_error()) {
-            if ($this->getID() == 0) {
-                $this->withID(DB_insertID());
-            }
-            return true;
-        } else {
+            $qb->update($_TABLES['mailer_subscribers'])
+               ->set('email', ':email')
+               ->set('uid', ':uid')
+               ->set('domain', ':domain')
+               ->set('dt_reg', ':dt_reg')
+               ->set('token', ':token')
+               ->set('status', ':status')
+               ->where('id = :id')
+               ->setParameter('id', $this->getID(), Database::INTEGER);
+        }
+        try {
+            $qb->execute();
+        } catch (\Exception $e) {
+            Logger::logException($e);
             return false;
         }
+        if ($this->getID() == 0) {
+            $this->withID($db->conn->lastInsertId());
+        }
+        return true;
     }
 
 
@@ -284,14 +320,17 @@ class Subscriber
     {
         global $_CONF, $_TABLES;
 
+        $db = Database::getInstance();
         $purge_days = (int)Config::get('confirm_period');
         if ($purge_days > 0) {
-            $sql = "DELETE FROM {$_TABLES['mailer_subscribers']}
-                WHERE status = '" . Status::PENDING . "'
+            $nrows = $db->conn->executeUpdate(
+                "DELETE FROM {$_TABLES['mailer_subscribers']}
+                WHERE status = ?
                 AND '" . $_CONF['_now']->toMySQL(true) .
-                    "' > DATE_ADD(dt_reg, INTERVAL $purge_days DAY)";
-            $res = DB_query($sql, 1);
-            $nrows = DB_affectedRows($res);
+                "' > DATE_ADD(dt_reg, INTERVAL ? DAY)",
+                array(Status::PENDING, $purge_days),
+                array(Database::INTEGER, Database::INTEGER)
+            );
             if ($nrows > 0) {
                 Logger::Audit(sprintf('Purged %d unconfirmed subscriptions', $nrows));
             }
@@ -522,7 +561,6 @@ class Subscriber
      */
     public function getInfo()
     {
-        var_dump($this);die;
         $API = API::getInstance();
         return $API->getMemberInfo($this);
     }
@@ -549,29 +587,36 @@ class Subscriber
      * @param   boolean $force  True to change from blacklisted
      * @return  boolean     True on success, False on error
      */
-    public function updateStatus($status, $force=false)
+    public function updateStatus(int $status, bool $force=false) : bool
     {
         global $_TABLES;
 
         $status = (int)$status;
         $this->status = $status;
-        $sql = "UPDATE {$_TABLES['mailer_subscribers']} SET
+        $db = Database::getInstance();
+        $qb = $db->conn->createQueryBuilder();
+        try {
+            $qb->update($_TABLES['mailer_subscribers'])
+               ->setValue('status', ':status')
+               ->where('id = :id')
+               ->setParameter('id', $this->getID())
+               ->setParameter('status', $status);
+
+            /*"UPDATE {$_TABLES['mailer_subscribers']} SET
             status = $status
-            WHERE id = {$this->getID()}";
-        if (!$force) {
-            $sql .= ' AND status < ' . Status::BLACKLIST;
-        }
-        $result = DB_query($sql);
-        if (!$result) {
-            /*if ($status == Status::PENDING) {
-                // if an admin forced the status to Pending, send the double
-                // opt-in message so the user can activate.
-                API::getInstance()->sendDoubleOptin($this);
-        }*/
-            return true;
-        } else {
+            WHERE id = ?",
+            array($this->getID()),
+            array(Database::INTEGER)*/
+            //);
+
+            if (!$force) {
+                $qb->andWere('status < ' . Status::BLACKLIST);
+            }
+            $stmt = $qb->execute();
+        } catch (\Exception $e) {
             return false;
         }
+        return true;
     }
 
 
@@ -605,20 +650,27 @@ class Subscriber
      *
      * @return  object  $this
      */
-    public function profileUpdated()
+    public function profileUpdated(array $post) : self
     {
         // Check for a changed email address or any merge fields.
         // Otherwise, there's nothing to end.
         $new_attr = $this->getAttributes();
+        $update = false;
         if (
-            (
-                isset($_POST['mailer_old_email']) &&
-                isset($_POST['email']) &&
-                $_POST['mailer_old_email'] != $_POST['email']
-            ) ||
-            ($this->getUserData() != $new_attr)
+            isset($post['mailer_old_email']) &&
+            isset($post['email']) &&
+            $post['mailer_old_email'] != $post['email']
         ) {
+            $this->withEmail($post['email'])->Save();
+            $update = true;
+        }
+
+        if ($this->getUserData() != $new_attr) {
             $this->saveUserData($new_attr);
+            $update = true;
+        }
+
+        if ($update) {
             $this->update();
         }
         return $this;
@@ -635,19 +687,26 @@ class Subscriber
     {
         global $_TABLES, $LANG_MLR;
 
-        $sql = "SELECT u.uid as u_uid,u.email,mlr.uid
-            FROM {$_TABLES['users']} u
-            LEFT JOIN {$_TABLES['mailer_subscribers']} mlr
-                ON u.uid = mlr.uid
-            WHERE u.uid > 2 AND u.status= 3 AND mlr.uid IS NULL";
-        $result = DB_query($sql);
-        while ($A = DB_fetchArray($result)) {
-            if ($A['email'] != '') {
-                $Sub = self::getByEmail($A['email']);
-                $Sub->withRegDate()
-                    ->withToken(self::_createToken())
-                    ->subscribe(Status::ACTIVE);
+        $db = Database::getInstance();
+        $qb = $db->conn->createQueryBuilder();
+        try {
+            $stmt = $qb->select('u.uid as u_uid', 'u.email', 'mlr.uid')
+               ->from($_TABLES['users'], 'u')
+               ->leftJoin('u', $_TABLES['mailer_subscribers'], 'mlr', 'u.uid=mlr.uid')
+               ->where('u.uid > 2')
+               ->andWhere('u.stauts = 3')
+               ->andWhere('mlr.uid IS NULL')
+               ->execute();
+            $data = $stmt->fetchAll(Database::ASSOCIATIVE);
+            foreach ($data as $A) {
+                if ($A['email'] != '') {
+                    $Sub = self::getByEmail($A['email']);
+                    $Sub->withRegDate()
+                        ->withToken(self::_createToken())
+                        ->subscribe(Status::ACTIVE);
+                }
             }
+        } catch (\Exception $e) {
         }
         return $LANG_MLR['import_complete'];
     }
@@ -750,10 +809,19 @@ class Subscriber
         global $_TABLES;
 
         $retval = array();
-        $sql = "SELECT * FROM {$_TABLES['mailer_subscribers']}
-            WHERE status = " . Status::BLACKLIST;
-        $res = DB_query($sql);
-        while ($A = DB_fetchArray($res, false)) {
+        $db = Database::getInstance();
+        try {
+            $stmt = $db->conn->executeQuery(
+                "SELECT * FROM {$_TABLES['mailer_subscribers']}
+                WHERE status = ?",
+                array(Status::BLACKLIST),
+                array(Database::INTEGER)
+            );
+            $data = $stmt->fetchAll(Database::ASSOCIATIVE);
+        } catch (\Exception $e) {
+        }
+
+        foreach ($data as $A) {
             $retval[] = new self($A);
         }
         return $retval;
@@ -764,7 +832,7 @@ class Subscriber
      * Update records when a profile update is received from the list provider.
      * The _attributes array must already be set with the new values.
      */
-    public function updateUser($update_sub=false)
+    public function updateUser(bool $update_sub=false) : void
     {
         global $_TABLES;
 
@@ -793,11 +861,19 @@ class Subscriber
         // notify plugins to update their tables if needed.
         if ($this->uid > 1) {
             if ($update_gl) {
-                $sql = "UPDATE {$_TABLES['users']} SET
-                    fullname = '" . DB_escapeString($this->_fullname) . "',
-                    email = '" . DB_escapeString($this->email_address) . "'
-                    WHERE uid = {$this->uid}";
-                DB_query($sql, 1);
+                $db = Database::getInstance();
+                try {
+                    $db->conn->executeUpdate(
+                        "UPDATE {$_TABLES['users']} SET
+                        fullname = ?,
+                        email =? 
+                        WHERE uid = ?",
+                        array($this->_fullname, $this->email_address, $this->uid),
+                        array(Database::STRING, Database::STRING, Database::INTEGER)
+                    );
+                } catch (\Exception $e) {
+                    return;
+                }
             }
             // Allow plugins to update themselves
             PLG_callFunctionForAllPlugins(
@@ -829,9 +905,16 @@ class Subscriber
             return true;
         }
 
-        $sql = "SELECT * FROM {$_TABLES['mailer_subscribers']}";
-        $res = DB_query($sql);
-        while ($A = DB_fetchArray($res, false)) {
+        $db = Databae::getInstance();
+        try {
+            $stmt = $db->conn->executeQuery(
+                "SELECT * FROM {$_TABLES['mailer_subscribers']}"
+            );
+            $data = $stmt->fetchAll(Database::ASSOCIATIVE);
+        } catch (\Exception $e) {
+            $data = array();
+        }
+        foreach ($data as $A) {
             $Sub = new self($A);
             $status = $API->subscribeOrUpdate($Sub);
             if ($status !=- Status::SUB_SUCCESS) {
@@ -861,7 +944,16 @@ class Subscriber
         }
 
         // Mark all internal records as unsubscribed.
-        DB_query("UPDATE {$_TABLES['mailer_subscribers']} SET status = " . Status::UNSUBSCRIBED);
+        $db = Database::getInstance();
+        try {
+            $db->conn->executeUpdate(
+                "UPDATE {$_TABLES['mailer_subscribers']} SET status = ?",
+                array(Status::UNSUBSCRIBED),
+                array(Database::INTEGER)
+            );
+        } catch (\Exception $e) {
+            Logger::logException($e);
+        }
 
         // Get the subscribers 20 at a time
         $args = array(
@@ -885,11 +977,15 @@ class Subscriber
             }
             $args['offset'] += $args['count'];
         }
-        DB_delete(
-            $_TABLES['mailer_subscribers'],
-            'status',
-            Status::UNSUBSCRIBED
-        );
+        try {
+            $db->conn->delete(
+                $_TABLES['mailer_subscribers'],
+                array('status' => Status::UNSUBSCRIBED),
+                array(Database::INTEGER)
+            );
+        } catch (\Exception $e) {
+            Logger::logException($e);
+        }
         return $processed;
     }
 
@@ -1075,13 +1171,27 @@ class Subscriber
     {
         global $_TABLES;
 
-        $data = DB_escapeString(json_encode($attributes));
-        $sql = "INSERT INTO {$_TABLES['mailer_userinfo']} SET
-            uid = {$this->uid},
-            data = '$data'
-            ON DUPLICATE KEY UPDATE
-            data = '$data'";
-        DB_query($sql);
+        $data = json_encode($attributes);
+        $db = Database::getInstance();
+        try {
+            $db->conn->executeUpdate(
+                "INSERT INTO {$_TABLES['mailer_userinfo']} SET
+                uid = ?,
+                data = ?",
+                array($this->uid, $data),
+                array(Database::INTEGER, Database::STRING)
+            );
+        } catch (\Doctrine\DBAL\Exception\UniqueConstraintViolationException $e) {
+            $db->conn->executeUpdate(
+                "UPDATE {$_TABLES['mailer_userinfo']} SET
+                    data = ?
+                WHERE uid = ?",
+                array($data, $this->uid),
+                array(Database::STRING, Database::INTEGER)
+            );
+        } catch (\Exception $e) {
+            Logger::logException($e);
+        }
         return $this;
     }
 
@@ -1095,14 +1205,20 @@ class Subscriber
     {
         global $_TABLES;
 
-        $data = DB_getItem($_TABLES['mailer_userinfo'], 'data', "uid = {$this->uid}");
-        if ($data) {
-            $retval = @json_decode($data, true);
-        } else {
-            $retval = array();
-        }
-        if (!$retval) {
-            $retval = array();
+        $retval = array();
+        $db = Database::getInstance();
+        try {
+            $data = $db->getItem(
+                $_TABLES['mailer_userinfo'],
+                'data',
+                array('uid' => $this->uid),
+                array(Database::INTEGER)
+            );
+            if ($data) {
+                $retval = @json_decode($data, true);
+            }
+        } catch (\Exception $e) {
+            Logger::logException($e);
         }
         return $retval;
     }

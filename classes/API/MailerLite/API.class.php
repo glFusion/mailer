@@ -58,6 +58,7 @@ class API extends \Mailer\API
      */
     public function listMembers($list_id=NULL, $opts=array())
     {
+        $retval = array();
         $params = array(
             'limit' => 10,
             'offset' => 0,
@@ -72,8 +73,7 @@ class API extends \Mailer\API
             $list_id = $this->list_id;
         }
 
-        $retval = array();
-        $status = $this->get('groups/'. $list_id . '/subscribers', $params);
+        $status = $this->get('groups/'. $list_id . '/subscribers/active', $params);
         if ($status) {
             $body = json_decode($this->getLastResponse()['body']);
             if (is_array($body)) {
@@ -158,8 +158,6 @@ class API extends \Mailer\API
             'type' => self::_strStatus($Sub->getStatus()),
             'fields' => $fields,
         );
-        //var_dump($args);die;
-        //$status = $this->post('subscribers', $args);
         $status = Status::SUB_SUCCESS;
         foreach ($lists as $list_id) {
             $stat1 = $this->post('groups/' . $list_id . '/subscribers', $args);
@@ -169,9 +167,6 @@ class API extends \Mailer\API
                 $status = Status::SUB_ERROR;
             }
         }
-        /*if (!$status) {
-            COM_errorLog("MailerLite error: " . $this->getLastResponse()['body']);
-        }*/
         return $status;
     }
 
@@ -207,16 +202,21 @@ class API extends \Mailer\API
             }
             $params->fields->$key = $val;
         }
-        $params->fields->email = $Sub->getEmail();
-        $email = urlencode($old_email);
+        //$params->fields->email = $Sub->getEmail();
+        $old_email = urlencode($old_email);
         if ($new_email != $old_email) {
             // unsubscribe the original subscriber, then subscribe the new.
             $params->type = 'unsubscribed';
-            $response = $this->put("subscribers/$email", $params);
+            $response = $this->put("subscribers/$old_email", $params);
+            $params->type = 'active';
+            $params->email = $new_email;
+            $response = $this->post("subscribers", $params);
+        } else {
+            // Just update the existing subscriber
+            $new_email = urlencode($new_email);
+            $params->type = self::_strStatus($Sub->getStatus());
+            $response = $this->put("subscribers/$new_email", $params);
         }
-        $email = urlencode($new_email);
-        $params->type = self::_strStatus($Sub->getStatus());
-        $response = $this->put("subscribers/$email", $params);
         return $response;
     }
 

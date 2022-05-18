@@ -11,6 +11,7 @@
  * @filesource
  */
 namespace Mailer;
+use glFusion\Database\Database;
 
 
 /**
@@ -46,7 +47,7 @@ class Webhook
                 $wh = new $cls;
                 $wh->withProvider($provider);
             } catch (\Exception $e) {
-                COM_errorLog("ERROR: " . print_r($e,true));
+                Logger::logException($e);
                 $wh = new self;
             }
         }
@@ -94,30 +95,47 @@ class Webhook
             return false;
         }
 
-        $type = DB_escapeString($Txn['type']);
-        $txn_id = DB_escapeString($Txn['txn_id']);
         if (is_numeric($Txn['txn_date'])) {
             $d = new \Date($Txn['txn_date'], $_CONF['timezone']);
             $txn_date = $d->toMySQL(true);
         } else {
-            $txn_date = DB_escapeString($Txn['txn_date']);
+            $txn_date = $Txn['txn_date'];
         }
-        $count = DB_count(
+        $count = $db->getCount(
             $_TABLES['mailer_txn'],
             array('provider', 'type', 'txn_id', 'txn_date'),
-            array($this->provider, $type, $txn_id, $txn_date)
+            array($this->provider, $Txn['type'], $Txn['txn_id'], $txn_date)
         );
         if ($count == 0) {
-            $sql = "INSERT INTO {$_TABLES['mailer_txn']} SET
-                provider = '{$this->provider}',
-                type = '$type',
-                txn_date = '$txn_date',
-                txn_id = '$txn_id',
-                data = '" . DB_escapeString(json_encode($this->payload)) . "'";
-            DB_query($sql);
-            return true;
+            try {
+                $db->conn->executeQuery(
+                    "INSERT INTO {$_TABLES['mailer_txn']} SET
+                    provider = ?,
+                    type = ?,
+                    txn_date = ?,
+                    txn_id = ?,
+                    data = ?",
+                    array(
+                        $this->provider,
+                        $Txn['type'],
+                        $txn_date,
+                        $Txn['txn_id'],
+                        json_encode($this->payload),
+                    ),
+                    array(
+                        Database::STRING,
+                        Database::STRING,
+                        Database::STRING,
+                        Database::STRING,
+                        Database::STRING,
+                    )
+                );
+            } catch (\Exception $e) {
+                Logger::logException($e);
+                return false;
+            }
         }
-        return false;
+        return true;
     }
 
 }

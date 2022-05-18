@@ -17,6 +17,7 @@ use Mailer\Models\Txn;
 use Mailer\Logger;
 use Mailer\API;
 use Mailer\Config;
+use glFusion\Database\Database;
 
 
 // this file can't be used on its own
@@ -116,8 +117,8 @@ class Webhook extends \Mailer\Webhook
                     Logger::Audit('Webhook: Missing old_email');
                     exit;
                 }
-                $old_email = DB_escapeString($_POST['data']['old_email']);
-                $new_email = DB_escapeString($_POST['data']['new_email']);
+                $old_email = $_POST['data']['old_email'];
+                $new_email = $_POST['data']['new_email'];
 
                 // Check that the new address isn't in use already
                 $newUser = Subscriber::getByEmail($new_email);
@@ -134,9 +135,12 @@ class Webhook extends \Mailer\Webhook
                 }
 
                 // Perform the update
-                DB_query("UPDATE {$_TABLES['users']}
-                    SET email = '$new_email'
-                    WHERE uid = {$oldUser->getEmail()}"
+                $db->conn->executeQuery(
+                    "UPDATE {$_TABLES['users']}
+                    SET email = ?
+                    WHERE uid = ?",
+                    array($new_email, $oldUser->getEmail()),
+                    array(Database::STRING, Database::STRING)
                 );
                 Logger::Audit("Webhook: updated user {$oldUser->getEmail()} email from $old_email to $new_email");
             }

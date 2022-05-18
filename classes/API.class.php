@@ -16,6 +16,7 @@
 namespace Mailer;
 use Mailer\Models\Subscriber;
 use Mailer\Models\Campaign;
+use glFusion\Database\Database;
 
 
 /**
@@ -84,7 +85,7 @@ class API
      * @param   string  $provider   Specific provider to instantiate
      * @return  object      API object
      */
-    public static function getInstance($provider=NULL)
+    public static function getInstance(?string $provider=NULL) : self
     {
         static $api = NULL;
         if ($api === NULL) {
@@ -100,9 +101,9 @@ class API
      * @param   string  $api    API provider override
      * @return  object      API object
      */
-    public static function create($name='')
+    public static function create(?string $name=NULL) : self
     {
-        if ($name == '') {
+        if ($name === NULL) {
             $name = Config::get('provider');
         }
 
@@ -352,18 +353,21 @@ class API
      * @param   object  $Mlr    Mailer record ID
      * @return  object  $this
      */
-    protected function saveCampaignInfo($Mlr, $provider_id, $tested=0)
+    protected function saveCampaignInfo($Mlr, $provider_id, $tested=0) : void
     {
         global $_TABLES;
 
-        $provider_id = DB_escapeString($provider_id);
-        $sql = "INSERT INTO {$_TABLES['mailer_provider_campaigns']} SET
-            mlr_id = '{$Mlr->getID()}',
-            provider = '{$this->name}',
-            provider_mlr_id = '$provider_id'
+        $db = Database::getInstance();
+        $db->conn->executeUpdate(
+            "INSERT INTO {$_TABLES['mailer_provider_campaigns']} SET
+            mlr_id = ?,
+            provider = ?,
+            provider_mlr_id = ?
             ON DUPLICATE KEY UPDATE
-            provider_mlr_id = '$provider_id'";
-        DB_query($sql);
+            provider_mlr_id = ?",
+            array($Mlr->getID(), $this->name, $provider_id, $provider_id),
+            array(Database::STRING, Database::STRING, Database::STRING, Database::STRING)
+        );
     }
 
 
@@ -811,6 +815,11 @@ class API
     public function listMembers()
     {
         return array();
+    }
+
+
+    public function isConfigured() : bool
+    {
     }
 
 }

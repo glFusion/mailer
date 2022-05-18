@@ -21,6 +21,7 @@ $LANG_MLR = array(
     'mlr_archive' => 'Archived Mailings',
     'subscribers' => 'Subscribers',
     'queue' => 'Queue',
+    'maintenance' => 'Maintenance',
     'list' => 'List',
     'newpage' => 'New Page',
     'admin' => 'Admin',
@@ -169,7 +170,7 @@ $LANG_MLR = array(
     'config' => 'Configuration',
     'config_location_message' => 'Mailer configuration options are now available via the <a href="%s/configuration.php">site configuration panel</a>.',
     'expires_in' => 'Expires in',
-    'expires_in_hlp' => '(days, 0 for unlimited)',
+    'expires_in_hlp' => 'days (-1 for never)',
     'err_missing_title' => 'A title is required',
     'err_missing_content' => 'The content field cannot be empty',
     'not_found' => 'The item that you were looking for has been removed or is otherwise not available.',
@@ -186,6 +187,8 @@ $LANG_MLR = array(
     'never' => 'Never',
     'tbd' => 'To Be Determined',
     'not_supported' => 'Not supported',
+    'dscp_clear_subs' => 'Remove all subscriber data from your local database.',
+    'dscp_sync_provider' => 'Synchronize your local database from your mail provider.',
 );
 
 
@@ -244,52 +247,14 @@ $LANG_configsubgroups['mailer'] = array(
 );
 
 $LANG_fs['mailer'] = array(
-    'fs_main' => 'Mailer Main Settings',
-    'fs_queue' => 'Mail Queue Settings',
+    'fs_main' => 'Main Settings',
+    'fs_queue' => 'Queue Settings',
     'fs_permissions' => 'Default Permissions',
     'fs_internal' => 'Internal',
     'fs_mailchimp' => 'Mailchimp',
     'fs_sendinblue' => 'Sendinblue',
     'fs_mailerlite' => 'MailerLite',
 );
-
-// @todo - deprecate in glFusion 2.x
-$LANG_configselects['mailer'] = array(
-    0 => array(
-        'Yes' => 1,
-        'No' => 0,
-    ),
-    4 => array(
-        'No' => 0,
-        'No- Subscribe Automatically' => 3,
-        'Yes- Checked' => 1,
-        'Yes- Unchecked' => 2,
-    ),
-    5 => array(
-        'Internal' => 'Internal',
-        'Mailchimp' => 'Mailchimp',
-        'MailerLIte' => 'MailerLite',
-        'Sendinblue' => 'Sendinblue',
-    ),
-    6 => array(
-        '100 DEBUG' => 100,
-        '200 INFO' => 200,
-        '250 NOTICE' => 250,
-        '300 WARNING' => 300,
-        '400 ERROR' => 400,
-        '500 CRITICAL' => 500,
-        '550 ALERT' => 550,
-        '600 EMERGENCY' => 600,
-    ),
-    7 => array(
-        'Mailings' => 'mailings',
-        'Subscribers' => 'subscribers',
-    ),
-    12 => array('No access' => 0, 'Read-Only' => 2, 'Read-Write' => 3),
-    13 => array('None' => 0, 'Left' => 1, 'Right' => 2, 'Both' => 3),
-    14 => array('Site E-Mail' => 'site_mail', 'No-Reply Address' => 'noreply_mail'),
-);
-
 
 $LANG_configSelect['mailer'] = array(
     0 => array(

@@ -21,6 +21,7 @@ use Mailer\Models\Queue;
 use Mailer\Models\Subscriber;
 use Mailer\API;
 use Mailer\Menu;
+use glFusion\Database\Database;
 
 if (!SEC_hasRights('mailer.admin,mailer.edit', 'OR')) {
     $display = Menu::siteHeader($LANG_MLR['access_denied']);
@@ -84,7 +85,7 @@ $expected = array(
     'syncfrom_warning', 'syncfrom',
     'import_form', 'import_users', 'import_users_confirm', 'import', 'export',
     // views
-    'campaigns', 'subscribers', 'queue',
+    'campaigns', 'subscribers', 'queue', 'maintenance',
 );
 $action = Config::get('def_adm_view');
 foreach($expected as $provided) {
@@ -178,8 +179,9 @@ case 'active':
     break;
 
 case 'clearsub':
+    $db = Database::getInstance();
     if (SEC_checkToken()) {
-        DB_query("TRUNCATE {$_TABLES['mailer_subscribers']}");
+        $db->conn->executeQuery("TRUNCATE {$_TABLES['mailer_subscribers']}");
     }
     COM_refresh(Config::get('admin_url') . '/index.php?subscribers');
     $view = 'subscribers';
@@ -248,12 +250,13 @@ case 'import':
     break;
 
 case 'import_users':
-    $sql = "SELECT `email` FROM {$_TABLES['users']}";
-    $result = DB_query($sql);
+    // Set up an empty subscriber object
     $Sub = (new Subscriber)->withStatus(Status::ACTIVE);
-    while ($A = DB_fetchArray($result)) {
+    $db = Database::getInstance();
+    $stmt = $db->conn->executeQuery("SELECT `email` FROM {$_TABLES['users']}");
+    $data = $stmt->fetchAll(Database::ASSOCIATIVE);
+    foreach ($data as $A) {
         if ($A['email'] != ''){
-            //MLR_addEmail($A['email'], Status::ACTIVE);
             $Sub->withEmail($A['email'])
                 ->withRegDate()
                 ->withToken(uniqid())
@@ -264,10 +267,11 @@ case 'import_users':
     break;
 
 case 'export':
+    $db = Database::getInstance();
     $list = array();
-    $sql = "SELECT email FROM {$_TABLES['mailer_subscribers']}";
-    $result = DB_query( $sql );
-    while ( $A = DB_fetchArray( $result ) ) {
+    $stmt = $db->conn->executeQuery("SELECT email FROM {$_TABLES['mailer_subscribers']}");
+    $data = $stmt->fetchAll(Database::ASSOCIATIVE);
+    foreach ($data as $A) {
         $list[] = strtolower($A['email']);
     }
     $export_list = implode(",", $list);
@@ -380,7 +384,7 @@ case 'import_users_confirm':
 
 case 'clear_warning':
     // Display a warning confirmation before clearing the subscriber table.
-    $T = new Template(Config::get('pi_path') . '/templates/admin');
+    $T = new Template(Config::get('pi_path') . 'templates/admin');
     $T->set_file('form', 'clear_sub.thtml');
     $T->set_var(array(
         'action_url' => Config::get('admin_url') . '/index.php',
@@ -393,7 +397,7 @@ case 'clear_warning':
 
 case 'syncfrom_warning':
     // Display a warning confirmation before syncing records from the list provider.
-    $T = new Template(Config::get('pi_path') . '/templates/admin');
+    $T = new Template(Config::get('pi_path') . 'templates/admin');
     $T->set_file('form', 'sync_from_provider.thtml');
     $T->set_var(array(
         'action_url' => Config::get('admin_url') . '/index.php',
@@ -403,6 +407,16 @@ case 'syncfrom_warning':
     $T->parse('output', 'form');
     $content .= $T->finish($T->get_var('output'));
     //$view = 'syncfrom';
+    break;
+
+case 'maintenance':
+    $T = new Template(Config::get('pi_path') . 'templates/admin');
+    $T->set_file('funcs', 'maintenance.thtml');
+    $T->set_var(array(
+        'admin_url' => Config::get('admin_url'). '/index.php',
+    ) );
+    $T->parse('output', 'funcs');
+    $content .= $T->finish($T->get_var('output'));
     break;
 }
 

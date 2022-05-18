@@ -51,6 +51,7 @@ use Mailer\Models\Subscriber;
 use Mailer\Models\Campaign;
 use Mailer\Models\Status;
 use Mailer\Models\Queue;
+use glFusion\Database\Database;
 Config::getInstance();
 
 /**
@@ -143,10 +144,13 @@ function plugin_getadminoption_mailer()
     global $_CONF, $_TABLES, $LANG_MLR;
 
     if (plugin_ismoderator_mailer()) {
-        $result = DB_query("SELECT count(*) AS cnt
+        $db = Database::getInstance();
+        $stmt = $db->conn->executeQuery(
+            "SELECT count(*) AS cnt
             FROM {$_TABLES['mailer_campaigns']}" .
-            COM_getPermSQL('WHERE', 0, 3));
-        $A = DB_fetchArray ($result);
+            $db->getPermSQL('WHERE', 0, 3)
+        );
+        $A = $stmt->fetch(Database::ASSOCIATIVE);
         return array(
             $LANG_MLR['mailer'],
             Config::get('admin_url') . '/index.php',
@@ -167,8 +171,9 @@ function plugin_user_create_mailer($uid)
     global $_TABLES;
 
     if (isset($_POST['mailer_subscribe']) && $_POST['mailer_subscribe'] == 1) {
-        $email = DB_getItem($_TABLES['users'], 'email', "uid = '{$uid}'");
-        $Sub = Subscriber::getByUid($uid);
+        $db = Database::getInstance();
+        $email = $db->getItem($_TABLES['users'], 'email', array('uid' => $uid));
+        $Sub = Subscriber::getByUid((int)$uid);
         $Sub->withEmail($email)->subscribe();
     }
 }
@@ -257,7 +262,6 @@ function plugin_profilesave_mailer($uid=0)
         isset($_POST['mailer_subscribe']) &&
         (!isset($_POST['mailer_oldsub']) || empty($_POST['mailer_oldsub']))
     ) {
-        COM_errorLog("Posting change to api to subscribe");
         // User requesting addition, double opt-in not needed
         if (Config::get('dbl_optin_members')) {
             $Sub->subscribe();
@@ -270,7 +274,6 @@ function plugin_profilesave_mailer($uid=0)
         (isset($_POST['mailer_oldsub']) && !empty($_POST['mailer_oldsub']))
     ) {
         // subscription checkbox not checked but was previously
-        COM_errorLog("Posting change to api to unsubscribe");
         $Sub->unsubscribe();
     }
 }
@@ -322,12 +325,16 @@ function plugin_enablestatechange_mailer ($enable)
     global $_TABLES;
 
     $is_enabled = $enable ? 1 : 0;
+    $db = Database::getInstance();
 
     // toggle Mailer blocks
-    DB_query("UPDATE {$_TABLES['blocks']}
-        SET is_enabled = $is_enabled
-        WHERE (type = 'phpblock')
-        AND (phpblockfn LIKE 'phpblock_mailer%')"
+    $db->conn->executeQuery(
+        "UPDATE {$_TABLES['blocks']}
+        SET is_enabled = ?
+        WHERE type = 'phpblock'
+        AND phpblockfn LIKE 'phpblock_mailer%'",
+        array($is_enabled),
+        array(Database::INTEGER)
     );
 }
 
@@ -376,7 +383,8 @@ function phpblock_mailer()
 
     if (!Config::get('blk_show_subs') && !COM_isAnonUser()) {
         // Anon always sees the block, no way to know if they're subscribed
-        $c = DB_count($_TABLES['mailer_subscribers'], 'email', $_USER['email']);
+        $db = Database::getInstance();
+        $c = $db->getCount($_TABLES['mailer_subscribers'], 'email', $_USER['email']);
         if ($c > 0) return '';
     }
 
@@ -629,3 +637,4 @@ function plugin_wsEnabled_mailer()
     return false;
 }
 
+//glFusion\Notifier::Register('mailer', 'Mailer\\Notifier', 'Mailer Queue');

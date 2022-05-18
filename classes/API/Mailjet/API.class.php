@@ -522,4 +522,9 @@ class API extends \Mailer\API
         );
     }
 
+
+    public function sendMailer()
+    {
+    }
+
 }
