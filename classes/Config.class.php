@@ -61,7 +61,7 @@ final class Config
         $this->properties['pi_name'] = self::PI_NAME;
         $this->properties['pi_display_name'] = 'Mailer';
         $this->properties['pi_url'] = 'http://www.glfusion.org';
-        $this->properties['pi_path'] = __DIR__ . '/../';
+        $this->properties['pi_path'] = dirname(__DIR__) . '/';
         $this->properties['url'] = $_CONF['site_url'] . '/' . self::PI_NAME;
         $this->properties['admin_url'] = $_CONF['site_admin_url'] . '/plugins/' . self::PI_NAME;
         $_MLR_CONF = $this->properties;
