@@ -508,7 +508,7 @@ class API extends \Mailer\API
     /**
      * Handler for actions called via the admin menu.
      */
-    public function handleActions($opts)
+    public function handleActions($opts) : void
     {
         $action = $opts['get']['api_action'];
         if ($action == 'addwebhooks') {
@@ -516,6 +516,17 @@ class API extends \Mailer\API
         } elseif ($action == 'delwebhooks') {
             $this->deleteWebhooks();
         }
+    }
+
+
+    /**
+     * Check if this API is configured.
+     *
+     * return   boolean     True if configured, False if not
+     */
+    public function isConfigured() : bool
+    {
+        return !empty($this->api_key);
     }
 
 }

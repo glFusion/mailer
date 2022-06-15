@@ -72,7 +72,7 @@ class API extends \Mailer\API
      * @param   array   $opts       Array of limit, offset, etc. options
      * @return  array       Array of ApiInfo objects
      */
-    public function listMembers($list_id=NULL, $opts=array())
+    public function listMembers(string $list_id=NULL, array $opts=array()) : array
     {
         $params = array(
             'Sort' => 'ID',
@@ -525,6 +525,17 @@ class API extends \Mailer\API
 
     public function sendMailer()
     {
+    }
+
+
+    /**
+     * Check if this API is configured.
+     *
+     * return   boolean     True if configured, False if not
+     */
+    public function isConfigured() : bool
+    {
+        return !empty($this->api_key);
     }
 
 }

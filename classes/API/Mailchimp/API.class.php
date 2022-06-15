@@ -109,13 +109,10 @@ class API extends \Mailer\API
      * Get a list of members subscribed to a given list.
      *
      * @param   string  $list_id    Mailing List ID
-     * @param   string  $status     Member status, default=subscribed
-     * @param   mixed   $since      Starting date for subscriptions
-     * @param   integer $offset     Offset to retrieve, in case of large lists
-     * @param   integer $count      Maximum number of members to retrieve.
+     * @param   array   $opts       Additional options to check
      * @return  array       Array of data
      */
-    public function listMembers($list_id=NULL, $opts=array())
+    public function listMembers(string $list_id=NULL, array $opts=array()) : array
     {
         if ($list_id == NULL) {
             $list_id = Config::get('mc_def_list');
@@ -555,7 +552,7 @@ class API extends \Mailer\API
      * @param   string  $camp_id    Campaign ID
      * @return  boolean     True on success, False on error
      */
-    public function sendTest($camp_id)
+    public function sendTest(string $camp_id) : bool
     {
         global $_USER;
 
@@ -568,6 +565,20 @@ class API extends \Mailer\API
             COM_errorLog($this->getLastResponse()['body']);
         }
         return $status;
+    }
+
+
+    /**
+     * Check if this API is configured.
+     *
+     * return   boolean     True if configured, False if not
+     */
+    public function isConfigured() : bool
+    {
+        if (empty($this->api_key) || strpos($this->api_key, '-') === false) {
+            return false;
+        }
+        return true;
     }
 
 }
