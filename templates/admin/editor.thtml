@@ -2,7 +2,7 @@
 {!if show_htmleditor}
 {wysiwyg}
 {!endif}
-<form id="mailerform" class="uk-form uk-form-horizontal uk-margin"
+<form uk-form id="mailerform" class="uk-form uk-form-horizontal uk-margin"
 	action="{site_admin_url}/plugins/mailer/index.php" method="post">
 
 	<div class="uk-form-row uk-margin">
