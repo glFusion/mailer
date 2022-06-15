@@ -12,6 +12,7 @@
  * @filesource
  */
 namespace Mailer;
+use glFusion\Log\Log;
 
 
 /**
@@ -47,7 +48,7 @@ class Logger
 
         // Can't open the log file?  Return an error
         if (!$file = fopen($logfile, 'a')) {
-            COM_errorLog("Unable to open $logfile");
+            Log::write('system', Log::ERROR, "Unable to open $logfile");
             return;
         }
 
@@ -89,7 +90,7 @@ class Logger
      */
     public static function System($msg)
     {
-        COM_errorLog(Config::PI_NAME . ':: ' . $msg);
+        Log::write('system', Log::ERROR, Config::PI_NAME . ':: ' . $msg);
     }
 
 
@@ -99,10 +100,10 @@ class Logger
      *
      * @param   string  $msg        Message to log
      */
-    public static function Debug($msg)
+    public static function Debug($msg) : void
     {
         if ((int)Config::get('log_level') <= 100) {
-            self::System('DEBUG: ' . $msg);
+            self::Audit('DEBUG: ' . $msg);
         }
     }
 
