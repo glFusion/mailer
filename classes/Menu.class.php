@@ -60,9 +60,6 @@ class Menu
         USES_lib_admin();
         $API = API::getInstance();
         $features = $API->getFeatures();
-        if (!in_array($view, $features)) {
-            $view = $features[0];
-        }
 
         $retval = '';
         $admin_url = Config::getInstance()->get('admin_url');
@@ -89,6 +86,11 @@ class Menu
             );
         }
         $menu_arr[] = array(
+            'url' => $admin_url . '/index.php?maintenance',
+            'text' => $LANG_MLR['maintenance'],
+            'active' => $view == 'maintenance' ? true : false,
+        );
+        $menu_arr[] = array(
             'url'   => $_CONF['site_admin_url'],
             'text'  => _('Admin Home'),
             'active' => false,
@@ -101,7 +103,7 @@ class Menu
             'title' => _('Mailer Administration'),
         ) );
         $hlp_text = _('Mail Handler') . ': ' . $API->getName();
-        if (empty($API->getAPIkey())) {
+        if (!$API->isConfigured()) {
             $hlp_text .= '<br />* Please configure the API key for ' . $API->getName();
         }
         $hlp_opts = $API->getMenuHelp();
@@ -146,16 +148,6 @@ class Menu
                 'url' => $admin_url . '/index.php?export=x',
                 'text' => $LANG_MLR['export'],
                 'active' => $view == 'export' ? true : false,
-            ),
-            array(
-                'url' => $admin_url . '/index.php?clear_warning=x',
-                'text' => $LANG_MLR['clear'],
-                'active' => $view == 'clear' ? true : false,
-            ),
-            array(
-                'url' => $admin_url . '/index.php?syncfrom_warning=x',
-                'text' => $LANG_MLR['sync_from_provider'],
-                'active' => $view == 'syncfrom_warning' ? true : false,
             ),
         );
         return self::_makeSubMenu($menu_arr);
