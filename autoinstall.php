@@ -15,6 +15,8 @@
 if (!defined ('GVERSION')) {
     die ('This file can not be used on its own.');
 }
+use glFusion\Database\Database;
+use glFusion\Log\Log;
 
 /** @global string $_DB_dbms */
 global $_DB_dbms;
@@ -159,7 +161,16 @@ function plugin_postinstall_mailer()
 {
     global $_TABLES;
 
-    DB_query("INSERT INTO {$_TABLES['vars']} VALUES ('mailer_lastrun', '0')",1);
+    $db = Database::getInstance();
+    try {
+        $db->conn->insert(
+            $_TABLES['vars'],
+            array('mailer_lastrun' => 0),
+            array(Database::INTEGER)
+        );
+    } catch (\Exception $e) {
+        Log::write('system', Log::ERROR, __FUNCTION__ . ': ' . $e->getMessage());
+    }
     return true;
 }
 

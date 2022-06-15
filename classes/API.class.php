@@ -1,5 +1,5 @@
 <?php
-/**
+/*
  * Base class for mailer API's.
  * Request handling based on Drew McLellan's Mailchimp API class.
  *
@@ -17,6 +17,7 @@ namespace Mailer;
 use Mailer\Models\Subscriber;
 use Mailer\Models\Campaign;
 use glFusion\Database\Database;
+use glFusion\Log\Log;
 
 
 /**
@@ -138,7 +139,7 @@ class API
      *
      * @return  string      Provider name
      */
-    public function getName()
+    public function getName() : string
     {
         return $this->name;
     }
@@ -151,7 +152,7 @@ class API
      * @param   string  $list_id    List ID to be used.
      * @return  object  $this
      */
-    public function withList($list_id=NULL)
+    public function withList(?string $list_id=NULL) : self
     {
         if ($list_id === NULL) {
             $list_id = Config::get($this->cfg_list_key);
@@ -168,7 +169,7 @@ class API
      * @param   string  $domain     Domain to check
      * @return  boolean     True for a valid domain, False if invalid
      */
-    public static function isValidDomain($domain)
+    public static function isValidDomain(string $domain) : bool
     {
         $status = true;
         if (!@getmxrr($domain, $mxrecords)) {
@@ -184,9 +185,9 @@ class API
     /**
      * Check if the email address is valid.
      *
-     * @return  string  Error message, or empty string if address is OK
+     * @return  boolean     True if valid, False if not
      */
-    public function isValidEmail($email)
+    public function isValidEmail(string $email) : bool
     {
         $validator = new \EmailAddressValidator;
         return $validator->checkEmailAddress($email) ? true : false;
@@ -198,7 +199,7 @@ class API
      *
      * @retur   object  $this
      */
-    protected function resetErrors()
+    protected function resetErrors() : self
     {
         $this->errors = array();
         return $this;
@@ -211,7 +212,7 @@ class API
      * @param   string  $msg    Error message
      * @return  object  $this
      */
-    protected function addError($msg)
+    protected function addError(string $msg) : self
     {
         $this->errors[] = $msg;
         return $this;
@@ -223,7 +224,7 @@ class API
      *
      * @return  array       Error messages
      */
-    public function getErrors()
+    public function getErrors() : array
     {
         return $this->errors;
     }
@@ -237,7 +238,7 @@ class API
      * @param   array   $emails Email addresses (not used)
      * @return  integer     Status from sendEmail()
      */
-    public function queueEmail(Campaign $Mlr, $emails=NULL)
+    public function queueEmail(Campaign $Mlr, ?array $emails=NULL) : int
     {
         return $this->createAndSend($Mlr);
     }
@@ -249,7 +250,7 @@ class API
      * @param   object  $Mlr    Campaign object
      * @return  boolean     Status from sending
      */
-    public function createAndSend($Mlr)
+    public function createAndSend($Mlr) : bool
     {
         $status = false;
         $id = $this->createCampaign($Mlr);
@@ -276,7 +277,7 @@ class API
      *
      * @return  boolean     Status from sending email
      */
-    public function sendTest($campaign_id)
+    public function sendTest(string $campaign_id) : bool
     {
         return true;
     }
@@ -289,7 +290,7 @@ class API
      * @param   object  $Mlr    Campaign object
      * @return  boolean     Status from deletion request
      */
-    public function deleteCampaign(Campaign $Mlr)
+    public function deleteCampaign(Campaign $Mlr) : bool
     {
         return true;
     }
@@ -301,7 +302,7 @@ class API
      * @param   string  $email  The subscriber's email address
      * @return  string          Hashed version of the input
      */
-    public function subscriberHash($email)
+    public function subscriberHash(string $email) : string
     {
         return md5(strtolower($email));
     }
@@ -315,7 +316,7 @@ class API
      *
      * @return  array       Array of supported feature keys
      */
-    public function getFeatures()
+    public function getFeatures() : array
     {
         return array('campaigns', 'subscribers');
     }
@@ -329,7 +330,7 @@ class API
      * @param   object  $Subscriber     Subscriber object
      * @return  boolean     True on success, False on error
      */
-    public static function sendDoubleOptin(Subscriber $Sub)
+    public static function sendDoubleOptin(Subscriber $Sub) : bool
     {
         return true;
     }
@@ -341,7 +342,7 @@ class API
      *
      * @return  boolean     True if synchronization is supported
      */
-    public function supportsSync()
+    public function supportsSync() : bool
     {
         return true;
     }
@@ -350,24 +351,40 @@ class API
     /**
      * Record the mailer ID and provider's campaign ID after creation.
      *
-     * @param   object  $Mlr    Mailer record ID
+     * @param   object  $Mlr    Campaign ID
+     * @param   string  $provider_id    List provider's campaign ID
+     * @param   boolean $tested     True if tested, False if not
      * @return  object  $this
      */
-    protected function saveCampaignInfo($Mlr, $provider_id, $tested=0) : void
+    protected function saveCampaignInfo(Campaign $Mlr, string $provider_id, int $tested=0) : void
     {
         global $_TABLES;
 
         $db = Database::getInstance();
-        $db->conn->executeUpdate(
-            "INSERT INTO {$_TABLES['mailer_provider_campaigns']} SET
-            mlr_id = ?,
-            provider = ?,
-            provider_mlr_id = ?
-            ON DUPLICATE KEY UPDATE
-            provider_mlr_id = ?",
-            array($Mlr->getID(), $this->name, $provider_id, $provider_id),
-            array(Database::STRING, Database::STRING, Database::STRING, Database::STRING)
-        );
+        try {
+            $db->conn->insert(
+                $_TABLES['mailer_provider_campaigns'],
+                array(
+                    'mlr_id' => $Mlr->getID(),
+                    'provider' => $this->name,
+                    'provider_mlr_id' => $provider_id,
+                ),
+                array(Database::STRING, Database::STRING, Database::STRING)
+            );
+        } catch (\Doctrine\DBAL\Exception\UniqueConstraintViolationException $k) {
+            try {
+                $db->conn->update(
+                    $_TABLES['mailer_provider_campaigns'],
+                    array('provider_mlr_id' => $provider_id),
+                    array('mlr_id' => $Mlr->getID()),
+                    array(Database::STRING, Database::STRING)
+                );
+            } catch (\Exception $e) {
+                Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
+            }
+        } catch (\Exception $e) {
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
+        }
     }
 
 
@@ -700,7 +717,7 @@ class API
      * @param   integer $timeout    The timeout supplied to the curl request.
      * @return  boolean     If the request was successful
      */
-    private function determineSuccess($response, $formattedResponse, $timeout)
+    private function determineSuccess($response, $formattedResponse, $timeout) : bool
     {
         $status = $this->findHTTPStatus($response, $formattedResponse);
 
@@ -723,6 +740,7 @@ class API
         return false;
     }
 
+
     /**
      * Find the HTTP status code from the headers or API response body.
      *
@@ -730,14 +748,18 @@ class API
      * @param   array|false $formattedResponse  The response body payload from the curl request
      * @return  integer     HTTP status code
      */
-    private function findHTTPStatus($response, $formattedResponse)
+    private function findHTTPStatus(array $response, ?array $formattedResponse) : int
     {
+        if (!$formattedResponse) {
+            $formattedResponse = array();
+        }
+
         if (!empty($response['headers']) && isset($response['headers']['http_code'])) {
-            return (int) $response['headers']['http_code'];
+            return (int)$response['headers']['http_code'];
         }
 
         if (!empty($response['body']) && isset($formattedResponse['status'])) {
-            return (int) $formattedResponse['status'];
+            return (int)$formattedResponse['status'];
         }
 
         return 418;
@@ -749,7 +771,7 @@ class API
      *
      * @return  array  Assoc array with keys 'headers' and 'body'
      */
-    public function getLastResponse()
+    public function getLastResponse() : array
     {
         return $this->last_response;
     }
@@ -759,7 +781,7 @@ class API
      *
      * @return  array  Assoc array
      */
-    public function getLastRequest()
+    public function getLastRequest() : array
     {
         return $this->last_request;
     }
@@ -770,7 +792,7 @@ class API
      *
      * @return  boolean     True for success, false for failure
      */
-    public function success()
+    public function success() : bool
     {
         return $this->request_successful;
     }
@@ -782,9 +804,9 @@ class API
      *
      * @return  string|false  Describing the error
      */
-    public function getLastError()
+    public function getLastError() : ?string
     {
-        return $this->last_error ?: false;
+        return $this->last_error ?: NULL;
     }
 
 
@@ -793,7 +815,7 @@ class API
      *
      * @return  string      HTML for links, buttons, etc.
      */
-    public function getMenuHelp()
+    public function getMenuHelp() : string
     {
         return '';
     }
@@ -802,7 +824,7 @@ class API
     /**
      * Handle API-specific actions requested through the admin page.
      */
-    public function handleActions($opts)
+    public function handleActions($opts) : void
     {
     }
 
@@ -810,16 +832,24 @@ class API
     /**
      * List members in the mailing list.
      *
+     * @param   string  $list_id    Mailing list ID
+     * @param   array   $opts       Additional opts to consider
      * @return  array   Empty array
      */
-    public function listMembers()
+    public function listMembers(string $list_id=NULL, array $opts=array()) : array
     {
         return array();
     }
 
 
+    /**
+     * Check if this API is configured.
+     *
+     * return   boolean     True if configured, False if not
+     */
     public function isConfigured() : bool
     {
+        return true;
     }
 
 }

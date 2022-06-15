@@ -17,6 +17,8 @@ use Mailer\Models\Status;
 use Mailer\Models\Campaign;
 use Mailer\Notifier;
 use Mailer\Config;
+use PHPMailer\PHPMailer\PHPMailer;
+use glFusion\Database\Database;
 
 
 /**
@@ -44,14 +46,19 @@ class API extends \Mailer\API
      * @param   integer $count      Maximum number of members to retrieve.
      * @return  array       Array of data
      */
-    public function listMembers($opts=array())
+    public function listMembers($opts=array()) : array
     {
         global $_TABLES;
 
         $retval = array();
-        $sql = "SELECT * FROM {$_TABLES['mailer_subscribers']}";
-        $res = DB_query($sql);
-        while ($A = DB_fetchArray($res, false)) {
+        $db = Database::getInstance();
+        try {
+            $stmt = $db->conn->executeQuery("SELECT * FROM {$_TABLES['mailer_subscribers']}");
+            $data = $stmt->fetchAll(Database::ASSOCIATIVE);
+        } catch (\Exception $e) {
+            $data = array();
+        }
+        foreach ($data as $A) {
             $retval[$A['id']] = $A;     // todo, use subscriber model
         }
         return $retval;
@@ -174,7 +181,7 @@ class API extends \Mailer\API
      */
     public static function sendDoubleOptin(Subscriber $Sub)
     {
-        return Notifier::Send($Sub->getEmail(), $Sub->getToken());
+        return Notifier::sendConfirmation($Sub->getEmail(), $Sub->getToken());
     }
 
 
@@ -310,33 +317,42 @@ class API extends \Mailer\API
     {
         global $_TABLES;
 
-        $mlr_id = DB_escapeString($Mlr->getID());
+        $db = Database::getInstance();
         if ($emails === NULL) {
-            $values = "SELECT '{$mlr_id}', email
-                FROM {$_TABLES['mailer_subscribers']}
-                WHERE status = " . Status::ACTIVE;
+            // get all email addresses
+            $stmt = $db->conn->executeQuery(
+                "SELECT email FROM {$_TABLES['mailer_subscribers']}
+                WHERE status = ?",
+                array(Status::ACTIVE),
+                array(Database::INTEGER)
+            );
+            $data = $stmt->fetchAll(Database::ASSOCIATIVE);
         } elseif (is_array($emails)) {
-            $vals = array();
-            foreach ($emails as $email) {
-                $vals[] = "('{$mlr_id}', '" . DB_escapeString($email) . "')";
-            }
-            $values = ' VALUES ' . implode(',', $vals);
-        } else {
-            return false;
+            $data = $emails;
         }
         $sql = "INSERT IGNORE INTO {$_TABLES['mailer_queue']}
-                (mlr_id, email) $values";
-        DB_query($sql);
-        if (!DB_error()) {
-            DB_query(
-                "UPDATE {$_TABLES['mailer_campaigns']}
-                SET mlr_sent_time = UNIX_TIMESTAMP()
-                WHERE mlr_id = " . $Mlr->getID()
+            (mlr_id, email) values (?, ?)";
+        foreach ($emails as $email) {
+            try {
+                $db->conn->executeStatement(
+                    $sql,
+                    array($Mlr->getID(), $email),
+                    array(Database::STRING, Database::STRING)
+                );
+            } catch (\Exception $e) {
+            }
+        }
+        try {
+            $db->conn->update(
+                $_TABLES['mailer_campaigns']
+                array('mlr_sent_time' => time()),
+                array('mlr_id' => $Mlr->getID()),
+                array(Database::INTEGER, Database::STRING)
             );
-            return true;
-        } else {
+        } catch (\Exception $e) {
             return false;
         }
+        return true;
     }
 
 
@@ -365,7 +381,16 @@ class API extends \Mailer\API
     public function deleteCampaign(Campaign $Mlr)
     {
         global $_TABLES;
-        DB_delete($_TABLES['mailer_queue'], 'mlr_id', $Mlr->getID());
+
+        try {
+            $db->conn->delete(
+                $_TABLES['mailer_queue'],
+                array('mlr_id' => $Mlr->getID()),
+                array(Database::STRING)
+            );
+        } catch (\Exception $e) {
+            return false;
+        }
         return true;
     }
 
@@ -416,28 +441,35 @@ class API extends \Mailer\API
             $unsub_url .= '&amp;token=' . urlencode($token);
         }
         $unsub_link = COM_createLink($unsub_url, $unsub_url);
-
-        $T = new \Template(Config::get('pi_path') . 'templates/');
-        $T->set_file('msg', 'mailer_email.thtml');
-        $T->set_var(array(
-            'content'   => PLG_replaceTags($Mlr->getContent()),
-            'pi_url'    => Config::get('url'),
-            'mlr_id'    => $Mlr->getID(),
-            'token'     => $token,
-            'email'     => $email,
-            'unsub_url' => $unsub_link,
-            'show_unsub' => true,
-        ) );
-        $T->parse('output', 'msg');
-        $message = $T->finish($T->get_var('output'));
-        $altbody = strip_tags($message);
-
-        $subject = trim($Mlr->getTitle());
-        $subject = COM_emailEscape($subject);
-
-        $mail = new \PHPMailer();
+        $mail = new PHPMailer();
         $mail->SetLanguage('en');
         $mail->CharSet = COM_getCharset();
+
+        if ($Mlr->usesTemplate()) {
+            $T = new \Template(Config::get('pi_path') . 'templates/');
+            $T->set_file('msg', 'mailer_email.thtml');
+            $T->set_var(array(
+                'content'   => PLG_replaceTags($Mlr->getContent()),
+                'pi_url'    => Config::get('url'),
+                'mlr_id'    => $Mlr->getID(),
+                'token'     => $token,
+                'email'     => $email,
+                'unsub_url' => $unsub_link,
+                'show_unsub' => true,
+            ) );
+            $T->parse('output', 'msg');
+            $message = $T->finish($T->get_var('output'));
+            $mail->AddCustomHeader('List-ID:Announcements from ' . Config::senderName());
+            $mail->AddCustomHeader('List-Archive:<' . Config::get('url') . '>Prior Mailings');
+            $mail->AddCustomHeader('X-Unsubscribe-Web:<' . $unsub_url . '>');
+            $mail->AddCustomHeader('List-Unsubscribe:<' . $unsub_url . '>');
+        } else {
+            $message = $Mlr->getContent();
+        }
+        $altbody = strip_tags($message);
+
+        $mail->Subject = COM_emailEscape(trim($Mlr->getTitle()));
+
         if ($_CONF['mail_backend'] == 'smtp') {
             $mail->IsSMTP();
             $mail->Host     = $_CONF['mail_smtp_host'];
@@ -469,13 +501,8 @@ class API extends \Mailer\API
             $mail->Body = $message;
         }
 
-        $mail->Subject = $subject;
         $mail->From = Config::senderEmail();
         $mail->FromName = Config::senderName();
-        $mail->AddCustomHeader('List-ID:Announcements from ' . Config::senderName());
-        $mail->AddCustomHeader('List-Archive:<' . Config::get('url') . '>Prior Mailings');
-        $mail->AddCustomHeader('X-Unsubscribe-Web:<' . $unsub_url . '>');
-        $mail->AddCustomHeader('List-Unsubscribe:<' . $unsub_url . '>');
         $mail->AddAddress($email);
         if(!$mail->Send()) {
             COM_errorLog("Email Error: " . $mail->ErrorInfo);

@@ -12,6 +12,7 @@
  */
 namespace Mailer;
 use glFusion\Database\Database;
+use glFusion\Log\Log;
 
 
 /**
@@ -47,7 +48,7 @@ class Webhook
                 $wh = new $cls;
                 $wh->withProvider($provider);
             } catch (\Exception $e) {
-                Logger::logException($e);
+                Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
                 $wh = new self;
             }
         }
@@ -131,7 +132,7 @@ class Webhook
                     )
                 );
             } catch (\Exception $e) {
-                Logger::logException($e);
+                Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
                 return false;
             }
         }

@@ -14,6 +14,8 @@
 namespace Mailer\Models;
 use Mailer\Config;
 use Mailer\API;
+use glFusion\Database\Database;
+use glFusion\Log\Log;
 
 
 /**
@@ -34,42 +36,100 @@ class Queue
         $mlr_id = COM_sanitizeID($mlr_id, false);
         $Mailer = new Mailer($mlr_id);
         if (!$Mailer->isNew()) {
-            // Insert, ignoring duplicate entries
-            $sql = "INSERT IGNORE INTO {$_TABLES['mailer_queue']}
-                (mlr_id, email)
-                SELECT '$mlr_id', email
-                FROM {$_TABLES['mailer_subscribers']}
-                WHERE status = " . Status::ACTIVE;
-            DB_query($sql);
-            $Mailer->updateSentTime();
-            return true;
-        } else {
-            return false;
+            $db = Database::getInstance();
+            try {
+                // Insert, ignoring duplicate entries
+                $db->conn->executeStatement(
+                    "INSERT IGNORE INTO {$_TABLES['mailer_queue']}
+                        (mlr_id, email)
+                        SELECT '$mlr_id', email
+                        FROM {$_TABLES['mailer_subscribers']}
+                        WHERE status = " . Status::ACTIVE,
+                    array($mlr_id),
+                    array(Database::STRING),
+                );
+                $Mailer->updateSentTime();
+            } catch (\Exception $e) {
+                Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
+                return false;
+            }
         }
+        return true;
+    }
+
+
+    /**
+     * Add a batch of specific email addresses to a mailer's queue.
+     *
+     * @param   string  $mlr_id     Campaign ID
+     * @param   array   $users      Array of user info (uid, name, email)
+     * @return  boolean     True on success, False on error
+     */
+    public static function addEmails(string $mlr_id, array $users) : bool
+    {
+        global $_TABLES;
+
+        $db = Database::getInstance();
+        $retval = true;
+
+        foreach ($users as $user) {
+            $uid = isset($user['uid']) ? $user['uid'] : 0;
+            $name = isset($user['name']) ? $user['name'] : '';
+            if (!isset($user['email'])) {
+                continue;
+            }
+            try {
+                // Insert, ignoring duplicate entries
+                $db->conn->executeStatement(
+                    "INSERT IGNORE INTO {$_TABLES['mailer_queue']}
+                        (mlr_id, name, email) VALUES (?, ?, ?)",
+                    array(
+                        $mlr_id,
+                        $name,
+                        $user['email']),
+                    array(
+                        Database::STRING,
+                        Database::STRING,
+                        Database::STRING,
+                    ),
+                );
+            } catch (\Exception $e) {
+                Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
+                $retval = false;
+            }
+        }
+        return $retval;
     }
 
 
     /**
      * Delete all entries from the queue at once.
      */
-    public static function purge()
+    public static function purge() : void
     {
         global $_TABLES;
 
-        DB_query("TRUNCATE {$_TABLES['mailer_queue']}");
+        $db = Database::getInstance();
+        $db->conn->executeQuery("TRUNCATE {$_TABLES['mailer_queue']}");
     }
 
 
     /**
      * Resets the last-run timestamp so the queue will be picked up.
+     *
+     * @param   integer $ts     Timestamp to set
      */
-    public static function reset()
+    public static function reset(?int $ts = 0) : void
     {
         global $_TABLES;
 
-        DB_query("UPDATE {$_TABLES['vars']}
-            SET value = '0'
-            WHERE name='mailer_lastrun'");
+        $db = Database::getInstance();
+        $db->conn->update(
+            $_TABLES['vars'],
+            array('value' => $ts),
+            array('name' => 'mailer_lastrun'),
+            array(Database::INTEGER)
+        );
     }
 
 
@@ -78,11 +138,13 @@ class Queue
      *
      * @param   array   $q_ids      Array of queue record IDs
      */
-    public static function deleteMulti($q_ids)
+    public static function deleteMulti(array $q_ids) : void
     {
         global $_TABLES;
 
-        DB_query("DELETE FROM {$_TABLES['mailer_queue']}
+        $db = Database::getInstance();
+        $db->conn->executeQuery(
+            "DELETE FROM {$_TABLES['mailer_queue']}
             WHERE q_id IN (" . implode(',', $q_ids) . ')'
         );
     }
@@ -95,10 +157,17 @@ class Queue
     {
         global $_TABLES;
 
-        DB_delete(
+        $db = Database::getInstance();
+        $db->conn->delete(
             $_TABLES['mailer_queue'],
-            array('mlr_id','email'),
-            array(DB_escapeString($mlr_id), DB_escapeString($email))
+            array(
+                'mlr_id' => $mlr_id,
+                'email' => $email,
+            ),
+            array(
+                Database::STRING,
+                Database::STRING,
+            )
         );
     }
 
@@ -114,22 +183,33 @@ class Queue
      *
      * @param   boolean $force  True to force immediate processing of all items
      */
-    public static function process($force=false)
+    public static function process(bool $force=false) : void
     {
-        global $_CONF, $_USER, $_TABLES, $LANG_MLR;
+        global $_CONF, $_USER, $_TABLES, $LANG_MLR, $_VARS;
+
+        $db = Database::getInstance();
+        $qb = $db->conn->createQueryBuilder();
 
         if (!$force) {
             // Find out when we last ran, and don't run again if it's too soon
-            $lastrun = DB_getItem(
-                $_TABLES['vars'],
-                'value',
-                "name='mailer_lastrun'"
-            );
+            $lastrun = isset($_VARS['mailer_lastrun']) ? $_VARS['mailer_lastrun'] : NULL;
             if ($lastrun === NULL) {
                 // In case our gl_vars value got deleted somehow.
-                DB_query("INSERT INTO {$_TABLES['vars']} (name, value)
-                    VALUES ('mailer_lastrun', 0)
-                    ON DUPLICATE KEY UPDATE value = 0", 1);
+                try {
+                    $db->conn->insert(
+                        $_TABLES['vars'],
+                        array(
+                            'value' => 0,
+                            'name' => 'mailer_lastrun',
+                        ),
+                        array(
+                            Database::INTEGER,
+                            Database::STRING,
+                        )
+                    );
+                } catch (\Exception $e) {
+                    Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
+                }
                 $lastrun = 0;
             }
             $now = time();
@@ -139,61 +219,107 @@ class Queue
 
             // Set the maximum messages to be sent
             if ((int)Config::get('max_per_run') > 0) {
-                $sql_limit = ' LIMIT ' . (int)Config::get('max_per_run');
-            } else {
-                $sql_limit = '';
+                $qb->setFirstResult(0)->setMaxResults((int)Config::get('max_per_run'));
             }
-        } else {
-            // Force all items to be processed
-            $sql_limit = '';
         }
 
         // Get the queued entries. Order by mlr_id so we can minimize DB calls.
-        $sql = "SELECT q.q_id, q.mlr_id, q.email, e.token
-            FROM {$_TABLES['mailer_queue']} q
-            LEFT JOIN {$_TABLES['mailer_subscribers']} e
-            ON q.email = e.email
-            ORDER BY q.mlr_id ASC
-            $sql_limit ";
-        $res = DB_query($sql);
-        if (!$res || DB_numRows($res) == 0) {
+        try {
+            $stmt = $qb->select('q.q_id', 'q.mlr_id', 'q.name', 'q.email', 'e.token')
+               ->from($_TABLES['mailer_queue'], 'q')
+               ->leftJoin('q', $_TABLES['mailer_subscribers'], 'e', 'q.email=e.email')
+               ->orderBy('q.mlr_id', 'ASC')
+               ->execute();
+            $data = $stmt->fetchAll(Database::ASSOCIATIVE);
+        } catch (\Exception $e) {
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
+            $data = NULL;
+        }
+
+        if (empty($data)) {
             return;
         }
 
-        $API = API::getInstance();  // instantiate the API. Should be Internal
         $N = new Campaign;      // Create a campaign object once
+        //$Email = API::getInstance();
+        $Email = \glFusion\Notifier::getProvider('Email');
+
         $mlr_id = '';           // mailer ID used for control-break
+        $recipients = array();
         // Loop through the queue, sending the email to each address
-        while ($A = DB_fetchArray($res, false)) {
+        foreach ($data as $A) {
             if ($mlr_id != $A['mlr_id']) {
+                if ($mlr_id != '') {    // not the first time through
+                    $Email->send();
+                    self::_deleteRecipients($recipients);
+                    $recipients = array();
+                }
+                $Email = \glFusion\Notifier::getProvider('Email');
+
                 // New mailer ID, get it
                 $mlr_id = $A['mlr_id'];
+//var_dumP($mlr_id);die;
+ //               $N->Read($mlr_id);
 
                 if (!$N->Read($mlr_id)) {
                     // Invalid ID, delete all scheduled mailings & quit.
                     // Would be better to re-query the DB and continue with valid
                     // mailings, but for now this function will need to be called
                     // again.
-                    DB_delete($_TABLES['mailer_queue'], 'mlr_id', $mlr_id);
+                    $db->conn->delete(
+                        $_TABLES['mailer_queue'],
+                        array('mlr_id' => $mlr_id),
+                        array(Database::STRING)
+                    );
                     continue;
                 }
+                $Email->setMessage($N->getContent(), true)
+                      ->setSubject($N->getTitle());
             }
-            $API->sendEmail($Mlr, $A['email'], $A['token']);
-
-            // todo: Make this more efficient.
-            // This is a DB call for every email address, better to batch them
-            // but this protects against a connection issue mid-queue.
-            DB_delete(
-                $_TABLES['mailer_queue'],
-                array('q_id'),
-                array($A['q_id'])
-            );
+            $Email->addBcc(0, $A['name'], $A['email']);
+            $recipients[] = $A['q_id'];
         }
 
-        // Update the last-run timestamp
-        DB_query("UPDATE {$_TABLES['vars']}
-            SET value = UNIX_TIMESTAMP()
-            WHERE name = 'mailer_lastrun'" );
+        if (count($recipients) > 0) {
+            $Email->send();
+            self::_deleteRecipients($recipients);
+        }
+
+        $db->conn->update(
+            $_TABLES['vars'],
+            array(
+                'value' => 'UNIX_TIMESTAMP()',
+            ),
+            array(
+                'name' => 'mailer_lastrun',
+            ),
+            array(
+                Database::INTEGER,
+                Database::STRING,
+            )
+        );
+    }
+
+
+    /**
+     * Delete recipients from the queue in a batch.
+     *
+     * @param   array   $q_ids  Queue record IDs.
+     */
+    private static function _deleteRecipients(array $q_ids) : void
+    {
+        global $_TABLES;
+
+        $db = Database::getInstance();
+        try {
+            $db->conn->executeStatement(
+                "DELETE FROM {$_TABLES['mailer_queue']} WHERE q_id IN (?)",
+                array($q_ids),
+                array(Database::PARAM_INT_ARRAY)
+           );
+        } catch (\Exception $e) {
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
+        }
     }
 
 

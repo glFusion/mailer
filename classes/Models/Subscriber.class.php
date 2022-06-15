@@ -12,10 +12,11 @@
  */
 namespace Mailer\Models;
 use Mailer\Models\Status;
-use Mailer\Logger;
 use Mailer\API;
 use Mailer\Config;
+use Mailer\Logger;
 use glFusion\Database\Database;
+use glFusion\Log\Log;
 
 
 /**
@@ -181,7 +182,7 @@ class Subscriber
                 }
             }
         } catch (\Exception $e) {
-            Logger::logException($e);
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
             $retval = new self;
         }
         return $retval;
@@ -235,7 +236,7 @@ class Subscriber
                 array(Database::INTEGER)
             );
         } catch (\Exception $e) {
-            Logger::logException($e);
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
         }
         $this->id = 0;
     }
@@ -303,7 +304,7 @@ class Subscriber
         try {
             $qb->execute();
         } catch (\Exception $e) {
-            Logger::logException($e);
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
             return false;
         }
         if ($this->getID() == 0) {
@@ -323,7 +324,7 @@ class Subscriber
         $db = Database::getInstance();
         $purge_days = (int)Config::get('confirm_period');
         if ($purge_days > 0) {
-            $nrows = $db->conn->executeUpdate(
+            $nrows = $db->conn->executeStatement(
                 "DELETE FROM {$_TABLES['mailer_subscribers']}
                 WHERE status = ?
                 AND '" . $_CONF['_now']->toMySQL(true) .
@@ -863,12 +864,13 @@ class Subscriber
             if ($update_gl) {
                 $db = Database::getInstance();
                 try {
-                    $db->conn->executeUpdate(
-                        "UPDATE {$_TABLES['users']} SET
-                        fullname = ?,
-                        email =? 
-                        WHERE uid = ?",
-                        array($this->_fullname, $this->email_address, $this->uid),
+                    $db->conn->update(
+                        $_TABLES['users'],
+                        array(
+                            'fullname' => $this->_fullname,
+                            'email' => $this->email_address,
+                        ),
+                        array('uid' => $this->uid),
                         array(Database::STRING, Database::STRING, Database::INTEGER)
                     );
                 } catch (\Exception $e) {
@@ -946,13 +948,13 @@ class Subscriber
         // Mark all internal records as unsubscribed.
         $db = Database::getInstance();
         try {
-            $db->conn->executeUpdate(
+            $db->conn->executeStatement(
                 "UPDATE {$_TABLES['mailer_subscribers']} SET status = ?",
                 array(Status::UNSUBSCRIBED),
                 array(Database::INTEGER)
             );
         } catch (\Exception $e) {
-            Logger::logException($e);
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
         }
 
         // Get the subscribers 20 at a time
@@ -984,7 +986,7 @@ class Subscriber
                 array(Database::INTEGER)
             );
         } catch (\Exception $e) {
-            Logger::logException($e);
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
         }
         return $processed;
     }
@@ -1174,23 +1176,25 @@ class Subscriber
         $data = json_encode($attributes);
         $db = Database::getInstance();
         try {
-            $db->conn->executeUpdate(
-                "INSERT INTO {$_TABLES['mailer_userinfo']} SET
-                uid = ?,
-                data = ?",
-                array($this->uid, $data),
+            $db->conn->insert(
+                $_TABLES['mailer_userinfo'],
+                array('uid' => $this->uid, 'data' => $data),
                 array(Database::INTEGER, Database::STRING)
             );
         } catch (\Doctrine\DBAL\Exception\UniqueConstraintViolationException $e) {
-            $db->conn->executeUpdate(
-                "UPDATE {$_TABLES['mailer_userinfo']} SET
-                    data = ?
-                WHERE uid = ?",
-                array($data, $this->uid),
-                array(Database::STRING, Database::INTEGER)
-            );
+            try {
+                $db->conn->update(
+                    $_TABLES['mailer_userinfo'],
+                    array('data' => $data),
+                    array('uid' => $this->uid),
+                    array($data, $this->uid),
+                    array(Database::STRING, Database::INTEGER)
+                );
+            } catch (\Exception $e) {
+                Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
+            }
         } catch (\Exception $e) {
-            Logger::logException($e);
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
         }
         return $this;
     }
@@ -1218,7 +1222,7 @@ class Subscriber
                 $retval = @json_decode($data, true);
             }
         } catch (\Exception $e) {
-            Logger::logException($e);
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
         }
         return $retval;
     }

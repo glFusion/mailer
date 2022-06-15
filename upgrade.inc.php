@@ -12,6 +12,9 @@
  */
 
 require_once __DIR__ . '/sql/mysql_install.php';
+use glFusion\Database\Database;
+use glFusion\Log\Log;
+
 
 /**
  * Perform the upgrade starting at the current version.
@@ -64,12 +67,15 @@ function MLR_do_upgrade_sql($version)
         return true;
     }
 
+    $db = Database::getInstance();
+
     // Execute SQL now to perform the upgrade
     COM_errorLOG("--Updating Mailer to version $version");
     foreach ($_MLR_UPGRADE[$version] as $sql) {
         COM_errorLog("Mailer Plugin $version update: SQL => $sql");
-        DB_query($sql, '1');
-        if (DB_error()) {
+        try {
+            $db->conn->executeStatement($sql);
+        } catch (\Exception $e) {
             COM_errorLog("SQL Error during Mailer plugin update",1);
         }
     }
@@ -89,15 +95,24 @@ function MLR_do_set_version($ver)
 {
     global $_TABLES;
 
-    // now update the current version number.
-    $sql = "UPDATE {$_TABLES['plugins']} SET
-            pi_version = '$ver',
-            pi_gl_version = '" . Mailer\Config::get('gl_version') . "',
-            pi_homepage = '" . Mailer\Config::get('pi_url') . "'
-        WHERE pi_name = '" . Mailer\Config::PI_NAME . "'";
-
-    $res = DB_query($sql, 1);
-    if (DB_error()) {
+    $db = Database::getInstance();
+    try {
+        $db->conn->update(
+            $_TABLES['plugins'],
+            array(
+                'pi_version' => $ver,
+                'pi_gl_version' => Mailer\Config::get('gl_version'),
+                'pi_homepage' => Mailer\Config::get('pi_url'),
+            ),
+            array('pi_name' => Mailer\Config::PI_NAME),
+            array(
+                Database::STRING,
+                Database::STRING,
+                Database::STRING,
+                Database::STRING,
+            )
+        );
+    } catch (\Exception $e) {
         COM_errorLog("Error updating the " . Config::get('pi_display_name') . " Plugin version to $ver",1);
         return false;
     } else {
@@ -117,7 +132,15 @@ function _MLRtableHasColumn($table, $col_name)
 {
     global $_TABLES;
 
-    $col_name = DB_escapeString($col_name);
-    $res = DB_query("SHOW COLUMNS FROM {$_TABLES[$table]} LIKE '$col_name'");
-    return DB_numRows($res) == 0 ? false : true;
+    $db = Database::getInstance();
+    try {
+        $data = $db->conn->executeQuery(
+            "SHOW COLUMNS FROM {$_TABLES[$table]} LIKE ?",
+            array($col_name),
+            array(Database::STRING)
+        )->fetchAssociative();
+    } catch (\Exception $e) {
+        $data = false;
+    }
+    return !empty($data);
 }

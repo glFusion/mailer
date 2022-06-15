@@ -13,6 +13,8 @@
 namespace Mailer\Models;
 use Mailer\Config;
 use Mailer\API;
+use glFusion\Database\Database;
+use glFusion\Log\Log;
 
 
 /**
@@ -21,6 +23,8 @@ use Mailer\API;
  */
 class Campaign
 {
+    private static $zero_date = '0001-00-00 00:00:00';
+
     /** Indicate whether the current user is an administrator/
      * @var boolean */
     private $isAdmin = 0;
@@ -49,13 +53,13 @@ class Campaign
      * @var integer */
     private $exp_days = 90;
 
-    /** Last updated timestamp.
-     * @var integer */
-    private $mlr_date = 0;
+    /** Last updated date object.
+     * @var object */
+    private $mlr_date = NULL;
 
-    /** Last sent timestamp.
-     * @var integer */
-    private $mlr_sent_time = 0;
+    /** Last sent date object.
+     * @var object */
+    private $mlr_sent_time = NULL;
 
     /** Mailer body content.
      * @var string */
@@ -63,7 +67,7 @@ class Campaign
 
     /** Email provider name.
      * @var string */
-    private $provider = '';
+    private $provider = NULL;
 
     /** Email provider campaign ID.
      * @var string */
@@ -72,6 +76,10 @@ class Campaign
     /** Status of test email.
      * @var boolean */
     private $tested = 0;
+
+    /** Flag to indicate whether mailing should be wrapped in our template.
+     * @var boolean */
+    private $use_template = 1;
 
 
     /**
@@ -87,10 +95,10 @@ class Campaign
 
         $mlr_id = COM_sanitizeId($mlr_id, false);
         if ($mlr_id == '') {
-            $this->mlr_date = $_CONF['_now']->toUnix();
-            $this->exp_days = Config::get('exp_days');
-            $this->owner_id = $_USER['uid'];
-            $this->grp_access = Config::get('grp_access');
+            $this->mlr_date = clone $_CONF['_now'];
+            $this->exp_days = (int)Config::get('exp_days');
+            $this->owner_id = (int)$_USER['uid'];
+            $this->grp_access = (int)Config::get('grp_access');
         } else {
             $this->mlr_id = $mlr_id;
             if (!$this->Read()) {
@@ -179,9 +187,11 @@ class Campaign
      * @param   integer $ts     Timestamp
      * @return  object  $this
      */
-    public function withDate($ts)
+    public function withDate(string $dt) : self
     {
-        $this->mlr_date = (int)$ts;
+        global $_CONF;
+
+        $this->mlr_date = new \Date($dt, $_CONF['timezone']);
         return $this;
     }
 
@@ -194,13 +204,10 @@ class Campaign
      */
     public function getDate($fmt = NULL)
     {
-        global $_CONF;
-
         if ($fmt === NULL) {
-            return (int)$this->mlr_date;
+            return $this->mlr_date;
         } else {
-            $dt = new \Date($this->mlr_date, $_CONF['timezone']);
-            return $dt->format($fmt, true);
+            return $this->mlr_date->format($fmt, true);
         }
     }
 
@@ -211,9 +218,15 @@ class Campaign
      * @param   integer $ts     Timestamp
      * @return  object  $this
      */
-    public function withSentTime($ts)
+    public function withSentTime(?string $dt=NULL) : self
     {
-        $this->mlr_sent_time = (int)$ts;
+        global $_CONF;
+
+        if ($dt === NULL) {
+            $this->mlr_sent_time = NULL;
+        } else {
+            $this->mlr_sent_time = new \Date($dt, $_CONF['timezone']);
+        }
         return $this;
     }
 
@@ -282,7 +295,7 @@ class Campaign
      * @param   string  $provider   List API provider name
      * @return  object  $this
      */
-    public function withProvider($provider)
+    public function withProvider(string $provider) : self
     {
         $this->provider = $provider;
         return $this;
@@ -335,6 +348,19 @@ class Campaign
     }
 
 
+    public function withTemplate(bool $flag) : self
+    {
+        $this->use_template = $flag ? 1 : 0;
+        return $this;
+    }
+
+
+    public function usesTemplate() : bool
+    {
+        return $this->use_template;
+    }
+
+
     /**
      * Sets all variables to the matching values from $rows.
      *
@@ -352,7 +378,8 @@ class Campaign
              ->withSentTime($A['mlr_sent_time'])
              ->withUid($A['owner_id'])
              ->withGroup($A['grp_access'])
-             ->withExpDays($A['exp_days']);
+             ->withExpDays($A['exp_days'])
+             ->withTemplate($A['use_template']);
         if (isset($A['mlr_date'])) {
             $this->withDate($A['mlr_date']);
         }
@@ -387,19 +414,30 @@ class Campaign
             return false;
         }
 
-        $sql = "SELECT mlr.*, prv.provider, prv.provider_mlr_id, prv.tested
-            FROM {$_TABLES['mailer_campaigns']} mlr
-            LEFT JOIN {$_TABLES['mailer_provider_campaigns']} prv
-                ON prv.mlr_id = mlr.mlr_id AND prv.provider = '" . Config::get('provider') .
-            "' WHERE mlr.mlr_id ='" . DB_escapeString($mlr_id) . "'" .
-            SEC_buildAccessSql();
-        //echo $sql;die;
-        $result = DB_query($sql);
-        if (!$result || DB_numRows($result) != 1) {
+        $db = Database::getInstance();
+        $qb = $db->conn->createQueryBuilder();
+        try {
+            $qb->select('mlr.*', 'prv.provider', 'prv.provider_mlr_id', 'prv.tested')
+               ->from($_TABLES['mailer_campaigns'], 'mlr')
+               ->leftJoin(
+                   'mlr', $_TABLES['mailer_provider_campaigns'], 'prv',
+                   'prv.mlr_id=mlr.mlr_id AND prv.provider=:provider'
+               )
+               ->where('mlr.mlr_id = :mlr_id')
+//               ->andWhere($db->getAccessSQL(''))
+               ->setParameter('mlr_id', $mlr_id)
+               ->setParameter('provider', Config::get('provider'));
+            $stmt = $qb->execute();
+            $data = $stmt->fetch(Database::ASSOCIATIVE);
+        } catch (\Exception $e) {
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
+            $data = false;
+        }
+
+        if (empty($data)) {
             return false;
         } else {
-            $row = DB_fetchArray($result, false);
-            $this->setVars($row, true);
+            $this->setVars($data, true);
             return true;
         }
     }
@@ -428,43 +466,62 @@ class Campaign
             $this->mlr_content = COM_checkHTML($this->mlr_content);
         }
         $this->mlr_title = strip_tags($this->mlr_title);
+        $this->mlr_sent_time = clone $_CONF['_now'];
 
         if (!$this->isValidRecord()) return false;
 
+        $db = Database::getInstance();
+        $qb = $db->conn->createQueryBuilder();
+
         // Insert or update the record, as appropriate
         if ($this->mlr_id == '') {
-            $sql1 = "INSERT INTO {$_TABLES['mailer_campaigns']} SET ";
-            $sql3 = '';
+            $qb->insert($_TABLES['mailer_campaigns']);
+            /*$sql1 = "INSERT INTO {$_TABLES['mailer_campaigns']} SET ";
+            $sql3 = '';*/
             $this->mlr_id = COM_makeSid();
         } else {
-            $sql1 = "UPDATE {$_TABLES['mailer_campaigns']} SET ";
-            $sql3 = " WHERE mlr_id = '" . $this->getID() . "'";
+            $qb->update($_TABLES['mailer_campaigns'])
+                ->where('mlr_id = :mlr_id');
+            //$sql1 = "UPDATE {$_TABLES['mailer_campaigns']} SET ";
+            //$sql3 = " WHERE mlr_id = '" . $this->getID() . "'";
         }
 
-        $sql2 = "mlr_id = " . $this->getID() . ",
-                mlr_title='" . DB_escapeString($this->mlr_title) . "',
-                mlr_content='" . DB_escapeString($this->mlr_content) . "',
-                mlr_date = UNIX_TIMESTAMP(),
-                mlr_sent_time = " . (int)$this->mlr_sent_time . ",
-                owner_id='" . (int)$this->owner_id . "',
-                grp_access='" . (int)$this->grp_access. "',
-                exp_days = '" . (int)$this->exp_days . "'";
-        $sql = $sql1 . $sql2 . $sql3;
-        DB_query($sql);
-        if (!DB_error()) {
-            $API = API::getInstance();
-            $camp_id = $API->createCampaign($this);
-            // Queue immediately or send a test if requested
-            if ($camp_id) {
-                $this->withProviderCampaignId($camp_id);
-                if (isset($A['mlr_sendnow'])) {
-                    $API->sendCampaign($this);
-                } elseif (isset($A['mlr_sendtest'])) {
-                    $API->sendTest($this);
-                }
+        try {
+            $qb->values(array(
+                'mlr_id' => ':mlr_id',
+                'mlr_title' => ':mlr_title',
+                'mlr_content' => ':mlr_content',
+                'mlr_date' => ':mlr_date',
+                'mlr_sent_time' => ':mlr_sent_time',
+                'owner_id' => ':owner_id',
+                'grp_access' => ':grp_access',
+                'exp_days' => ':exp_days',
+            ) )
+            ->setParameter('mlr_id', $this->getID(), Database::STRING)
+            ->setParameter('mlr_title', $this->mlr_title, Database::STRING)
+            ->setParameter('mlr_content', $this->mlr_content, Database::STRING)
+            ->setParameter('mlr_date', $this->mlr_date->toMySQL(false), Database::STRING)
+            ->setParameter('mlr_sent_time', NULL, Database::INTEGER)
+            ->setParameter('owner_id', $this->owner_id, Database::INTEGER)
+            ->setParameter('grp_access', $this->grp_access, Database::INTEGER)
+            ->setParameter('exp_days', $this->exp_days, Database::INTEGER)
+            ->execute();
+        } catch (\Exception $e) {
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
+            return false;
+        }
+        $API = API::getInstance($this->provider);
+        $camp_id = $API->createCampaign($this);
+        // Queue immediately or send a test if requested
+        if ($camp_id && is_array($A)) {
+            $this->withProviderCampaignId($camp_id);
+            if (isset($A['mlr_sendnow'])) {
+                $API->sendCampaign($this);
+            } elseif (isset($A['mlr_sendtest'])) {
+                $API->sendTest($this);
             }
         }
-        return DB_Error() ? false : true;
+        return true;
     }
 
 
@@ -481,16 +538,25 @@ class Campaign
             return false;
         }
 
+        $db = Database::getInstance();
+
         // Delete from the list provider
         API::getInstance()->deleteCampaign($this);
 
         // Delete from the provider cross-ref table
-        DB_delete($_TABLES['mailer_provider_campaigns'], 'mlr_id', $this->mlr_id);
+        $db->conn->delete(
+            $_TABLES['mailer_provider_campaigns'],
+            array('mlr_id' => $this->mlr_id),
+            array(Database::STRING)
+        );
 
         // Delete the campaign from the local DB.
-        DB_delete($_TABLES['mailer_campaigns'], 'mlr_id', $this->mlr_id);
+        $db->conn->delete(
+            $_TABLES['mailer_campaigns'],
+            array('mlr_id' => $this->mlr_id),
+            array(Database::STRING)
+        );
         $this->mlr_id = '';
-
         return true;
     }
 
@@ -498,19 +564,23 @@ class Campaign
     /**
      * Purge expired mailings.
      */
-    public static function purgeExpired()
+    public static function purgeExpired() : void
     {
         global $_CONF, $_TABLES;
 
-        $sql = "DELETE t1, t2
-            FROM {$_TABLES['mailer_campaigns']} t1
-            INNER JOIN {$_TABLES['mailer_provider_campaigns']} t2
-                ON t1.mlr_id = t2.mlr_id
-            WHERE t1.exp_days > 0
-            AND '" . $_CONF['_now']->toMySQL(true) .
-            "' > DATE_ADD(t1.mlr_date, INTERVAL t1.exp_days DAY)";
-        //echo $sql;die;
-        DB_query($sql, 1);
+        $db = Database::getInstance();
+        $qb = $db->conn->createQueryBuilder();
+        try {
+            $qb->delete($_TABLES['mailer_campaigns'])
+               //->innerJoin('t1', $_TABLES['mailer_provider_campaigns'], 't2', 't1.mlr_id=t2.mlr_id')
+               ->where('exp_days > -1')
+               ->andWhere(':now > DATE_ADD(mlr_date, INTERVAL exp_days DAY)')
+               ->setParameter(':now', $_CONF['_now']->toMySQL(false), Database::STRING)
+               ->execute();
+        } catch (\Exception $e) {
+            var_dumP($qb);
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
+        }
     }
 
 
@@ -607,13 +677,18 @@ class Campaign
         }
 
         $authorname = COM_getDisplayName($this->owner_id);
-        $mlrtime = COM_getUserDateTimeFormat($this->mlr_date);
-        $sent = COM_getUserDateTimeFormat($this->mlr_sent_time);
+        $mlrtime = COM_getUserDateTimeFormat($this->mlr_date->toUnix());
+        if ($this->mlr_sent_time < self::$zero_date) {
+            $sent = $LANG_MLR['never'];
+        } else {
+            $sent = COM_getUserDateTimeFormat($this->mlr_sent_time->toUnix())[0];
+        }
+        $db = Database::getInstance();
         $T->set_var(array(
-            'owner_username'        => DB_getItem(
+            'owner_username'        => $db->getItem(
                 $_TABLES['users'],
                 'username',
-                "uid = {$this->owner_id}"
+                array('uid' => $this->owner_id)
             ),
             'owner_id'          => $this->owner_id,
             'group_dropdown'    => SEC_getGroupDropdown($this->grp_access, 3, 'grp_access'),
@@ -626,7 +701,7 @@ class Campaign
             'exp_days'          => (int)$this->exp_days,
             'gltoken_name'      => CSRF_TOKEN,
             'gltoken'           => SEC_createToken(),
-            'mlr_sent_time_formatted' => $sent[0],
+            'mlr_sent_time_formatted' => $sent,
             'candelete' => SEC_hasRights('mailer.admin') && !$this->isNew(),
         ) );
         $T->parse('output','form');
@@ -663,9 +738,18 @@ class Campaign
             $ts = $_CONF['_now']->toUnix();
         }
         $ts = (int)$ts;
-        DB_query("UPDATE {$_TABLES['mailer_campaigns']} SET
-            mlr_sent_time= UNIX_TIMESTAMP()
-            WHERE mlr_id = '{$this->mlr_id}'");
+        $db = Database::getInstance();
+        try {
+            $db->conn->executeQuery(
+                "UPDATE {$_TABLES['mailer_campaigns']} SET
+                mlr_sent_time = ?
+                WHERE mlr_id = ",
+                array($this->mlr_id, $_CONF['_now']->toMySQL(false)),
+                array(Database::STRING, Database::STRING)
+            );
+        } catch (\Exception $e) {
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
+        }
         return $this;
     }
 
@@ -722,7 +806,7 @@ class Campaign
         $retval = '';
         $T = new \Template(Config::get('pi_path') . 'templates/');
         $T->set_file('page', 'mailer.thtml');
-        $curtime = COM_getUserDateTimeFormat($this->mlr_date);
+        $curtime = COM_getUserDateTimeFormat($this->mlr_date->toUnix());
         $lastupdate = $LANG_MLR['lastupdated']. ' ' . $curtime[0];
         $T->set_var(array(
             'content'           => $this->mlr_content,
@@ -771,10 +855,15 @@ class Campaign
             return false;
         }
         $API = API::getInstance();
-        $camp_id = DB_getItem(
+        $db = Database::getInstance();
+
+        $camp_id = $db->getItem(
             $_TABLES['mailer_provider_campaigns'],
             'provider_mlr_id',
-            "mlr_id = '{$this->getID()}' AND provider = '{$API->getName()}'"
+            array(
+                'mlr_id' => $this->getID(),
+                'provider' => 'Mailjet'
+            )
         );
         if (empty($camp_id)) {
             $camp_id = $API->createCampaign($this);
@@ -784,14 +873,20 @@ class Campaign
         }
         // Now there should be a campaign ID
         if ($API->sendTest($camp_id)) {
-            DB_query("UPDATE {$_TABLES['mailer_provider_campaigns']}
-                SET tested = 1
-                WHERE mlr_id = '{$this->getID()}' AND provider = '{$API->getName()}'"
-            );
-            return true;
-        } else {
-            return false;
+            try {
+                $db->conn->executeQuery(
+                    "UPDATE {$_TABLES['mailer_provider_campaigns']}
+                        SET tested = 1
+                        WHERE mlr_id = ? AND provider = ",
+                    array($this->getID(), $API->getName()),
+                    array(Database::STRING, Database::STRING)
+                );
+                return true;
+            } catch (\Exception $e) {
+                Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
+            }
         }
+        return false;
     }
 
 
@@ -815,13 +910,13 @@ class Campaign
 
         // Get the users' token for the unsubscribe link
         if (empty($token)) {
-            $token = DB_getItem(
+            $db = Database::getInstance();
+            $token = $db->getItem(
                 $_TABLES['mailer_subscribers'],
                 'token',
-                "email='" . DB_escapeString($email) . "'"
+                array('email' => $email)
             );
         }
-
         $API = API::getInstance();
         return $API->sendEmail($this, $email, $token);
     }
@@ -837,8 +932,9 @@ class Campaign
     {
         global $_TABLES;
 
+        $db = Database::getInstance();
         if (
-            DB_count($_TABLES['mailer_campaigns'], 'owner_id', $old_uid) == 0
+            $db->getCount($_TABLES['mailer_campaigns'], 'owner_id', $old_uid) == 0
         ) {
             // No mailings owned by this user, nothing to do.
             return;
@@ -846,24 +942,29 @@ class Campaign
 
         if ($new_uid == 0) {
             // assign ownership to a user from the Root group
-            $res = DB_query(
+            $stmt = $db->conn->executeQuery(
                 "SELECT DISTINCT ug_uid
                 FROM {$_TABLES['group_assignments']}
                 WHERE ug_main_grp_id = 1
                     AND ug_uid IS NOT NULL
-                    AND ug_uid <> $old_uid
-                ORDER BY ug_uid ASC LIMIT 1"
+                    AND ug_uid <> ?
+                ORDER BY ug_uid ASC LIMIT 1",
+                array($old_uid),
+                array(Database::INTEGER)
             );
-            if (DB_numRows($res) == 1) {
-                $A = DB_fetchArray($res, false);
+            $rows = $stmt->fetchAll(Database::ASSOCIATIVE);
+            if (count($rows) == 1) {
+                $A = $rows[0];
                 $new_uid = (int)$A['ug_uid'];
             }
         }
         if ($new_uid > 0) {
-            DB_query(
+            $db->conn->executeQuery(
                 "UPDATE {$_TABLES['mailer_campaigns']} SET
-                    owner_id = $rootuser
-                WHERE owner_id = $uid"
+                    owner_id = ?
+                WHERE owner_id = ?",
+                array($rootuser, $uid),
+                array(Database::INTEGER, Database::INTEGER)
             );
         } else {
             COM_errorLog("Mailer: Error finding root user");
@@ -1094,7 +1195,7 @@ class Campaign
 
         case 'mlr_sent_time':
         case 'mlr_date':
-            if ($fieldvalue == 0) {
+            if ($fieldvalue < self::$zero_date) {
                 $retval = $LANG_MLR['never'];
             } else {
                 $dt = new \Date($fieldvalue, $_CONF['timezone']);
