@@ -43,7 +43,7 @@ Comparison of the free plans by provider.
     in your plugin configuration.
   - Still on the Audience page, select "Settings" > "Webhooks".
   - Click "Create a new Webhook".
-    - Webhook URL: `your_site`/mailer/hook.php?p=Mailchimp
+    - Webhook URL: `your_site`/mailer/hooks/hook.php?p=Mailchimp
     - Events: subscribes, unsubscribes, profile updates, cleaned address, email changed
     - Only send updates when change is made: by a subscriber, by an account admin
   - Open your account settings and select Extras > API Keys.
@@ -52,8 +52,8 @@ Comparison of the free plans by provider.
 ### Sendinblue
   - Create an account and log in at https://www.sendinblue.com.
   - Create a mailing list and enter the list ID in the plugin configuration.
-  - Select "Settings" > "Webhooks" and "Add a new Webhook".
-    - URL to post to: `your_site`/mailer/hook.php?p=Sendinblue
+  - On the Contact List screen, Select "Settings" > "Webhooks" and "Add a new Webhook".
+    - URL to post to: `your_site`/mailer/hooks/hook.php?p=Sendinblue
     - When message is: unsubscribed
     - When a contact is: Added to the list, Updated, Deleted
   - Select Account Settings (upper right) and "SMTP & API"
@@ -92,8 +92,9 @@ Comparison of the free plans by provider.
   - Click on "Master API Key" in the REST API section.
   - Create a master API key if not already shown and note the API Key and Secret Key values.
     Enter these values in the plugin configuration.
-  - Return to the Account Settings and click "Event Notifications" under the REST API section.
+  - Return to the Account section and click "Event Notifications" under the REST API section.
   - Select "Spam", "Blocked" and "Unsub" event types and enter your webhook URL for each.
-    The URL is http(s)?://<yoursite.com>/mailer/hook.php?p=Mailjet
+    The URL is http(s)?://<yoursite.com>/mailer/hooks/hook.php?p=Mailjet
+    - Mailjet does not support double opt-in so subscriptions take effect immediately.
   - *IMPORTANT* - Go to the Bad Behavior configuration in your site and whitelist the url
-    `/mailer/hook.php`.
+    `/mailer/hooks/hook.php`.
