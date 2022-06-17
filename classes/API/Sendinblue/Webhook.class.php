@@ -52,18 +52,17 @@ class Webhook extends \Mailer\Webhook
     public function Dispatch()
     {
         $retval = false;        // be pessimistic
-
         switch($this->payload['event']) {
         case 'contact_updated':
             $data = $this->payload['content'][0];
-            $email = LGLIB_getVar($data, 'email');
+            $email = isset($data['email']) ? $data['email'] : '';
             $force_update = false;
             if (!empty($email)) {
                 $Sub = Subscriber::getByEmail($email);
-                $attribs = LGLIB_getVar($data, 'attributes', 'array');
+                $attribs = isset($data['attributes']) ? $data['attributes'] : array();
                 if (
                     isset($attribs['DOUBLE_OPT-IN']) &&
-                    $attribs['DOUBLE_OPT-IN']['id'] == 1
+                    $attribs['DOUBLE_OPT-IN'] == 1
                 ) {
                     $Sub->withStatus(Status::ACTIVE);
                     $force_update = true;   // make sure it gets saved
@@ -79,7 +78,8 @@ class Webhook extends \Mailer\Webhook
             break;
 
         case 'unsubscribe':
-            $email = LGLIB_getVar($this->payload, 'email');
+        case 'hard_bounce':
+            $email = isset($this->payload['email']) ? $this->payload['email'] : '';
             $Sub = Subscriber::getByEmail($email);
             if ($Sub->getID() > 0) {
                 $Sub->updateStatus(Status::UNSUBSCRIBED);
@@ -88,7 +88,21 @@ class Webhook extends \Mailer\Webhook
             break;
 
         case 'list_addition':
-            // No-op, handled by Subscriber::subscribe()
+            $email = isset($this->payload['email']) ? $this->payload['email'] : '';
+            if (!empty($email)) {
+                $Sub = Subscriber::getbyEmail($email);
+                if ($Sub->getID() > 0) {    // Make sure it exists
+                    $Sub->withStatus(Status::ACTIVE)->Save();
+                }
+            }
+            break;
+
+        case 'contact_deleted':
+            $emails = isset($this->payload['email']) && is_array($this->payload['email']) ? $this->payload['email'] : array();
+            foreach ($emails as $email) {
+                $Sub = Subscriber::getByEmail($email);
+                $Sub->delete();
+            }
             break;
 
         default:
