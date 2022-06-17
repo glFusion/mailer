@@ -3,9 +3,9 @@
  * This file contains the MailerLite webhook handler
  *
  * @author      Lee Garner <lee@leegarner.com>
- * @copyright   Copyright (c) 2019-2020 Lee Garner
+ * @copyright   Copyright (c) 2019-2022 Lee Garner
  * @package     mailer
- * @version     v0.0.4
+ * @version     v0.3.0
  * @since       v0.0.4
  * @license     http://opensource.org/licenses/gpl-2.0.php
  *              GNU Public License v2 or later
@@ -16,6 +16,7 @@ use Mailer\Models\Subscriber;
 use Mailer\Models\Status;
 use Mailer\Models\Txn;
 use Mailer\Logger;
+use Mailer\Config;
 
 
 // this file can't be used on its own
@@ -67,42 +68,44 @@ class Webhook extends \Mailer\Webhook
             return;
         }
 
-        $isuniq = NULL;
         foreach ($this->payload['events'] as $event) {
             // The webhook ID is the saved ID of the webhook and is not unique.
             // This webhook handler does not actually avoid duplicate events.
-            if ($isuniq === NULL) {
-                $Txn = new Txn;
-                $Txn['txn_id'] = LGLIB_getVar($event, 'webhook_id') . '.' . uniqid();
-                $Txn['txn_date'] = LGLIB_getVar($event, 'timestamp');
-                $Txn['data'] = $this->payload;
-                $Txn['type'] = LGLIB_getVar($event, 'type');
-                if (!$this->isUnique($Txn)) {
-                    return false;
-                }
-                $isuniq = true;
+            $Txn = new Txn;
+            $Txn['txn_id'] = uniqid();      // MailerLite doesn't provide a txn_id.
+            $Txn['txn_date'] = isset($event['timestamp']) ? $event['timestamp'] : time();
+            $Txn['data'] = $this->payload;
+            $Txn['type'] = isset($event['type']) ? $event['type'] : 'unknown';
+            if ($this->isUnique($Txn)) {
+                $this->_handleEvent($event);
             }
-            $this->_handleEvent($event);
         }
         return true;
     }
 
 
-    private function _handleEvent($event)
+    /**
+     * Handle the actual webhook event.
+     *
+     * @param   array   $event      Event data from webhook
+     * @return  boolean     True on success, False on error
+     */
+    private function _handleEvent(array $event) : bool
     {
         $retval = false;
-        $data = LGLIB_getVar($event, 'data', 'array');
+        $data = isset($event['data']) ? $event['data'] : NULL;
         if (!is_array($data)) {
             return false;
         }
+
         $parts = explode('.', $event['type']);
         switch($parts[0]) {
         case 'subscriber':
-            $subscriber = LGLIB_getVar($data, 'subscriber', 'array');
-            if (is_array($subscriber)) {
-                $sub_id = LGLIB_getVar($subscriber, 'id');
-                $email = LGLIB_getVar($subscriber, 'email');
-                $type = LGLIB_getVar($subscriber, 'type');
+            $subscriber = isset($data['subscriber']) ? $data['subscriber'] : array();
+            if (!empty($subscriber)) {
+                $sub_id = isset($subscriber['id']) ? $subscriber['id'] : '';
+                $email = isset($subscriber['email']) ? $subscriber['email'] : '';
+                $type = isset($subscriber['type']) ? $subscriber['type'] : '';
                 $Sub = Subscriber::getByEmail($email);
                 switch ($parts[1]) {
                 case 'added_through_webform':
@@ -115,12 +118,9 @@ class Webhook extends \Mailer\Webhook
                     } else {
                         $status = Status::PENDING;
                     }
-                    if ($Sub->getID() == 0) {
-                        // Create a new subscriber record
-                        $Sub->withStatus($status)->Save();
-                    } else {
+                    $Sub->withStatus($status);
+                    if ($Sub->getID() > 0) {
                         // Update the existing record
-                        $Sub->updateStatus($status);
                         if ($parts[1] == 'update') {
                             $attrs = $Sub->getAttributes();
                             $API = API::getInstance($this->provider);
@@ -136,11 +136,26 @@ class Webhook extends \Mailer\Webhook
                             $Sub->updateUser();
                         }
                     }
+                    $Sub->Save();
                     $retval = true;
                     break;
+
+                case 'add_to_group':
+                    $group = isset($data['group']) ? $data['group'] : array();
+                    $grp_id = isset($group['id']) ? $group['id'] : '';
+                    if ($grp_id == Config::get('ml_def_list')) {
+                        $Sub->withStatus(Status::ACTIVE)->Save();
+                    }
+                    break;
+
+                case 'remove_from_group':
+                    $group = isset($data['group']) ? $data['group'] : array();
+                    $grp_id = isset($group['id']) ? $group['id'] : '';
+                    if ($grp_id != Config::get('ml_def_list')) {
+                        break;
+                    }
+                case 'bounced':
                 case 'unsubscribe':
-                    $email = LGLIB_getVar($subscriber, 'email');
-                    $Sub = Subscriber::getByEmail($email);
                     if ($Sub->getID() > 0) {
                         $Sub->updateStatus(Status::UNSUBSCRIBED);
                         $retval = true;
@@ -176,3 +191,4 @@ class Webhook extends \Mailer\Webhook
     }
 
 }
+
