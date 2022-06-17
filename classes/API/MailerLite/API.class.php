@@ -252,12 +252,13 @@ class API extends \Mailer\API
         $status = $this->get("subscribers/{$email}");
         if ($status) {
             $data = $this->formatResponse($this->getLastResponse());
-            $fields = LGLIB_getVar($data, 'fields', 'array');
+            $fields = isset($data['fields']) ? $data['fields'] : array();
+            $type = isset($data['type']) ? $data['type'] : NULL;
             $retval = new Contact;
             $retval['provider_uid'] = $data['id'];
             $retval['email_address'] = $data['email'];
             $retval['email_type'] = 'html';
-            $retval['status'] = self::_intStatus(LGLIB_getVar($data, 'type'));
+            $retval['status'] = self::_intStatus($data, 'type');
             $retval['attributes'] = self::_attrFromFields($fields);
         }
         return $retval;
@@ -448,16 +449,44 @@ class API extends \Mailer\API
             'subscriber.create',
             'subscriber.update',
             'subscriber.unsubscribe',
+            'subscriber.add_to_group',
+            'subscriber.remove_from_group',
             'subscriber.added_through_webform',
+            'subscriber.bounced',
             'subscriber.complaint',
-            'campaign.sent',
+            //'subscriber.automation_triggered',
+            //'subscriber.automation_complete',
+            //'campaign.sent',
         );
         $args = array(
-            'url' => Config::get('url') . '/hook.php?p=MailerLite',
+            'url' => Config::get('webhook_url') . '?p=MailerLite',
         );
         foreach ($events as $event) {
             $args['event'] = $event;
-            $this->post('webhooks', $args);
+            $status = $this->post('webhooks', $args);
+            if (!$status) {
+                Log::write('system', Log::ERROR, __METHOD__ . ': ' . $this->getLastResponse()['body']);
+            }
+        }
+    }
+
+
+    /**
+     * List enabled webhooks.
+     *
+     * @return  array   Array of webhook data
+     */
+    public function listWebhooks() : array
+    {
+        $status = $this->get('webhooks');
+        if ($status) {
+            $body = json_decode($this->getLastResponse()['body']);
+            var_dump($body);die;
+            if (isset($body->webhooks) && is_array($body->webhooks)) {
+                foreach ($body->webhooks as $hook) {
+                    $this->delete('webhooks/' . $hook->id);
+                }
+            }
         }
     }
 

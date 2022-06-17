@@ -16,6 +16,7 @@ use Mailer\Models\Status;
 use Mailer\Models\API\Contact;
 use Mailer\Models\API\ContactList;
 use Mailer\Models\Campaign;
+use Mailer\Models\Subscriber;
 use Mailer\Logger;
 use glFusion\Log\Log;
 
@@ -252,11 +253,11 @@ class API extends \Mailer\API
     /**
      * Subscribe an email address to one or more lists.
      *
-     * @param   string  $email      Email address
+     * @param   object  $Sub    Subscriber object
      * @param   array   $lists      Array of list IDs
      * @return  boolean     True on success, False on error
      */
-    public function subscribe($Sub, $lists=array())
+    public function subscribe(Subscriber $Sub, array $lists=array()) : bool
     {
         if (empty($lists)) {
             $lists = array(Config::get('mc_def_list'));

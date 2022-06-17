@@ -13,6 +13,7 @@
 namespace Mailer;
 use glFusion\Database\Database;
 use glFusion\Log\Log;
+use Mailer\Models\Txn;
 
 
 /**
@@ -88,13 +89,15 @@ class Webhook
      * @param   object  $Txn    Transaction object
      * @return  boolean     True if unique, False if duplicate
      */
-    public function isUnique($Txn)
+    public function isUnique(Txn $Txn) : bool
     {
         global $_TABLES, $_CONF;
 
         if (empty($Txn['txn_id'])) {
             return false;
         }
+
+        $db = Database::getInstance();
 
         if (is_numeric($Txn['txn_date'])) {
             $d = new \Date($Txn['txn_date'], $_CONF['timezone']);
@@ -105,23 +108,19 @@ class Webhook
         $count = $db->getCount(
             $_TABLES['mailer_txn'],
             array('provider', 'type', 'txn_id', 'txn_date'),
-            array($this->provider, $Txn['type'], $Txn['txn_id'], $txn_date)
+            array($this->provider, $Txn['type'], $Txn['txn_id'], $txn_date),
+            array(Database::STRING, Database::STRING, Database::STRING, Database::STRING)
         );
         if ($count == 0) {
             try {
-                $db->conn->executeQuery(
-                    "INSERT INTO {$_TABLES['mailer_txn']} SET
-                    provider = ?,
-                    type = ?,
-                    txn_date = ?,
-                    txn_id = ?,
-                    data = ?",
+                $db->conn->insert(
+                    $_TABLES['mailer_txn'],
                     array(
-                        $this->provider,
-                        $Txn['type'],
-                        $txn_date,
-                        $Txn['txn_id'],
-                        json_encode($this->payload),
+                        'provider' => $this->provider,
+                        'type' => $Txn['type'],
+                        'txn_date' => $txn_date,
+                        'txn_id' => $Txn['txn_id'],
+                        'data' => json_encode($this->payload),
                     ),
                     array(
                         Database::STRING,
@@ -133,10 +132,11 @@ class Webhook
                 );
             } catch (\Exception $e) {
                 Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
-                return false;
             }
+            return true;    // Process the hook even if there's an error saving.
+        } else {
+            return false;
         }
-        return true;
     }
 
 }

@@ -186,12 +186,11 @@ class API extends \Mailer\API
     /**
      * Subscribe an email address to one or more lists.
      *
-     * @param   string  $email      Email address
-     * @param   array   $args       Array of additional args to supply
+     * @param   object  $Sub    Subscriber object
      * @param   array   $lists      Array of list IDs
      * @return  boolean     True on success, False on error
      */
-    public function subscribe($Sub, $lists=array())
+    public function subscribe(Subscriber $Sub, array $lists=array()) : bool
     {
         global $_CONF;
 
@@ -203,18 +202,19 @@ class API extends \Mailer\API
         if (empty($lists)) {
             return Status::SUB_INVALID;
         }
+        $lists = array_map('intval', $lists);
 
         $args = array(
             'email' => $Sub->getEmail(),
             'redirectionUrl' => $_CONF['site_url'] . '/index.php?plugin=mailer&msg=2',
             'templateId' => Config::get('sb_dbo_tpl'),
-            'updateEnabled' => true,
             'attributes' => $Sub->getAttributes(),
         );
         if ($Sub->getStatus() == Status::ACTIVE) {
             // Not requiring double-opt-in
             $path = 'contacts';
             $args['listIds'] = $lists;
+            $args['updateEnabled'] = true;
         } else {
             $path = 'contacts/doubleOptinConfirmation';
             $args['includeListIds'] = $lists;
