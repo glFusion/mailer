@@ -32,7 +32,7 @@ Comparison of the free plans by provider.
 | --- | --- | --- | :---: | :---: | :---: | :---: |
 | Mailchimp | 2000 | 10000/mo | :x: | :x: | :x: | :heavy_check_mark: |
 | Sendinblue | No Limit | 300/day | :heavy_check_mark: | :x: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
-| MailerLite | 1000 | 12000/mo | :x: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| MailerLite | 1000 | 12000/mo | :heavy_check_mark: | :x: | :heavy_check_mark: | :heavy_check_mark: |
 | Mailjet (not supported)| No Limit | 200/day, 6000/mo | :heavy_check_mark: | :x: | :heavy_check_mark: | :x: | :x: |
 
 ### Mailchimp
@@ -83,10 +83,10 @@ Comparison of the free plans by provider.
       - subscriber.added_through_webform
       - subscriber.complaint (not currently used)
       - campaign.sent (not currently used)
+  - For SMTP relay visit https://mailersend.com
 
 ### Mailjet
-#### Not Currently Supported
-  - Create an account ang log in at https://mailjet.com.
+  - Create an account and log in at https://mailjet.com.
   - Create or update a Contact List (from the "Contacts" menu).
   - Click on the account menu icon (top right) and select "Account Settings".
   - Click on "Master API Key" in the REST API section.
