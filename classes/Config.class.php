@@ -64,6 +64,7 @@ final class Config
         $this->properties['pi_path'] = dirname(__DIR__) . '/';
         $this->properties['url'] = $_CONF['site_url'] . '/' . self::PI_NAME;
         $this->properties['admin_url'] = $_CONF['site_admin_url'] . '/plugins/' . self::PI_NAME;
+        $this->properties['webhook_url'] = $this->properties['url'] . '/hooks/hook.php';
         $_MLR_CONF = $this->properties;
     }
 
