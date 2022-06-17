@@ -1,95 +1,270 @@
 <?php
 /**
- * This class provides two functions.
- * 1. Send confirmations to subscribers via the glFusion Email notifier.
- * 2. Queue messages to be sent on behalf of this or other plugins.
+ * Base class to send notifications.
+ * Temporary until glFusion 2.1.0 which will include this function.
  *
  * @author      Lee Garner <lee@leegarner.com>
- * @copyright   Copyright (c) 2020-2022 Lee Garner <lee@leegarner.com>
- * @package     mailer
- * @version     v0.2.0
- * @since       v0.0.4
+ * @copyright   Copyright (c) 2022 Lee Garner <lee@leegarner.com>
+ * @package     glfusion
+ * @version     v0.0.1
+ * @since       v0.0.1
  * @license     http://opensource.org/licenses/gpl-2.0.php
  *              GNU Public License v2 or later
  * @filesource
  */
 namespace Mailer;
-use Mailer\Models\Campaign;
-use Mailer\Models\Queue;
 
 
 /**
- * Notification class to send emails to subscribers.
+ * Base notification class.
  * @package shop
  */
-class Notifier extends \glFusion\Notifiers\Email
+abstract class Notifier
 {
+    /** Registered notification providers.
+     * @var array */
+    private static $_providers = array();
+
+    /** Array of user IDs for the To list.
+     * @var array */
+    protected $recipients = array();
+
+    /** Array of BCC user IDs.
+     * @var array */
+    protected $bcc = array();
+
+    /** Sending user's user ID. Default is current user.
+     * @var integer */
+    protected $from_uid = 0;
+
+    /** Sending user's name. Default is current user.
+     * @var integer */
+    protected $from_name = '';
+
+    /** Message subject text.
+     * @var string */
+    protected $subject = '';
+
+    /** Message HTML body text.
+     * @var string */
+    protected $htmlmessage = '';
+
+    /** Message Text body.
+     * @var string */
+    protected $textmessage = '';
+
+    /** Expiration timestamp, if supported.
+     * @var integer */
+    protected $exp_ts = 2208988799;     // 2039-12-31 23:59:59 UTC
+
+
     /**
-     * Send an opt-in confirmation to the subscriber
-     *
-     * @param   string  $email  Subscriber's email address
-     * @param   string  $token  Token included to validate unsubscribe requests.
+     * Set some common defaults.
      */
-    public static function sendConfirmation($email, $token)
+    public function __construct()
     {
-        global $_CONF, $LANG_MLR;
+        global $_USER;
+        $this->from_uid = $_USER['uid'];
+        $this->from_name = empty($_USER['fullname']) ? $_USER['username'] : $_USER['fullname'];
+    }
 
-        //$title = $_CONF['site_name'] . ' ' . $LANG_MLR['confirm_title'];
 
-        // TODO - use a template for this
-        $templatepath = Config::get('pi_path') . '/templates/';
-        $lang = $_CONF['language'];
-        if (is_file($templatepath . $lang . '/confirm_sub.thtml')) {
-            $T = new \Template($templatepath . $lang);
+    /**
+     * Add a recipient.
+     *
+     * @param   integer $uid    User ID
+     * @param   string  $name   User Name
+     * @param   string  $email  Email address
+     * @return  object  $this
+     */
+    public function addRecipient(int $uid, ?string $name=NULL, ?string $email=NULL)
+    {
+        $this->recipients[] = array(
+            'uid' => $uid,
+            'name' => $name,
+            'email' => $email,
+        );
+        return $this;
+    }
+
+
+    /**
+     * Add a BCC recipient.
+     *
+     * @param   integer $uid    User ID
+     * @param   string  $name   User Name
+     * @param   string  $email  Email address
+     * @return  object  $this
+     */
+    public function addBCC(int $uid, ?string $name=NULL, ?string $email=NULL)
+    {
+        $this->bcc[] = array(
+            'uid' => $uid,
+            'name' => $name,
+            'email' => $email,
+        );
+        return $this;
+    }
+
+
+    /**
+     * Override the sender's user ID.
+     * The default is the current user's ID.
+     *
+     * @param   integer $uid    User ID
+     * @return  object  $this
+     */
+    public function setFromUid(int $uid) : self
+    {
+        $this->from_uid = (int)$uid;
+        return $this;
+    }
+
+
+    /**
+     * Set the sending user's name.
+     *
+     * @param   string  $name   User's name
+     * @return  object  $this
+     */
+    public function setFromName(string $name) : self
+    {
+        $this->from_name = $name;
+        return $this;
+    }
+
+
+    public function setSubject(string $subject) : self
+    {
+        $this->subject = $subject;
+        return $this;
+    }
+
+
+    /**
+     * Set the message content.
+     *
+     * @param   string  $msg    Message content
+     * @param   boolean $html   True if this is HTML, False for Text
+     * @return  object  $this
+     */
+    public function setMessage(string $msg, bool $html=false) : self
+    {
+        if ($html) {
+            $this->htmlmessage = $msg;
         } else {
-            $T = new \Template($templatepath . 'english/');
-        }   
-        $T->set_file('message', 'confirm_sub.thtml');
-        $T->set_var(array(
-            'pi_url'        => Config::get('url') ,
-            'email'         => urlencode($email),
-            'token'         => $token,
-            'confirm_period' => Config::get('confirm_period'),
-            'site_name'     => $_CONF['site_name'],
-        ) );
-        $T->parse('output', 'message');
-        $body = $T->finish($T->get_var('output'));
-
-        $Emailer = \glFusion\Notifier::getProvider('Email');
-        $Emailer->setMessage($body, true)
-              ->setSubject($_CONF['site_name'] . ' ' . $LANG_MLR['confirm_title'])
-              ->addRecipient(0, '', $email)
-              ->setFromEmail(Config::senderEmail())
-              ->setFromName(Config::senderName())
-              ->send();
+            $this->textmessage = $msg;
+        }
+        return $this;
     }
 
 
     /**
-     * Send an email notification.
-     * This function simply queues the mail, which will then be sent by
-     * Queue::process().
+     * Set the expiration timestamp, for methods that support it.
      *
-     * @return  boolean     True on success, False on error
+     * @param   integer $ts     Message expiration as a Unix timestamp
+     * @return  objec   $this
      */
-    public function send() : bool
+    public function setExpiration(int $ts) : self
     {
-        $status = false;
-
-        // Create the mailing and recipient list.
-        $Mlr = new Campaign;
-        $status = $Mlr->withContent($this->htmlmessage)
-            ->withTitle($this->subject)
-            ->withTemplate(false)
-            ->withProvider('Internal')
-            ->withGroup(0)      // no user access to the mailer
-            ->withExpDays(5)    // probably don't need to keep even this long
-            ->Save();
-        if ($status) {
-            Queue::addEmails($Mlr->getID(), $this->prepareRecipients($this->recipients));
-            Queue::addEmails($Mlr->getID(), $this->prepareRecipients($this->bcc));
-        }
-        return $status;
+        $this->exp_ts = $ts;
+        return $this;
     }
+
+
+    /**
+     * Get the expiration timestamp.
+     *
+     * return   integer     Expiration timestamp
+     */
+    public function getExpiration() : int
+    {
+        return $this->exp_ts;
+    }
+
+
+    /**
+     * Get the user object.
+     *
+     * @param   integer $uid    User ID
+     * @return  object      User object
+     */
+    protected function getUser(int $uid) : User
+    {
+        return User::getInstance($uid);
+    }
+
+
+    /**
+     * Register a notification method.
+     *
+     * @param   string  $key    Short description, e.g. plugin name
+     * @param   string  $cls    Class name, e.g. PM\Notifier
+     * @param   string  $dscp   Description
+     */
+    public static function Register(string $key, string $cls, ?string $dscp=NULL) : void
+    {
+        self::$_providers[$key] = array(
+            'cls' => $cls,
+            'dscp' => $dscp === NULL ? "$key Notifications" : $dscp,
+        );
+    }
+
+
+    /**
+     * Get an array of provider information.
+     *
+     * @return  array   Array of (key, classname, description) elements
+     */
+    public static function getProviders() : array
+    {
+        return self::$_providers;
+    }
+
+
+    /**
+     * Get an instance of a provider class.
+     * The default `email` provider is returned if the requested key
+     * is not available. If a plugin needs to take other action when
+     * the requested provider is not available, it should call
+     * Notifier::exists($key) first to check.
+     *
+     * @param   string  $key    Provider ID key
+     * @return  object  Provider object
+     */
+    public static function getProvider(string $key) : object
+    {
+        // Email is the only notifier used, so ignore $key and return the Email object.
+        return new Notifiers\Email;
+    }
+
+
+    /**
+     * Check if a provider is available.
+     * This allows plugins to take other action if the default email
+     * notification is not desired.
+     *
+     * @param   string  $key    Provider ID key
+     * @return  boolean     True if provider is available
+     */
+    public static function exists(string $key) : bool
+    {
+        $retval = false;
+        if (array_key_exists($key, self::$_providers)) {
+            $cls = self::$_providers[$key]['cls'];
+            if (class_exists($cls)) {
+                $retval = true;
+            }
+        }
+        return $retval;
+    }
+
+
+    /**
+     * Send the notification.
+     * Must be implemented by child classes.
+     */
+    abstract public function send();
 
 }
+

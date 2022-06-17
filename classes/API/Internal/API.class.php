@@ -15,7 +15,7 @@ use Mailer\Models\Subscriber;
 use Mailer\Models\API\Contact;
 use Mailer\Models\Status;
 use Mailer\Models\Campaign;
-use Mailer\Notifier;
+use Mailer\Notifiers\Confirmation;
 use Mailer\Config;
 use PHPMailer\PHPMailer\PHPMailer;
 use glFusion\Database\Database;
@@ -182,7 +182,7 @@ class API extends \Mailer\API
      */
     public static function sendDoubleOptin(Subscriber $Sub) : bool
     {
-        return Notifier::sendConfirmation($Sub->getEmail(), $Sub->getToken());
+        return Confirmation::send($Sub->getEmail(), $Sub->getToken());
     }
 
 
