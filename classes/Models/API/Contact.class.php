@@ -25,6 +25,7 @@ class Contact implements \ArrayAccess
     private $properties = array(
         'provider_uid' => '',
         'email_address' => '',
+        'email_type' => 'html',
         'status' => '',
         'attributes' => array(
             'FIRSTNAME' => '',
