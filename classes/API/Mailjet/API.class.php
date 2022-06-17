@@ -194,12 +194,11 @@ class API extends \Mailer\API
     /**
      * Subscribe an email address to one or more lists.
      *
-     * @param   string  $email      Email address
-     * @param   array   $args       Array of additional args to supply
+     * @param   object  $Sub        Subscriber object
      * @param   array   $lists      Array of list IDs
      * @return  boolean     True on success, False on error
      */
-    public function subscribe($Sub, $lists=array())
+    public function subscribe(Subscriber $Sub, array $lists=array()) : bool
     {
         global $_CONF;
 
@@ -209,45 +208,52 @@ class API extends \Mailer\API
             $lists = array($lists);
         }
         if (empty($lists)) {
+            Log::write('system', Log::ERROR, __METHOD__ . ': No lists found');
             return Status::SUB_INVALID;
         }
 
-        $status = Status::SUB_SUCCESS;
+        $status = true;
         $fields = $Sub->getAttributes($this->getAttributeMap());
         $fields = array_change_key_case($fields, CASE_LOWER);
-        $info = $this->getMemberInfo($Sub);
-        if (empty($info)) {
+        $Contact = $this->getMemberInfo($Sub);
+        if (empty($Contact['provider_uid'])) {
+            // A contact doesn't exist
             $args = array(
                 'Name' => $Sub->getFullname(),
                 'Email' => $Sub->getEmail(),
-                'Action' => 'addnoforce',
             );
             $status = $this->post('contact/', $args);
+            if ($status) {
+                $data = json_decode($this->getLastResponse()['body'], true);
+                if (isset($data['Data']) && is_array($data['Data'])) {
+                    $Contact['provider_uid'] = $data['Data']['ID'];
+                    $Contact['email_address'] = $data['Data']['Email'];
+                    switch ($data['Data']['isOptInPending']) {
+                    case true:
+                        $Sub->withStatus(Status::ACTIVE);
+                        break;
+                    default:
+                        $Sub->withStatus(Status::PENDING);
+                        break;
+                    }
+                }
+            }
+
         }
-        if ($status == Status::SUB_SUCCESS) {
-            /*switch ($Sub->getStatus()) {
-            case Status::SUBSCRIBED:
-                $isSubscribed = true;
-                break;
-            case Status::PENDING:
-            default:
-                $IsSubscribed = false;
-                break;
-            }*/
+        if ($status && !empty($Contact['provider_uid'])) {
             $args = array(
-                'ContactID' => $info['provider_uid'],
-                'ContactAlt' => $Sub->getEmail(),
+                'ContactID' => $Contact['provider_uid'],
                 'IsUnsubscribed' => false,
             );
             foreach ($lists as $list_id) {
                 $args['ListID'] = $list_id;
                 $stat1 = $this->post('listrecipient', $args);
-                $data = $this->formatResponse($this->getLastResponse());
-                if (!$stat1 && isset($data['ErrorMessage'])) {
-                    $failed = true;
-                    switch ($data['ErrorMessage']) {
+                $response = $this->formatResponse($this->getLastResponse());
+                if (!$stat1 && isset($response['ErrorMessage'])) {
+                    switch ($response['ErrorMessage']) {
                     case 'A duplicate ListRecipient already exists.':
-                        $failed = false;    // duplicate OK.
+                        // Duplicate OK, leave $status alone.
+                        // Kind of hacky, let's hope they don't change the description field.
                         break;
                     default:
                         // log the error but continue to try other groups
@@ -258,6 +264,9 @@ class API extends \Mailer\API
                 }
                 $this->updateMember($Sub);
             }
+        } else {
+            Log::write('system', Log::ERROR, __METHOD__ . ': Error subscribing ' . $Sub->getEmail());
+            $status = false;
         }
         return $status;
     }
@@ -271,7 +280,7 @@ class API extends \Mailer\API
      * @param   array   $params     Array of parameters to update
      * @return      True on success, False on failure
      */
-    public function updateMember($Sub, $lists=array())
+    public function updateMember(Subscriber $Sub, array $lists=array()) : bool
     {
         $params = array(
             'Data' => array(),
@@ -284,8 +293,11 @@ class API extends \Mailer\API
             );
         }
         $email = urlencode($Sub->getEmail());
-        $response = $this->put("contactdata/$email", $params);
-        return $response;
+        $status = $this->put("contactdata/$email", $params);
+        if (!$status) {
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . $this->getLastResponse()['body']);
+        }
+        return $status;
     }
 
 
@@ -294,9 +306,9 @@ class API extends \Mailer\API
      *
      * @param   object  $Sub    Subscriber object
      * @param   array   $lists  Array of list IDs
-     * @return  integer     Response from API call
+     * @return  boolean     Response from API call
      */
-    public function subscribeOrUpdate($Sub, $lists=array())
+    public function subscribeOrUpdate(Subscriber $Sub, array $lists=array()) : bool
     {
         return $this->subscribe($Sub, $lists);
     }
@@ -306,25 +318,25 @@ class API extends \Mailer\API
      * Get information about a specific member by email address.
      *
      * @param   object  $Sub    Subscriber object
-     * @return  array       Array of member information
+     * @return  object      Contact object
      */
-    public function getMemberInfo($Sub, $list_id='')
+    public function getMemberInfo(Subscriber $Sub, string $list_id='') : Contact
     {
-        $retval = array();
+        $retval = new Contact;
         $email = urlencode($Sub->getEmail());
-        $status = $this->get("contact/{$email}");
-
-        if ($status) {
-            $data = $this->formatResponse($this->getLastResponse())['Data'][0];
-            $retval = new Contact;
-            $retval['provider_uid'] = $data['ID'];
-            $retval['email_address'] = $data['Email'];
-            $retval['email_type'] = 'html';
-            $retval['status'] = self::_statusFromResponse($data);
-            $status = $this->get('contactdata/' . $data['ID']);
+        if (!empty($email)) {
+            $status = $this->get("contact/{$email}");
             if ($status) {
-                $meta = $this->formatResponse($this->getLastResponse())['Data'][0]['Data'];
-                $retval['attributes'] = self::_attrFromFields($meta);
+                $data = $this->formatResponse($this->getLastResponse())['Data'][0];
+                $retval = new Contact;
+                $retval['provider_uid'] = $data['ID'];
+                $retval['email_address'] = $data['Email'];
+                $retval['status'] = self::_statusFromResponse($data);
+                $status = $this->get('contactdata/' . $data['ID']);
+                if ($status) {
+                    $meta = $this->formatResponse($this->getLastResponse())['Data'][0]['Data'];
+                    $retval['attributes'] = self::_attrFromFields($meta);
+                }
             }
         }
         return $retval;
@@ -337,11 +349,9 @@ class API extends \Mailer\API
      * - Create the campaign using the template ID and save to the DB.
      *
      * @param   object  $Mlr    Mailer object
-     * @param   string  $email  Optional email address
-     * @param   string  $token  Optional token
      * @return  string      Campaign ID
      */
-    public function createCampaign(Campaign $Mlr)
+    public function createCampaign(Campaign $Mlr) : string
     {
         global $LANG_MLR, $LANG_LOCALE;
 
