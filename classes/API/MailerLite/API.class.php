@@ -14,9 +14,11 @@
 namespace Mailer\API\MailerLite;
 use Mailer\Config;
 use Mailer\Models\Subscriber;
-use Mailer\Models\Status;
-use Mailer\Models\ApiInfo;
 use Mailer\Models\Campaign;
+use Mailer\Models\Status;
+use Mailer\Models\API\Contact;
+use Mailer\Models\API\ContactList;
+use glFusion\Log\Log;
 
 
 /**
@@ -54,9 +56,9 @@ class API extends \Mailer\API
      *
      * @param   string  $list_id    Mailing List ID
      * @param   array   $opts       Array of limit, offset, etc. options
-     * @return  array       Array of ApiInfo objects
+     * @return  array       Array of Contact objects
      */
-    public function listMembers($list_id=NULL, $opts=array())
+    public function listMembers(?string $list_id=NULL, $opts=array()) : array
     {
         $retval = array();
         $params = array(
@@ -78,7 +80,7 @@ class API extends \Mailer\API
             $body = json_decode($this->getLastResponse()['body']);
             if (is_array($body)) {
                 foreach ($body as $idx=>$member) {
-                    $info = new ApiInfo;
+                    $info = new Contact;
                     $info['provider_uid'] = $member->id;
                     $info['email_address'] = $member->email;
                     $info['status'] = self::_intStatus($member->type);
@@ -92,7 +94,7 @@ class API extends \Mailer\API
 
 
     /**
-     * Get an array of lists for which a specific email address is subscribed.
+     * Get an array of mailing lists visible to this API key.
      *
      * @param   string  $email      Email address
      * @param   array   $fields     Fields to retrieve
@@ -100,19 +102,22 @@ class API extends \Mailer\API
      * @param   integer $count      Number of items to return
      * @return  array       Array of list data
      */
-    /*public function listsForEmail($email, $fields=array(), $offset=0, $count=25)
+    public function lists(int $offset=0, int $count=25, array $fields=array()) : array
     {
-        if (empty($fields)) {
-            $fields = array('lists');
-        };
-        $params = array(
-            'fields' => $fields,
-            'offset' => $offset,
-            'count' => $count,
-            'email' => $email,
-        );
-        return $this->get('lists', $params);
-    }*/
+        $retval = array();
+        $status = $this->get('groups');
+        if ($status) {
+            $body = json_decode($this->getLastResponse()['body'], true);
+            foreach ($body as $list) {
+                $retval[$list['id']] = new ContactList(array(
+                    'id' => $list['id'],
+                    'name' => $list['name'],
+                    'members' => $list['total'],
+                ) );
+            }
+        }
+        return $retval;
+    }
 
 
     /**
@@ -163,7 +168,7 @@ class API extends \Mailer\API
             $stat1 = $this->post('groups/' . $list_id . '/subscribers', $args);
             if (!$stat1) {
                 // log the error but continue to try other groups
-                COM_errorLog("MailerLite error: " . $this->getLastResponse()['body']);
+                Log::write('system', Log::ERROR, __METHOD__ . ': ' . $this->getLastResponse()['body']);
                 $status = Status::SUB_ERROR;
             }
         }
@@ -248,7 +253,7 @@ class API extends \Mailer\API
         if ($status) {
             $data = $this->formatResponse($this->getLastResponse());
             $fields = LGLIB_getVar($data, 'fields', 'array');
-            $retval = new ApiInfo;
+            $retval = new Contact;
             $retval['provider_uid'] = $data['id'];
             $retval['email_address'] = $data['email'];
             $retval['email_type'] = 'html';
@@ -315,12 +320,9 @@ class API extends \Mailer\API
      * @param   array   $emails     Email addresses (optional)
      * @param   string  $token      Token (not used)
      */
-    public function sendCampaign($Mlr, $emails=array(), $token='')
+    protected function _sendCampaign(Campaign $Mlr, ?array $emails, ?string $token=NULL)
     {
         $status = $this->post('campaigns/' . $Mlr->getProviderCampaignId(). '/actions/send');
-        if (!$status) {
-            COM_errorLog($this->getLastResponse()['body']);
-        }
         return $status;
     }
 
@@ -331,7 +333,7 @@ class API extends \Mailer\API
      * @param   string  $camp_id    Campaign ID
      * @return  boolean     True on success, False on error
      */
-    public function sendTest($camp_id)
+    protected function _sendTest(string $camp_id) : bool
     {
         return false;
     }
@@ -343,7 +345,7 @@ class API extends \Mailer\API
      * @param   object  $Mlr    Campaign object
      * @return  boolean     Result of deletion request
      */
-    public function deleteCampaign(Campaign $Mlr)
+    public function deleteCampaign(Campaign $Mlr) : bool
     {
         $camp_id = $Mlr->getProviderCampaignId();
         if (!empty($camp_id)) {
@@ -482,7 +484,7 @@ class API extends \Mailer\API
      *
      * @return  string      API key
      */
-    public function getApiKey()
+    public function getApiKey() : string
     {
         return $this->api_key;
     }
@@ -493,7 +495,7 @@ class API extends \Mailer\API
      *
      * @return  string      HTML for additional header info
      */
-    public function getMenuHelp()
+    public function getMenuHelp() : string
     {
         $retval = '<a class="uk-button uk-button-success" href="' .
             Config::get('admin_url') . '/index.php?api_action=addwebhooks">' .

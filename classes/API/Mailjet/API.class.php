@@ -15,12 +15,14 @@ namespace Mailer\API\Mailjet;
 use Mailer\Config;
 use Mailer\Models\Subscriber;
 use Mailer\Models\Status;
-use Mailer\Models\ApiInfo;
+use Mailer\Models\API\Contact;
+use Mailer\Models\API\ContactList;
 use Mailer\Models\Campaign;
+use glFusion\Log\Log;
 
 
 /**
- * Mailjet API v2
+ * Mailjet API v3
  * @see https//mailerjet.com
  */
 class API extends \Mailer\API
@@ -48,6 +50,7 @@ class API extends \Mailer\API
             'Content-Type: application/json',
             'Authorization: Basic ' . base64_encode($this->api_key . ':' . $this->api_secret),
         ));
+        $this->supports_testing = true;
     }
 
 
@@ -59,7 +62,7 @@ class API extends \Mailer\API
      *
      * @return  array       Array of supported feature keys
      */
-    public function getFeatures()
+    public function getFeatures() : array
     {
         return array('campaigns', 'subscribers');
     }
@@ -70,7 +73,7 @@ class API extends \Mailer\API
      *
      * @param   string  $list_id    Mailing List ID
      * @param   array   $opts       Array of limit, offset, etc. options
-     * @return  array       Array of ApiInfo objects
+     * @return  array       Array of Contact objects
      */
     public function listMembers(string $list_id=NULL, array $opts=array()) : array
     {
@@ -96,7 +99,7 @@ class API extends \Mailer\API
             $body = json_decode($this->getLastResponse()['body']);
             if (isset($body->Data) && is_array($body->Data)) {
                 foreach ($body->Data as $idx=>$member) {
-                    $info = new ApiInfo;
+                    $info = new Contact;
                     if (isset($member->IsOptInPending) && $member->IsOptInPending) {
                         $status = Status::PENDING;
                     } elseif (isset($member->IsExcludedFromCampaigns) && $member->IsExcludedFromCampaigns) {
@@ -120,6 +123,35 @@ class API extends \Mailer\API
             foreach ($meta as $idx=>$member) {
                 $retval[$member['ID']]['attributes'] = self::_attrFromFields($member['Data']);
                 $retval[$info['provider_uid']] = $info;
+            }
+        }
+        return $retval;
+    }
+
+
+    /**
+     * Get an array of mailing lists visible to this API key.
+     *
+     * @param   string  $email      Email address
+     * @param   array   $fields     Fields to retrieve
+     * @param   integer $offset     First record offset, for larget datasets
+     * @param   integer $count      Number of items to return
+     * @return  array       Array of list data
+     */
+    public function lists(int $offset=0, int $count=25, array $fields=array()) : array
+    {
+        $retval = array();
+        $status = $this->get('contactslist');
+        if ($status) {
+            $body = json_decode($this->getLastResponse()['body'], true);
+            if (isset($body['Data']) && is_array($body['Data'])) {
+                foreach ($body['Data'] as $list) {
+                    $retval[$list['ID']] = new ContactList(array(
+                        'id' => $list['ID'],
+                        'name' => $list['Name'],
+                        'members' => $list['SubscriberCount'],
+                    ) );
+                }
             }
         }
         return $retval;
@@ -219,7 +251,7 @@ class API extends \Mailer\API
                         break;
                     default:
                         // log the error but continue to try other groups
-                        COM_errorLog("Mailjet error: " . $this->getLastResponse()['body']);
+                        Log::write('system', Log::ERROR, __METHOD__ . ': ' . $this->getLastResponse()['body']);
                         $status = Status::SUB_ERROR;
                         break;
                     }
@@ -227,9 +259,6 @@ class API extends \Mailer\API
                 $this->updateMember($Sub);
             }
         }
-        /*if (!$status) {
-            COM_errorLog("Mailjet error: " . $this->getLastResponse()['body']);
-        }*/
         return $status;
     }
 
@@ -287,7 +316,7 @@ class API extends \Mailer\API
 
         if ($status) {
             $data = $this->formatResponse($this->getLastResponse())['Data'][0];
-            $retval = new ApiInfo;
+            $retval = new Contact;
             $retval['provider_uid'] = $data['ID'];
             $retval['email_address'] = $data['Email'];
             $retval['email_type'] = 'html';
@@ -325,7 +354,7 @@ class API extends \Mailer\API
         );
         $status = $this->post('template', $args);
         if (!$status) {
-            COM_errorLog($this->getLastResponse()['body']);
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . $this->getLastResponse()['body']);
             return $status;
         }
         $body = $this->formatResponse($this->getLastResponse())['Data'][0];
@@ -351,6 +380,7 @@ class API extends \Mailer\API
                 'ReplyEmail' => Config::senderEmail(),
                 'SenderEmail' => Config::senderEmail(),
                 'SenderName' => Config::senderName(),
+                'Sender' => 'glFusionMailerPlugin',
                 'Subject' => $Mlr->getTitle(),
                 'Locale' => $LANG_LOCALE,
                 'IsTextPartIncluded' => true,
@@ -358,7 +388,7 @@ class API extends \Mailer\API
             );
             $status = $this->post('campaigndraft', $args);
             if (!$status) {
-                COM_errorLog($this->getLastResponse()['body']);
+                Log::write('system', Log::ERROR, __METHOD__ . ': ' . $this->getLastResponse()['body']);
                 return $status;
             }
             $body = $this->formatResponse($this->getLastResponse())['Data'][0];
@@ -388,7 +418,7 @@ class API extends \Mailer\API
             );
             $status = $this->post('campaigndraft/' . $campaign_id . '/detailcontent', $args);
             if (!$status) {
-                COM_errorLog($this->getLastResponse()['body']);
+                Log::write('system', Log::ERROR, __METHOD__ . ': ' . $this->getLastResponse()['body']);
                 return $status;
             }
         }
@@ -402,13 +432,38 @@ class API extends \Mailer\API
      * @param   string  $Mlr        Campaign Mailer
      * @param   array   $emails     Email addresses (optional)
      * @param   string  $token      Token (not used)
+     * @return  boolean     Result code
      */
-    public function sendCampaign($Mlr, $emails=array(), $token='')
+    protected function _sendCampaign(Campaign $Mlr, ?array $emails, ?string $token=NULL)
     {
         $status = $this->post('campaigndraft/' . $Mlr->getProviderCampaignId(). '/send');
-        if (!$status) {
-            COM_errorLog($this->getLastResponse()['body']);
-        }
+        return $status;
+    }
+
+
+    /**
+     * Send a test email.
+     * This uses the current user's email address.
+     *
+     * @param   string  $camp_id    Campaign ID
+     * @return  boolean     True on success, False on error
+     */
+    protected function _sendTest(string $camp_id) : bool
+    {
+        global $_USER;
+
+        $args = array(
+            'Recipients' => array(
+                array(
+                    "Email" => $_USER['email'],
+                    "Name" => $_USER['fullname'],
+                ),
+            ),
+        );
+        $status = $this->post('campaigndraft/' . $camp_id . '/test', $args);
+        /*if (!$status) {
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . $this->getLastResponse()['body']);
+        }*/
         return $status;
     }
 
@@ -419,7 +474,7 @@ class API extends \Mailer\API
      * @param   object  $Mlr    Campaign object
      * @return  boolean     Result of deletion request
      */
-    public function deleteCampaign(Campaign $Mlr)
+    public function deleteCampaign(Campaign $Mlr) : bool
     {
         return true;    // Mailjet does not delete campaigns
     }
@@ -431,7 +486,7 @@ class API extends \Mailer\API
      * @param   integer $int    Plugin status value from the Status model.
      * @return  string      Corresponding status used by Mailchimp
      */
-    private static function _strStatus($int)
+    private static function _strStatus(int $int) : string
     {
         switch ($int) {
         case Status::ACTIVE:

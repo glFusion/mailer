@@ -13,9 +13,11 @@
 namespace Mailer\API\Mailchimp;
 use Mailer\Config;
 use Mailer\Models\Status;
-use Mailer\Models\ApiInfo;
+use Mailer\Models\API\Contact;
+use Mailer\Models\API\ContactList;
 use Mailer\Models\Campaign;
 use Mailer\Logger;
+use glFusion\Log\Log;
 
 
 /**
@@ -39,10 +41,6 @@ class API extends \Mailer\API
 
     protected $cfg_list_key = 'mc_def_list';
 
-    /** Flag to indicate whether this API supports test emails.
-     * @var boolean */
-    protected $supports_testing = true;
-
 
     /**
      * Create a new instance.
@@ -65,6 +63,7 @@ class API extends \Mailer\API
             'Authorization: apikey ' . $this->api_key
         ));
         $this->last_response = array('headers' => null, 'body' => null);
+        $this->supports_testing = true;
     }
 
 
@@ -145,7 +144,7 @@ class API extends \Mailer\API
             $body = json_decode($this->getLastResponse()['body']);
             if (isset($body->members) && is_array($body->members)) {
                 foreach ($body->members as $member) {
-                    $info = new ApiInfo;
+                    $info = new Contact;
                     $info['provider_uid'] = $member->id;
                     $info['email_address'] = $member->email_address;
                     $info['status'] = self::_intStatus($member->status);
@@ -165,14 +164,27 @@ class API extends \Mailer\API
      * @param   integer $count      Number of items to return
      * @return  array       Array of list data
      */
-    public function lists($fields=array(), $offset=0, $count=25)
+    public function lists(int $offset=0, int $count=25, array $fields=array()) : array
     {
         $params = array(
             'fields' => $fields,
             'offset' => $offset,
             'count' => $count,
         );
-        return $this->get('lists', $params);
+        $status = $this->get('lists', $params);
+        if ($status) {
+            $body = json_decode($this->getLastResponse()['body'], true);
+            if (isset($body['lists']) && is_array($body['lists'])) {
+                foreach ($body['lists'] as $list) {
+                    $retval[$list['id']] = new ContactList(array(
+                        'id' => $list['id'],
+                        'name' => $list['name'],
+                        'members' => $list['stats']['member_count'],
+                    ) );
+                }
+            }
+        }
+        return $retval;
     }
 
 
@@ -349,7 +361,7 @@ class API extends \Mailer\API
             return false;
         }
 
-        $retval = new ApiInfo;
+        $retval = new Contact;
         $hash = $this->subscriberHash($Sub->getEmail());
         $status = $this->get("/lists/{$list_id}/members/{$hash}");
         if ($status) {
@@ -505,7 +517,7 @@ class API extends \Mailer\API
         );
         $status = $this->post('/campaigns', $args);
         if (!$status) {
-            COM_errorLog($this->getLastResponse()['body']);
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . $this->getLastResponse()['body']);
         }
         $body = json_decode($this->getLastResponse()['body']);
         if (isset($body->id)) {
@@ -514,14 +526,14 @@ class API extends \Mailer\API
             );
             $status = $this->put('/campaigns/' . $body->id . '/content', $args);
             if (!$status) {
-                COM_errorLog($this->getLastResponse()['body']);
+                Log::write('system', Log::ERROR, __METHOD__ . ': ' . $this->getLastResponse()['body']);
                 return NULL;
             } else {
                 $this->saveCampaignInfo($Mlr, $body->id);
                 return $body->id;
             }
         } else {
-            COM_errorLog("Error getting last response from Mailchimp campaign creation");
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . "Error getting last response from Mailchimp campaign creation");
             return NULL;
         }
     }
@@ -535,12 +547,9 @@ class API extends \Mailer\API
      * @param   string  $token      Campaign token
      * @return  boolean     Status from sending
      */
-    public function sendCampaign($Mlr, $emails=array(), $token='')
+    protected function _sendCampaign(Campaign $Mlr, ?array $emails, ?string $token=NULL)
     {
         $status = $this->post('/campaigns/' . $Mlr->getProviderCampaignId() . '/actions/send');
-        if (!$status) {
-            COM_errorLog($this->getLastResponse()['body']);
-        }
         return $status;
     }
 
@@ -552,7 +561,7 @@ class API extends \Mailer\API
      * @param   string  $camp_id    Campaign ID
      * @return  boolean     True on success, False on error
      */
-    public function sendTest(string $camp_id) : bool
+    protected function _sendTest(string $camp_id) : bool
     {
         global $_USER;
 
@@ -562,7 +571,7 @@ class API extends \Mailer\API
         );
         $status = $this->post('campaigns/' . $camp_id . '/actions/test', $args);
         if (!$status) {
-            COM_errorLog($this->getLastResponse()['body']);
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . $this->getLastResponse()['body']);
         }
         return $status;
     }

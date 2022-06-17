@@ -12,13 +12,14 @@
  */
 namespace Mailer\API\Internal;
 use Mailer\Models\Subscriber;
-use Mailer\Models\ApiInfo;
+use Mailer\Models\API\Contact;
 use Mailer\Models\Status;
 use Mailer\Models\Campaign;
 use Mailer\Notifier;
 use Mailer\Config;
 use PHPMailer\PHPMailer\PHPMailer;
 use glFusion\Database\Database;
+use glFusion\Log\Log;
 
 
 /**
@@ -46,7 +47,7 @@ class API extends \Mailer\API
      * @param   integer $count      Maximum number of members to retrieve.
      * @return  array       Array of data
      */
-    public function listMembers($opts=array()) : array
+    public function listMembers(string $list_id=NULL, array $opts=array()) : array
     {
         global $_TABLES;
 
@@ -54,7 +55,7 @@ class API extends \Mailer\API
         $db = Database::getInstance();
         try {
             $stmt = $db->conn->executeQuery("SELECT * FROM {$_TABLES['mailer_subscribers']}");
-            $data = $stmt->fetchAll(Database::ASSOCIATIVE);
+            $data = $stmt->fetchAllAssociative();
         } catch (\Exception $e) {
             $data = array();
         }
@@ -90,7 +91,7 @@ class API extends \Mailer\API
      * @param   object  $Sub    Subscriber object
      * @return  integer     Result status
      */
-    public function subscribe($Sub)
+    public function subscribe(Subscriber $Sub) : int
     {
         if (!self::isValidEmail($Sub->getEmail())) {
             return Status::SUB_INVALID;
@@ -150,7 +151,7 @@ class API extends \Mailer\API
      */
     public function getMemberInfo(Subscriber $Sub, $list_id='')
     {
-        $retval = new ApiInfo;
+        $retval = new Contact;
         $retval['provider_uid'] = $Sub->getId();
         $retval['email_address'] = $Sub->getEmail();
         $retval['status'] = $Sub->getStatus();
@@ -179,7 +180,7 @@ class API extends \Mailer\API
      * @param   object  $Sub    Subscriber object
      * @return  boolean     True on success, False on error
      */
-    public static function sendDoubleOptin(Subscriber $Sub)
+    public static function sendDoubleOptin(Subscriber $Sub) : bool
     {
         return Notifier::sendConfirmation($Sub->getEmail(), $Sub->getToken());
     }
@@ -190,7 +191,7 @@ class API extends \Mailer\API
      *
      * @return  array   Array of menus to show
      */
-    public function getFeatures()
+    public function getFeatures() : array
     {
         return array('campaigns', 'subscribers', 'queue');
     }
@@ -202,7 +203,7 @@ class API extends \Mailer\API
      *
      * @return  boolean     True if synchronization is supported
      */
-    public function supportsSync()
+    public function supportsSync() : bool
     {
         return true;
     }
@@ -279,7 +280,7 @@ class API extends \Mailer\API
         /*$mail->AddAddress($email);
 
         if(!$mail->Send()) {
-            COM_errorLog("Email Error: " . $mail->ErrorInfo);
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . $mail->ErrorInfo);
             return false;
         }*/
         return true;
@@ -298,7 +299,7 @@ class API extends \Mailer\API
     private function _send()
     {
         if(!$this->phpmailer->Send()) {
-            COM_errorLog("Email Error: " . $this->phpmailer->ErrorInfo);
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . $this->phpmailer->ErrorInfo);
             return false;
         } else {
             return true;
@@ -313,46 +314,58 @@ class API extends \Mailer\API
      * @param   array|null  $emails Email override addresses
      * @return  boolean     Status from queuing
      */
-    public function queueEmail(Campaign $Mlr, $emails=NULL)
+    public function queueEmail(Campaign $Mlr, ?array $emails=NULL) : bool
     {
         global $_TABLES;
 
         $db = Database::getInstance();
         if ($emails === NULL) {
             // get all email addresses
-            $stmt = $db->conn->executeQuery(
-                "SELECT email FROM {$_TABLES['mailer_subscribers']}
-                WHERE status = ?",
-                array(Status::ACTIVE),
-                array(Database::INTEGER)
-            );
-            $data = $stmt->fetchAll(Database::ASSOCIATIVE);
+            try {
+                $stmt = $db->conn->executeQuery(
+                    "SELECT email FROM {$_TABLES['mailer_subscribers']}
+                    WHERE status = ?",
+                    array(Status::ACTIVE),
+                    array(Database::INTEGER)
+                );
+                $data = $stmt->fetchAllAssociative();
+            } catch (\Exception $e) {
+                Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
+                $data = false;
+            }
         } elseif (is_array($emails)) {
             $data = $emails;
         }
-        $sql = "INSERT IGNORE INTO {$_TABLES['mailer_queue']}
-            (mlr_id, email) values (?, ?)";
-        foreach ($emails as $email) {
+        if (is_array($data) && !empty($data)) {
+            $sql = "INSERT IGNORE INTO {$_TABLES['mailer_queue']}
+                (mlr_id, email) values (?, ?)";
+            foreach ($data as $email) {
+                try {
+                    $db->conn->executeStatement(
+                        $sql,
+                        array($Mlr->getID(), $email['email']),
+                        array(Database::STRING, Database::STRING)
+                    );
+                } catch (\Exception $e) {
+                    Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
+                    // Do not break on single errors
+                }
+            }
             try {
-                $db->conn->executeStatement(
-                    $sql,
-                    array($Mlr->getID(), $email),
-                    array(Database::STRING, Database::STRING)
+                $db->conn->update(
+                    $_TABLES['mailer_campaigns'],
+                    array('mlr_sent_time' => time()),
+                    array('mlr_id' => $Mlr->getID()),
+                    array(Database::INTEGER, Database::STRING)
                 );
             } catch (\Exception $e) {
+                Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
+                return false;
             }
-        }
-        try {
-            $db->conn->update(
-                $_TABLES['mailer_campaigns']
-                array('mlr_sent_time' => time()),
-                array('mlr_id' => $Mlr->getID()),
-                array(Database::INTEGER, Database::STRING)
-            );
-        } catch (\Exception $e) {
+            return true;
+        } else {
             return false;
         }
-        return true;
     }
 
 
@@ -378,7 +391,7 @@ class API extends \Mailer\API
      * @param   object  $Mlr    Campaign object
      * @return  boolean     Status from deletion request
      */
-    public function deleteCampaign(Campaign $Mlr)
+    public function deleteCampaign(Campaign $Mlr) : bool
     {
         global $_TABLES;
 
@@ -403,22 +416,26 @@ class API extends \Mailer\API
      * @param   string  $token      Token string
      * @return  boolean     Status from sending
      */
-    public function sendCampaign($Mlr, $emails=array(), $token='')
+    public function sendCampaign($Mlr, ?array $emails=NULL, ?string $token=NULL)
     {
         return $this->queueEmail($Mlr, $emails);
     }
 
 
     /**
-     * Send a test message to the current user's email address.
+      Send a test message to the current user's email address.
      *
+     * @param   string  $camp_id    ID of campaign to send
      * @return  boolean     True on success, False on error
      */
-    public function sendTest($camp_id)
+    protected function _sendTest(string $camp_id) : bool
     {
         global $_USER;
 
+        // This is redundant since it's called via Campaign::sendTest(),
+        // but to be compatible with other providers that store the campaigns.
         $Mlr = new Campaign($camp_id);
+        $Mlr->withTestTitle();
         return $this->sendEmail($Mlr, $_USER['email']) == 0 ? true : false;
     }
 
@@ -431,7 +448,7 @@ class API extends \Mailer\API
      * @param   string  $token  Optional token
      * @return  integer     Status code, 0 = success
      */
-    public function sendEmail(Campaign $Mlr, $email='', $token='')
+    public function sendEmail(Campaign $Mlr, ?string $email=NULL, ?string $token=NULL)
     {
         global $_CONF;
 
@@ -469,6 +486,7 @@ class API extends \Mailer\API
         $altbody = strip_tags($message);
 
         $mail->Subject = COM_emailEscape(trim($Mlr->getTitle()));
+        //$mail->Subject = trim($Mlr->getTitle());
 
         if ($_CONF['mail_backend'] == 'smtp') {
             $mail->IsSMTP();
@@ -505,7 +523,7 @@ class API extends \Mailer\API
         $mail->FromName = Config::senderName();
         $mail->AddAddress($email);
         if(!$mail->Send()) {
-            COM_errorLog("Email Error: " . $mail->ErrorInfo);
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . $mail->ErrorInfo);
             return -1;
         }
         return 0;

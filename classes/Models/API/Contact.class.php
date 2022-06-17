@@ -1,24 +1,24 @@
 <?php
 /**
- * Define parameters to send to the email provider.
+ * Define a standard layout for a single contact.
  *
  * @author      Lee Garner <lee@leegarner.com>
- * @copyright   Copyright (c) 2020 Lee Garner <lee@leegarner.com>
+ * @copyright   Copyright (c) 2020-2022 Lee Garner <lee@leegarner.com>
  * @package     mailer
- * @version     v0.0.4
- * @since       v0.0.4
+ * @version     v0.3.0
+ * @since       v0.3.0
  * @license     http://opensource.org/licenses/gpl-2.0.php
  *              GNU Public License v2 or later
  * @filesource
  */
-namespace Mailer\Models;
+namespace Mailer\Models\API;
 
 
 /**
  * API Parameters to be collected and passed to Mailchimp's API.
  * @package mailchimp
  */
-class ApiInfo implements \ArrayAccess
+class Contact implements \ArrayAccess
 {
     /** Properties array. Sent to the API as an array.
      * @var array */

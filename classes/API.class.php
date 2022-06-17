@@ -113,7 +113,7 @@ class API
             $api = new $cls;
             $api->withName($name);
         } else {
-            COM_errorLog("ERROR: Class $cls does not exist");
+            Log::write('system', Log::ERROR, __METHOD__ . ': Class $cls does not exist');
             $api = new self;
         }
         $api->withList();   // set the default list
@@ -238,7 +238,7 @@ class API
      * @param   array   $emails Email addresses (not used)
      * @return  integer     Status from sendEmail()
      */
-    public function queueEmail(Campaign $Mlr, ?array $emails=NULL) : int
+    public function queueEmail(Campaign $Mlr, ?array $emails=NULL) : bool
     {
         return $this->createAndSend($Mlr);
     }
@@ -262,6 +262,30 @@ class API
 
 
     /**
+     * Send the campaign.
+     * A wrapper for each API's sending method, uses the return status to
+     * show and log messages.
+     *
+     * @param   array   $emails     Email addresses (optional)
+     * @param   string  $token      Token (not used)
+     * @return  boolean     Result code
+     */
+    public function sendCampaign(Campaign $Mlr, ?array $emails=NULL, ?string $token=NULL) : bool
+    {
+        global $LANG_MLR;
+
+        $status = $this->_sendCampaign($Mlr, $emails, $token);
+        if (!$status) {
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . $this->getLastResponse()['body']);
+            COM_setMsg($this->getLastResponse()['body'], 'error', true);
+        } else {
+            COM_setMsg($LANG_MLR['success']);
+        }
+        return $status;
+    }
+
+
+    /**
      * Check if this mailer supports sending a test email.
      *
      * @return  boolean     True if supported, False if not.
@@ -279,7 +303,18 @@ class API
      */
     public function sendTest(string $campaign_id) : bool
     {
-        return true;
+        if ($this->supportsTesting()) {
+            $status = $this->_sendTest($campaign_id);
+            if (!$status) {
+                Log::write('system', Log::ERROR, __METHOD__ . ': ' . $this->getLastResponse()['body']);
+                COM_setMsg($this->getLastResponse()['body'], 'error', true);
+            } else {
+                COM_setMsg($LANG_MLR['success']);
+            }
+        } else {
+            COM_setMsg($LANG_MLR['not_supported']);
+        }
+        return $status;
     }
 
 
@@ -669,18 +704,19 @@ class API
      * Decode the response and format any error messages for debugging.
      *
      * @param   array   $response   The response from the curl request
-     * @return  array|false    The JSON decoded into an array
+     * @return  array|NULL      The JSON decoded into an array
      */
-    public function formatResponse($response)
+    public function formatResponse($response) : ?array
     {
         $this->last_response = $response;
 
-        if (!empty($response['body'])) {
+        if (isset($response['body']) && !empty($response['body'])) {
             return json_decode($response['body'], true);
+        } else {
+            return NULL;
         }
-
-        return false;
     }
+
 
     /**
      * Do post-request formatting and setting state from the response.
@@ -709,6 +745,7 @@ class API
         return $response;
     }
 
+
     /**
      * Check if the response was successful or a failure. If it failed, store the error.
      *
@@ -719,6 +756,9 @@ class API
      */
     private function determineSuccess($response, $formattedResponse, $timeout) : bool
     {
+        if (empty($formattedResponse)) {
+            $formattedResponse = NULL;
+        }
         $status = $this->findHTTPStatus($response, $formattedResponse);
 
         if ($status >= 200 && $status <= 299) {
@@ -745,10 +785,10 @@ class API
      * Find the HTTP status code from the headers or API response body.
      *
      * @param   array   $response   The response from the curl request
-     * @param   array|false $formattedResponse  The response body payload from the curl request
+     * @param   array|NULL  $formattedResponse  The response body payload from the curl request
      * @return  integer     HTTP status code
      */
-    private function findHTTPStatus(array $response, ?array $formattedResponse) : int
+    private function findHTTPStatus(array $response, ?array $formattedResponse=NULL) : int
     {
         if (!$formattedResponse) {
             $formattedResponse = array();

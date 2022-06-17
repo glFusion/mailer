@@ -15,8 +15,10 @@ namespace Mailer\API\Sendinblue;
 use Mailer\Config;
 use Mailer\Models\Subscriber;
 use Mailer\Models\Status;
-use Mailer\Models\ApiInfo;
 use Mailer\Models\Campaign;
+use Mailer\Models\API\Contact;
+use Mailer\Models\API\ContactList;
+use glFusion\Log\Log;
 
 
 /**
@@ -27,11 +29,6 @@ class API extends \Mailer\API
 {
     private $api_key = '';
     protected $cfg_list_key = 'sb_def_list';
-
-    /** Flag to indicate whether this API supports test emails.
-     * @var boolean */
-    protected $supports_testing = true;
-
 
     /**
      * Create a new instance.
@@ -50,6 +47,7 @@ class API extends \Mailer\API
             'Content-Type: application/json',
             'api-key: ' . $this->api_key,
         ));
+        $this->supports_testing = true;
     }
 
 
@@ -89,7 +87,7 @@ class API extends \Mailer\API
             $body = json_decode($this->getLastResponse()['body']);
             if (isset($body->contacts) && is_array($body->contacts)) {
                 foreach ($body->contacts as $member) {
-                    $info = new ApiInfo;
+                    $info = new Contact;
                     $info['provider_uid'] = $member->id;
                     $info['email_address'] = $member->email;
                     if ($member->emailBlacklisted) {
@@ -108,26 +106,29 @@ class API extends \Mailer\API
     /**
      * Get an array of mailing lists visible to this API key.
      *
-     * @param   array   $fields     Fields to retrieve
      * @param   integer $offset     First record offset, for larget datasets
      * @param   integer $count      Number of items to return
+     * @param   array   $fields     Fields to retrieve (not used here)
      * @return  array       Array of list data
      */
-    public function lists($offset=0, $count=25)
+    public function lists(int $offset=0, int $count=25, array $fields=array()) : array
     {
         $retval = array();
         $params = array(
             'offset' => $offset,
             'limit' => $count,
         );
-        $response = $this->get('contacts/lists', $params);
-        if (is_array($response) && isset($response['lists'])) {
-            foreach ($response['lists'] as $resp) {
-                $retval[$resp['id']] = new MailingList(array(
-                    'id' => $resp['id'],
-                    'name' => $resp['name'],
-                    'members' => $resp['totalSubscribers'],
-                ) );
+        $status = $this->get('contacts/lists', $params);
+        if ($status) {
+            $body = json_decode($this->getLastResponse()['body'], true);
+            if (isset($body['lists']) && is_array($body['lists'])) {
+                foreach ($body['lists'] as $list) {
+                    $retval[$list['id']] = new ContactList(array(
+                        'id' => $list['id'],
+                        'name' => $list['name'],
+                        'members' => $list['uniqueSubscribers'],
+                    ) );
+                }
             }
         }
         return $retval;
@@ -220,7 +221,7 @@ class API extends \Mailer\API
         }
         $status = $this->post($path, $args);
         if (!$status) {
-            COM_errorLog("Sendinblue error: " . $this->getLastResponse()['body']);
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . $this->getLastResponse()['body']);
         } else {
             // Now add to the list, existing contacts may not be added
             $args = array(
@@ -294,7 +295,7 @@ class API extends \Mailer\API
             } else {
                 $status = Status::ACTIVE;
             }
-            $retval = new ApiInfo;
+            $retval = new Contact;
             $retval['provider_uid'] = $data['id'];
             $retval['email_address'] = $data['email'];
             $retval['email_type'] = '';
@@ -360,12 +361,9 @@ class API extends \Mailer\API
      * @param   array   $emails     Email addresses (optional)
      * @param   string  $token      Token (not used)
      */
-    public function sendCampaign($Mlr, $emails=array(), $token='')
+    protected function _sendCampaign(Campaign $Mlr, ?array $emails, ?string $token=NULL)
     {
         $status = $this->post('emailCampaigns/' . $Mlr->getProviderCampaignId(). '/sendNow');
-        if (!$status) {
-            COM_errorLog($this->getLastResponse()['body']);
-        }
         return $status;
     }
 
@@ -377,11 +375,11 @@ class API extends \Mailer\API
      * @param   string  $camp_id    Campaign ID
      * @return  boolean     True on success, False on error
      */
-    public function sendTest($camp_id)
+    protected function _sendTest(string $camp_id) : bool
     {
         $status = $this->post('emailCampaigns/' . $camp_id . '/sendTest');
         if (!$status) {
-            COM_errorLog($this->getLastResponse()['body']);
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . $this->getLastResponse()['body']);
         }
         return $status;
     }
@@ -393,7 +391,7 @@ class API extends \Mailer\API
      * @param   object  $Mlr    Campaign object
      * @return  boolean     Result of deletion request
      */
-    public function deleteCampaign(Campaign $Mlr)
+    public function deleteCampaign(Campaign $Mlr) : bool
     {
         $camp_id = $Mlr->getProviderCampaignId();
         if (!empty($camp_id)) {
