@@ -15,6 +15,7 @@ use Mailer\Config;
 use Mailer\API;
 use glFusion\Database\Database;
 use glFusion\Log\Log;
+use Mailer\FieldList;
 
 
 /**
@@ -142,6 +143,20 @@ class Campaign
     public function withTitle($title)
     {
         $this->mlr_title = $title;
+        return $this;
+    }
+
+
+    /**
+     * Set the title to indicate a test message.
+     *
+     * @return  object  $this
+     */
+    public function withTestTitle() : self
+    {
+        global $LANG_MLR;
+
+        $this->mlr_title = '(' . $LANG_MLR['test'] . ') ' . $this->mlr_title;
         return $this;
     }
 
@@ -378,8 +393,10 @@ class Campaign
              ->withSentTime($A['mlr_sent_time'])
              ->withUid($A['owner_id'])
              ->withGroup($A['grp_access'])
-             ->withExpDays($A['exp_days'])
-             ->withTemplate($A['use_template']);
+             ->withExpDays($A['exp_days']);
+        if (isset($A['use_template'])) {
+            $this->withTemplate($A['use_template']);
+        }
         if (isset($A['mlr_date'])) {
             $this->withDate($A['mlr_date']);
         }
@@ -450,7 +467,7 @@ class Campaign
      * @param   array   $A      Optional array of values from $_POST
      * @return  boolean         True if no errors, False otherwise
      */
-    public function Save($A = '')
+    public function Save($A = '') : bool
     {
         global $_TABLES, $_CONF;
 
@@ -476,17 +493,6 @@ class Campaign
         // Insert or update the record, as appropriate
         if ($this->mlr_id == '') {
             $qb->insert($_TABLES['mailer_campaigns']);
-            /*$sql1 = "INSERT INTO {$_TABLES['mailer_campaigns']} SET ";
-            $sql3 = '';*/
-            $this->mlr_id = COM_makeSid();
-        } else {
-            $qb->update($_TABLES['mailer_campaigns'])
-                ->where('mlr_id = :mlr_id');
-            //$sql1 = "UPDATE {$_TABLES['mailer_campaigns']} SET ";
-            //$sql3 = " WHERE mlr_id = '" . $this->getID() . "'";
-        }
-
-        try {
             $qb->values(array(
                 'mlr_id' => ':mlr_id',
                 'mlr_title' => ':mlr_title',
@@ -496,18 +502,34 @@ class Campaign
                 'owner_id' => ':owner_id',
                 'grp_access' => ':grp_access',
                 'exp_days' => ':exp_days',
-            ) )
-            ->setParameter('mlr_id', $this->getID(), Database::STRING)
-            ->setParameter('mlr_title', $this->mlr_title, Database::STRING)
-            ->setParameter('mlr_content', $this->mlr_content, Database::STRING)
-            ->setParameter('mlr_date', $this->mlr_date->toMySQL(false), Database::STRING)
-            ->setParameter('mlr_sent_time', NULL, Database::INTEGER)
-            ->setParameter('owner_id', $this->owner_id, Database::INTEGER)
-            ->setParameter('grp_access', $this->grp_access, Database::INTEGER)
-            ->setParameter('exp_days', $this->exp_days, Database::INTEGER)
-            ->execute();
+            ) );
+            $this->mlr_id = COM_makeSid();
+        } else {
+            $qb->update($_TABLES['mailer_campaigns'])
+               ->set('mlr_id', ':mlr_id')
+               ->set('mlr_title', ':mlr_title')
+               ->set('mlr_content', ':mlr_content')
+               ->set('mlr_date', ':mlr_date')
+               ->set('mlr_sent_time', ':mlr_sent_time')
+               ->set('owner_id', ':owner_id')
+               ->set('grp_access', ':grp_access')
+               ->set('exp_days', ':exp_days')
+               ->where('mlr_id = :mlr_id');
+        }
+
+        try {
+            $qb->setParameter('mlr_id', $this->getID(), Database::STRING)
+               ->setParameter('mlr_title', $this->mlr_title, Database::STRING)
+               ->setParameter('mlr_content', $this->mlr_content, Database::STRING)
+               ->setParameter('mlr_date', $this->mlr_date->toMySQL(false), Database::STRING)
+               ->setParameter('mlr_sent_time', NULL, Database::INTEGER)
+               ->setParameter('owner_id', $this->owner_id, Database::INTEGER)
+               ->setParameter('grp_access', $this->grp_access, Database::INTEGER)
+               ->setParameter('exp_days', $this->exp_days, Database::INTEGER)
+               ->execute();
         } catch (\Exception $e) {
             Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
+            $this->Errors[] = 'A database error occured, check the system log.';
             return false;
         }
         $API = API::getInstance($this->provider);
@@ -544,18 +566,26 @@ class Campaign
         API::getInstance()->deleteCampaign($this);
 
         // Delete from the provider cross-ref table
-        $db->conn->delete(
-            $_TABLES['mailer_provider_campaigns'],
-            array('mlr_id' => $this->mlr_id),
-            array(Database::STRING)
-        );
+        try {
+            $db->conn->delete(
+                $_TABLES['mailer_provider_campaigns'],
+                array('mlr_id' => $this->mlr_id),
+                array(Database::STRING)
+            );
+        } catch (\Exception $e) {
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
+        }
 
         // Delete the campaign from the local DB.
-        $db->conn->delete(
-            $_TABLES['mailer_campaigns'],
-            array('mlr_id' => $this->mlr_id),
-            array(Database::STRING)
-        );
+        try {
+            $db->conn->delete(
+                $_TABLES['mailer_campaigns'],
+                array('mlr_id' => $this->mlr_id),
+                array(Database::STRING)
+            );
+        } catch (\Exception $e) {
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
+        }
         $this->mlr_id = '';
         return true;
     }
@@ -578,7 +608,6 @@ class Campaign
                ->setParameter(':now', $_CONF['_now']->toMySQL(false), Database::STRING)
                ->execute();
         } catch (\Exception $e) {
-            var_dumP($qb);
             Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
         }
     }
@@ -836,6 +865,7 @@ class Campaign
      */
     public function queueIt($emails=NULL)
     {
+        echo "here";die;
         if ($this->mlr_id == '') {
             return false;
         }
@@ -846,8 +876,10 @@ class Campaign
 
     /**
      * Send a test email.
+     *
+     * @return  boolean     True on success, False on error
      */
-    public function sendTest()
+    public function sendTest() : bool
     {
         global $_TABLES;
 
@@ -862,22 +894,27 @@ class Campaign
             'provider_mlr_id',
             array(
                 'mlr_id' => $this->getID(),
-                'provider' => 'Mailjet'
+                'provider' => $API->getName(),
             )
         );
+        // If the provider's campaign ID isn't already set,
+        // create a new campaign at the provider.
+        // If unsuccessful, return false.
         if (empty($camp_id)) {
             $camp_id = $API->createCampaign($this);
             if (empty($camp_id)) {
                 return false;
             }
         }
-        // Now there should be a campaign ID
-        if ($API->sendTest($camp_id)) {
+
+        // Now there should be a campaign ID.
+        $status = $API->sendTest($camp_id);
+        if ($status) {
             try {
                 $db->conn->executeQuery(
                     "UPDATE {$_TABLES['mailer_provider_campaigns']}
                         SET tested = 1
-                        WHERE mlr_id = ? AND provider = ",
+                        WHERE mlr_id = ? AND provider = ?",
                     array($this->getID(), $API->getName()),
                     array(Database::STRING, Database::STRING)
                 );
@@ -967,7 +1004,7 @@ class Campaign
                 array(Database::INTEGER, Database::INTEGER)
             );
         } else {
-            COM_errorLog("Mailer: Error finding root user");
+            Log::write('system', Log::ERROR, __METHOD__ . ': Error finding root user');
         }
     }
 
@@ -1099,70 +1136,66 @@ class Campaign
         }
         switch($fieldname) {
         case 'edit':
-            $retval = COM_createLink(
-                $icon_arr['edit'],
-                $admin_url . "/index.php?edit=x&amp;mlr_id={$A['mlr_id']}"
-            );
+            $retval = FieldList::edit(array(
+                'url' => $admin_url . "/index.php?edit=x&amp;mlr_id={$A['mlr_id']}",
+            ) );
             break;
 
         case 'copy':
-            $retval = COM_createLink(
-                $icon_arr['copy'],
-                $admin_url . "/index.php?clone=x&amp;mlr_id={$A['mlr_id']}"
-            );
+            $retval = FieldList::copy(array(
+                'url' => $admin_url . "/index.php?clone=x&amp;mlr_id={$A['mlr_id']}",
+            ) );
             break;
 
         case 'tested':
             if ($extra['supports_testing']) {
-                if ($fieldvalue == 1) {
-                    $icon = 'uk-icon-check';
-                    $cls = 'uk-text-success';
-                } else {
-                    $icon = 'uk-icon-circle';
-                    $cls = 'uk-text-warning';
-                }
                 $retval = COM_createLink(
-                    '<i class="uk-icon ' . $icon . '"></i>',
+                    FieldList::checkmark(array(
+                        'active' => $fieldvalue == 1,
+                    ) ),
                     $admin_url . '/index.php?sendtest=' . $A['mlr_id'],
                     array(
-                        'class' => 'tooltip ' . $cls,
+                        'class' => 'tooltip',
                         'title' => $LANG_MLR['sendtestnow'],
                     )
                 );
             } else {
-                $retval = '<i class="uk-icon uk-icon-ban uk-text-disabled tooltip" title="' .
-                    $LANG_MLR['not_supported'] . '"></i>';
+                $retval = FieldList::ban(array(
+                    'style' => 'danger',
+                    'class' => 'tooltip',
+                    'attr' => array(
+                        'title' => $LANG_MLR['not_supported'],
+                    ),
+                ) );
             }
             break;
 
         case 'send':
-            $retval = COM_createLink(
-                '<i class="uk-icon uk-icon-envelope"></i>',
-                $admin_url . "/index.php?sendnow=x&amp;mlr_id={$A['mlr_id']}",
-                array(
+            $retval = FieldList::email(array(
+                'url' => $admin_url . "/index.php?sendnow=x&amp;mlr_id={$A['mlr_id']}",
+                'attr' => array(
                     'onclick' => "return confirm('{$LANG_MLR['conf_sendnow']}');",
-                )
-            );
+                ),
+            ) );
             break;
 
         case 'delete':
-            $retval = COM_createLink(
-                '<i class="uk-icon uk-icon-minus-square uk-text-danger"></i>',
-                $admin_url . "/index.php?delete=x&amp;mlr_id={$A['mlr_id']}",
-                array(
+            $retval = FieldList::delete(array(
+                'delete_url' => $admin_url . "/index.php?delete=x&amp;mlr_id={$A['mlr_id']}",
+                'attr' => array(
                     'onclick' => "return confirm('{$LANG_MLR['conf_delete']}');",
-                )
-            );
+                ),
+            ) );
             break;
 
-        case 'deletequeue':     // Delete an entry from the queue
+        /*case 'deletequeue':     // Delete an entry from the queue
             $retval = COM_createLink(
                 "<img src=\"{$_CONF['layout_url']}/images/admin/delete.png\"
                 height=\"16\" width=\"16\" border=\"0\"
                 onclick=\"return confirm('Do you really want to delete this item?');\">",
                 $admin_url . "/index.php?deletequeue=x&amp;mlr_id={$A['mlr_id']}&amp;email={$A['email']}"
             );
-            break;
+            break;*/
 
         case 'mlr_title':
             $url = COM_buildUrl(
@@ -1176,7 +1209,7 @@ class Campaign
             break;
 
         case 'owner_id':
-            $retval = COM_getDisplayName ($A['owner_id']);
+            $retval = COM_getDisplayName($fieldvalue);
             break;
 
         case 'mlr_centerblock':
