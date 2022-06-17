@@ -596,35 +596,6 @@ function MLR_getDocURL($file, $doclang='')
     return $doc_url;
 }
 
-
-/**
- * Display a formatted error message.
- *
- * @param   string  $msg    Error message to display
- * @param   string  $type   Type of message, used for style and header
- * @param   string  $header Optional header text.
- * @return  string          Formatted error message
- */
-function MLR_errorMsg($msg = '', $header = '')
-{
-    global $LANG01;
-
-    // Require a valid message
-    if ($msg == '')
-        return '';
-
-    // If no header text specified, we'll put in a default.
-    $class = 'alert';
-    if ($header == '') $header = $LANG01[34];   // "Error"
-
-    return "<span class=\"$class\">"
-            . COM_startBlock($header)
-            . $msg
-            . COM_endBlock()
-            . '</span>';
-
-}
-
 require_once __DIR__ . '/services.inc.php';
 
 /**
@@ -637,4 +608,4 @@ function plugin_wsEnabled_mailer()
     return false;
 }
 
-//glFusion\Notifier::Register('mailer', 'Mailer\\Notifier', 'Mailer Queue');
+//glFusion\Notifier::Register('mailer', 'Mailer\\Notifiers\Mailer', $LANG_MLR['pi_dscp']);
