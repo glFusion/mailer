@@ -16,6 +16,11 @@ use Mailer\Config;
 use Mailer\API;
 use glFusion\Database\Database;
 use glFusion\Log\Log;
+use glFusion\FieldList;
+// For glFusion 2.1.0+
+// use glFusion\Notifier;
+// Until then, use our own notifier
+use Mailer\Notifier;
 
 
 /**
@@ -190,37 +195,55 @@ class Queue
         $db = Database::getInstance();
         $qb = $db->conn->createQueryBuilder();
 
-        if (!$force) {
-            // Find out when we last ran, and don't run again if it's too soon
-            $lastrun = isset($_VARS['mailer_lastrun']) ? $_VARS['mailer_lastrun'] : NULL;
-            if ($lastrun === NULL) {
-                // In case our gl_vars value got deleted somehow.
-                try {
-                    $db->conn->insert(
-                        $_TABLES['vars'],
-                        array(
-                            'value' => 0,
-                            'name' => 'mailer_lastrun',
-                        ),
-                        array(
-                            Database::INTEGER,
-                            Database::STRING,
-                        )
-                    );
-                } catch (\Exception $e) {
-                    Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
-                }
-                $lastrun = 0;
+        // Find out when we last ran, and don't run again if it's too soon
+        $lastrun = isset($_VARS['mailer_lastrun']) ? $_VARS['mailer_lastrun'] : NULL;
+        if ($lastrun === NULL) {
+            // In case our gl_vars value got deleted somehow.
+            try {
+                $db->conn->insert(
+                    $_TABLES['vars'],
+                    array(
+                        'value' => time(),
+                        'name' => 'mailer_lastrun',
+                    ),
+                    array(
+                        Database::INTEGER,
+                        Database::STRING,
+                    )
+                );
+            } catch (\Exception $e) {
+                Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
             }
-            $now = time();
-            if ($now - $lastrun < (int)Config::get('queue_interval')) {
-                return;
-            }
+            $lastrun = 0;
+        }
 
-            // Set the maximum messages to be sent
-            if ((int)Config::get('max_per_run') > 0) {
-                $qb->setFirstResult(0)->setMaxResults((int)Config::get('max_per_run'));
-            }
+        $now = time();
+        if (!$force && ($now - $lastrun < (int)Config::get('queue_interval'))) {
+            return;
+        }
+
+        // Now update the last-run timestamp
+        try {
+            $db->conn->update(
+                $_TABLES['vars'],
+                array(
+                    'value' => $now,
+                ),
+                array(
+                    'name' => 'mailer_lastrun',
+                ),
+                array(
+                    Database::INTEGER,
+                    Database::STRING,
+                )
+            );
+        } catch (\Exception $e) {
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
+        }
+
+        // Set the maximum messages to be sent
+        if ((int)Config::get('max_per_run') > 0) {
+            $qb->setFirstResult(0)->setMaxResults((int)Config::get('max_per_run'));
         }
 
         // Get the queued entries. Order by mlr_id so we can minimize DB calls.
@@ -230,7 +253,7 @@ class Queue
                ->leftJoin('q', $_TABLES['mailer_subscribers'], 'e', 'q.email=e.email')
                ->orderBy('q.mlr_id', 'ASC')
                ->execute();
-            $data = $stmt->fetchAll(Database::ASSOCIATIVE);
+            $data = $stmt->fetchAllAssociative();
         } catch (\Exception $e) {
             Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
             $data = NULL;
@@ -242,7 +265,7 @@ class Queue
 
         $N = new Campaign;      // Create a campaign object once
         //$Email = API::getInstance();
-        $Email = \glFusion\Notifier::getProvider('Email');
+        $Email = Notifier::getProvider('Email');
 
         $mlr_id = '';           // mailer ID used for control-break
         $recipients = array();
@@ -254,13 +277,10 @@ class Queue
                     self::_deleteRecipients($recipients);
                     $recipients = array();
                 }
-                $Email = \glFusion\Notifier::getProvider('Email');
+                $Email = Notifier::getProvider('Email');
 
                 // New mailer ID, get it
                 $mlr_id = $A['mlr_id'];
-//var_dumP($mlr_id);die;
- //               $N->Read($mlr_id);
-
                 if (!$N->Read($mlr_id)) {
                     // Invalid ID, delete all scheduled mailings & quit.
                     // Would be better to re-query the DB and continue with valid
@@ -284,20 +304,6 @@ class Queue
             $Email->send();
             self::_deleteRecipients($recipients);
         }
-
-        $db->conn->update(
-            $_TABLES['vars'],
-            array(
-                'value' => 'UNIX_TIMESTAMP()',
-            ),
-            array(
-                'name' => 'mailer_lastrun',
-            ),
-            array(
-                Database::INTEGER,
-                Database::STRING,
-            )
-        );
     }
 
 
@@ -337,7 +343,11 @@ class Queue
         $header_arr = array(      # display 'text' and use table field 'field'
             array('text' => $LANG_MLR['mlr_id'], 'field' => 'mlr_id', 'sort' => true),
             array('text' => $LANG_MLR['email'], 'field' => 'email', 'sort' => true),
-            array('text' => $LANG_ADMIN['delete'], 'field' => 'deletequeue', 'sort' => false),
+            array(
+                'text' => $LANG_ADMIN['delete'],
+                'field' => 'deletequeue',
+                'align' => 'center',
+            ),
         );
         $defsort_arr = array('field' => 'mlr_id', 'direction' => 'asc');
 
@@ -393,11 +403,12 @@ class Queue
         }
         switch($fieldname) {
         case 'deletequeue':     // Delete an entry from the queue
-            $retval = COM_createLink(
-                '<i class="uk-icon uk-icon-remove uk-text-danger"
-                onclick="return confirm(\'Do you really want to delete this item?\');"></i>',
-                "$admin_url/index.php?deletequeue={$A['q_id']}"
-            );
+            $retval = FieldList::delete(array(
+                'delete_url' => "$admin_url/index.php?deletequeue={$A['q_id']}",
+                'attr' => array(
+                    'onclick' => "return confirm('Do you really want to delete this item?');",
+                )
+            ) );
             break;
 
         default:
