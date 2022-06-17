@@ -15,6 +15,7 @@ use Mailer\Models\Status;
 use Mailer\API;
 use Mailer\Config;
 use Mailer\Logger;
+use Mailer\FieldList;
 use glFusion\Database\Database;
 use glFusion\Log\Log;
 
@@ -196,7 +197,7 @@ class Subscriber
      *
      * @return  integer Status
      */
-    public function subscribe($status = NULL)
+    public function subscribe($status = NULL) : int
     {
         if ($status !== NULL) {
             $this->status = (int)$status;
@@ -211,7 +212,10 @@ class Subscriber
         $API = API::getInstance();
         $result = $API->subscribe($this);
         if ($result == Status::SUB_SUCCESS) {
-            $this->Save();
+            //Log::write('system', Log::ERROR, __METHOD__ . ': ' . "subscribing " . $this->_fullname);
+            if (!$this->Save()) {
+                $result = Status::SUB_ERROR;
+            }
             if ($this->status == Status::PENDING) {
                 $response = $API::sendDoubleOptin($this);
             }
@@ -598,7 +602,7 @@ class Subscriber
         $qb = $db->conn->createQueryBuilder();
         try {
             $qb->update($_TABLES['mailer_subscribers'])
-               ->setValue('status', ':status')
+               ->set('status', ':status')
                ->where('id = :id')
                ->setParameter('id', $this->getID())
                ->setParameter('status', $status);
@@ -611,7 +615,7 @@ class Subscriber
             //);
 
             if (!$force) {
-                $qb->andWere('status < ' . Status::BLACKLIST);
+                $qb->andWhere('status < ' . Status::BLACKLIST);
             }
             $stmt = $qb->execute();
         } catch (\Exception $e) {
@@ -920,8 +924,8 @@ class Subscriber
             $Sub = new self($A);
             $status = $API->subscribeOrUpdate($Sub);
             if ($status !=- Status::SUB_SUCCESS) {
-                COM_errorLog(__FUNCTION__ . ' ' . $Sub->getEmail() . " Status: Failure " . $status);
-                COM_errorLog($API->getLastResponse()['body']);
+                Log::write('system', Log::ERROR, __METHOD__ . ': ' . $Sub->getEmail() . " Status: Failure " . $status);
+                Log::write('system', Log::ERROR, __METHOD__ . ': ' . $API->getLastResponse()['body']);
             }
         }
         return true;
@@ -1095,56 +1099,16 @@ class Subscriber
         }
         switch($fieldname) {
         case 'remove_subscriber':
-            $retval = COM_createLink(
-                '<i class="uk-icon uk-icon-remove uk-text-danger"></i>',
-                $admin_url . "/index.php?delsubscriber=x&amp;id={$A['id']}",
+            $retval = FieldList::delete(array(
+                'delete_url' => $admin_url . "/index.php?delsubscriber=x&amp;id={$A['id']}",
                 array(
                     'onclick' => "return confirm('Do you really want to delete this item?');",
-                )
-            );
+                ),
+            ) );
             break;
 
         case 'status':
-            $icon1_cls = 'uk-icon-circle-o';
-            $icon2_cls = 'uk-icon-circle-o';
-            $icon3_cls = 'uk-icon-circle-o';
-            $onclick1 = "onclick='MLR_toggleUserStatus(\"" . Status::ACTIVE .
-                "\", \"{$A['id']}\");' ";
-            $onclick2 = "onclick='MLR_toggleUserStatus(\"" . Status::PENDING .
-                "\", \"{$A['id']}\");' ";
-            $onclick3 = "onclick='MLR_toggleUserStatus(\"" . Status::BLACKLIST .
-                "\", \"{$A['id']}\");' ";
-            $onclick4 = "onclick='MLR_toggleUserStatus(\"" . Status::UNSUBSCRIBED.
-                "\", \"{$A['id']}\");' ";
-            switch ($fieldvalue) {
-            case Status::UNSUBSCRIBED:
-                $onclick4 = '';
-                break;
-            case Status::ACTIVE:
-                $icon1_cls = 'uk-icon-circle uk-text-success';
-                $onclick1 = '';
-                break;
-            case Status::PENDING:
-                $icon2_cls = 'uk-icon-circle uk-text-warning';
-                $onclick2 = '';
-                break;
-            case Status::BLACKLIST:
-                $icon3_cls = 'uk-icon-circle uk-text-danger';
-                $onclick3 = '';
-                break;
-            default:
-                break;
-            }
-            $retval = '<div id="userstatus' . $A['id']. '">' .
-                '<i class="uk-icon ' . $icon1_cls . '" ' .
-                $onclick1 . '/></i>&nbsp;';
-            $retval .= '<i class="uk-icon ' . $icon2_cls . '" ' .
-                $onclick2 . '/></i>&nbsp;';
-            $retval .= '<i class="uk-icon ' . $icon3_cls . '" ' .
-                $onclick3 . '/></i>&nbsp;';
-            $retval .= '<i class="uk-icon uk-icon-remove uk-text-danger" ' .
-                $onclick4 . '/></i>';
-            $retval .= '</div>';
+            $retval = self::getStatusIcons($A['id'], (int)$fieldvalue);
             break;
 
         case 'uid':
@@ -1224,6 +1188,73 @@ class Subscriber
         } catch (\Exception $e) {
             Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
         }
+        return $retval;
+    }
+
+
+    public static function getStatusIcons(int $id, int $fieldvalue) : string
+    {
+        global $LANG_MLR;
+
+        $icon1 = array(
+            'type' => 'open',
+            'style' => '',
+            'attr' => array(
+                'onclick' => "MLR_toggleUserStatus('" . Status::ACTIVE . "', '{$id}');",
+                'title' => $LANG_MLR['statuses'][1],
+            ),
+        );
+        $icon2 = array(
+            'type' => 'open',
+            'style' => '',
+            'attr' => array(
+                'onclick' => "MLR_toggleUserStatus('" . Status::PENDING . "', '{$id}');",
+                'title' => $LANG_MLR['statuses'][0],
+            ),
+        );
+        $icon3 = array(
+            'type' => 'open',
+            'style' => '',
+            'attr' => array(
+                'onclick' => "MLR_toggleUserStatus('" . Status::BLACKLIST . "', '{$id}');",
+                'title' => $LANG_MLR['statuses'][2],
+            ),
+        );
+        $icon4 = array(
+            'delete_url' => '#!',
+            'attr' => array(
+                'onclick' => "MLR_toggleUserStatus('" . Status::UNSUBSCRIBED . "', '{$id}');",
+            ),
+        );
+
+        switch ($fieldvalue) {
+        case Status::UNSUBSCRIBED:
+            unset($icon4['attr']);
+            break;
+        case Status::ACTIVE:
+            $icon1['style'] = 'success';
+            unset($icon1['type']);
+            unset($icon1['attr']['onclick']);
+            break;
+        case Status::PENDING:
+            $icon2['style'] = 'warning';
+            unset($icon2['type']);
+            unset($icon2['attr']['onclick']);
+            break;
+        case Status::BLACKLIST:
+            $icon3['style'] = 'danger';
+            unset($icon3['type']);
+            unset($icon3['attr']['onclick']);
+            break;
+        default:
+            break;
+        }
+        $retval = '<div id="userstatus' . $id. '">';
+        $retval .= FieldList::circle($icon1);
+        $retval .= FieldList::circle($icon2);
+        $retval .= FieldList::circle($icon3);
+        $retval .= FieldList::delete($icon4);
+        $retval .= '</div>';
         return $retval;
     }
 

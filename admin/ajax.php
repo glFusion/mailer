@@ -31,6 +31,7 @@ case 'userstatus':
     $newval = (int)$_GET['newval'];
     $retval = array(
         'id' => $id,
+        'html' => '',
         'icon1_cls' => 'uk-icon-circle-o',
         'icon2_cls' => 'uk-icon-circle-o',
         'icon3_cls' => 'uk-icon-circle-o',
@@ -71,6 +72,7 @@ case 'userstatus':
         exit;
     }
 
+    $retval['html'] = Subscriber::getStatusIcons($id, $newval);
     if ($Sub->getStatus() == $newval) {
         Mailer\Logger::Audit("Changed {$Sub->getEmail()} to status $status");
     } else {

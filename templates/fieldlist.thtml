@@ -1,0 +1,17 @@
+{# begin {templatelocation} #}
+<!-- BEGIN field-circle -->
+    <i class="uk-icon uk-icon-hover uk-icon-justify uk-icon-circle{!if type}-o{!endif} uk-text-{color} {other_cls}"
+    <!-- BEGIN attr -->
+    {name}="{value}"
+    <!-- END attr -->
+	></i>
+<!-- END field-circle -->
+<!-- BEGIN field-ban -->
+    <i class="uk-icon uk-icon-hover uk-icon-justify uk-icon-ban uk-text-{color} {other_cls}"
+    <!-- BEGIN attr -->
+    {name}="{value}"
+    <!-- END attr -->
+	></i>
+<!-- END field-ban -->
+{# end {templatelocation} #}
+
