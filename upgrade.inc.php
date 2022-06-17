@@ -36,6 +36,12 @@ function MLR_do_upgrade($dvlp=false)
         if (!MLR_do_set_version($current_ver)) return false;
     }
 
+    if (!COM_checkVersion($current_ver, '0.3.0')) {
+        $current_ver = '0.3.0';
+        if (!MLR_do_upgrade_sql($current_ver, $dvlp)) return false;
+        if (!MLR_do_set_version($current_ver)) return false;
+    }
+
     // Finally set the version to the code version.
     // This matters if the last update was code-only.
     if (!MLR_do_set_version($code_ver)) return false;
@@ -188,6 +194,7 @@ function _MLR_remove_old_files()
         ),
         // public_html/membership
         $_CONF['path_html'] . 'membership' => array(
+            'hook.php',
         ),
         // admin/plugins/membership
         $_CONF['path_html'] . 'admin/plugins/membership' => array(
