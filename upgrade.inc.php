@@ -46,6 +46,7 @@ function MLR_do_upgrade($dvlp=false)
     global $mailerConfigData;
     require_once __DIR__ . '/install_defaults.php';
     _update_config(Mailer\Config::PI_NAME, $mailerConfigData);
+    _MLR_remove_old_files();
     return true;
 }
 
@@ -70,13 +71,13 @@ function MLR_do_upgrade_sql($version)
     $db = Database::getInstance();
 
     // Execute SQL now to perform the upgrade
-    COM_errorLOG("--Updating Mailer to version $version");
+    Log::write('system', Log::INFO, "--Updating Mailer to version $version");
     foreach ($_MLR_UPGRADE[$version] as $sql) {
-        COM_errorLog("Mailer Plugin $version update: SQL => $sql");
+        Log::write('system', Log::INFO, "Mailer Plugin $version update: SQL => $sql");
         try {
             $db->conn->executeStatement($sql);
         } catch (\Exception $e) {
-            COM_errorLog("SQL Error during Mailer plugin update",1);
+            Log::write('system', Log::ERROR, __FUNCTION__ . ': ' . $e->getMessage());
         }
     }
     return true;
@@ -113,11 +114,10 @@ function MLR_do_set_version($ver)
             )
         );
     } catch (\Exception $e) {
-        COM_errorLog("Error updating the " . Config::get('pi_display_name') . " Plugin version to $ver",1);
+        Log::write('system', Log::ERROR, __FUNCTION__ . ': ' . $e->getMessage());
         return false;
-    } else {
-        return true;
     }
+    return true;
 }
 
 
@@ -143,4 +143,61 @@ function _MLRtableHasColumn($table, $col_name)
         $data = false;
     }
     return !empty($data);
+}
+
+
+/**
+ * Remove a file, or recursively remove a directory.
+ *
+ * @param   string  $dir    Directory name
+ */
+function _MLR_rmdir($dir)
+{
+    if (is_dir($dir)) {
+        $objects = scandir($dir);
+        foreach ($objects as $object) {
+            if ($object != "." && $object != "..") {
+                if (is_dir($dir . '/' . $object)) {
+                    _MLR_rmdir($dir . '/' . $object);
+                } else {
+                    @unlink($dir . '/' . $object);
+                }
+            }
+        }
+        @rmdir($dir);
+    } elseif (is_file($dir)) {
+        @unlink($dir);
+    }
+}
+
+
+/**
+ * Remove deprecated files
+ * Errors in unlink() and rmdir() are ignored.
+ */
+function _MLR_remove_old_files()
+{
+    global $_CONF;
+
+    $paths = array(
+        // private/plugins/membership
+        __DIR__ => array(
+            // 0.3.0
+            'classes/Models/MailingList.class.php',
+            'classes/Models/ApiInfo.class.php',
+        ),
+        // public_html/membership
+        $_CONF['path_html'] . 'membership' => array(
+        ),
+        // admin/plugins/membership
+        $_CONF['path_html'] . 'admin/plugins/membership' => array(
+        ),
+    );
+
+    foreach ($paths as $path=>$files) {
+        foreach ($files as $file) {
+            Log::write('system', Log::ERROR, "removing $path/$file");
+            _MLR_rmdir("$path/$file");
+        }
+    }
 }
