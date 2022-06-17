@@ -136,7 +136,7 @@ class Menu
             ),
             array(
                 'url' => $admin_url . '/index.php?import_form=x',
-                'text' => $LANG_MLR['import'],
+                'text' => $LANG_MLR['import_file'],
                 'active' => $view == 'import' ? true : false,
             ),
             array(

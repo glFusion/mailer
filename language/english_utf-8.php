@@ -16,6 +16,7 @@
 global $LANG32;
 
 $LANG_MLR = array(
+    'pi_dscp' => 'Mail Queue',
     'mailers' => 'Mailers',
     'campaigns' => 'Campaigns',
     'mlr_archive' => 'Archived Mailings',
@@ -147,7 +148,7 @@ $LANG_MLR = array(
     'import' => 'Import',
     'export' => 'Export',
     'clear' => 'Clear Subscriber List',
-    'import_temp_text' => 'Copy/paste your import list here.',
+    'import_temp_text' => 'Copy/paste your list of comma-separated email addresses here.',
     'delimiter' => 'Delimiter',
     'importer' => 'Mailer Email List Import',
     'import_complete' => 'Import Complete',
@@ -155,10 +156,13 @@ $LANG_MLR = array(
     'sorry_no_archives_yet' => 'Sorry no archives yet.',
     'user_menu_subscribe' => 'Subscribe to Announcements',
     'user_menu_unsubscribe' => 'Unsubscribe from Announcements',
-    'import_current_users' => 'Import Current Users',
+    'import_current_users' => 'Import Site Users',
+    'import_file' => 'Import from File',
     'import_users_confirm' => 'Are you sure that you want to import ALL site users?',
     'conf_clearsub' => 'Are you sure you want to clear your subscribers?',
     'dscp_clearsub' => 'This will *not* update the mailing list provider.',
+    'dscp_import_current_users' => 'Import all users from the site user table.',
+    'dscp_import_file' => 'Import users from a comma-separated file.',
     'sync_from_provider' => 'Sync From Provider',
     'dscp_syncfrom' => 'Synchronize all subscribed users at the mail provider into the local database.',
     'conf_syncfrom' => 'Are you sure you want to synchronize from the list provider?',
@@ -189,6 +193,8 @@ $LANG_MLR = array(
     'not_supported' => 'Not supported',
     'dscp_clear_subs' => 'Remove all subscriber data from your local database.',
     'dscp_sync_provider' => 'Synchronize your local database from your mail provider.',
+    'existing_updated' => 'Existing updated',
+    'test' => 'Test',
 );
 
 

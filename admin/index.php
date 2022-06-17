@@ -110,7 +110,7 @@ if (isset($_REQUEST['email'])) {
 }
 
 $content = '';
-
+$msg = '';
 switch ($action) {
 case 'api_action':
     // Perform actions for the current API
@@ -183,8 +183,7 @@ case 'clearsub':
     if (SEC_checkToken()) {
         $db->conn->executeQuery("TRUNCATE {$_TABLES['mailer_subscribers']}");
     }
-    COM_refresh(Config::get('admin_url') . '/index.php?subscribers');
-    $view = 'subscribers';
+    echo COM_refresh(Config::get('admin_url') . '/index.php?maintenance');
     break;
 
 case 'clone':
@@ -193,9 +192,8 @@ case 'clone':
         $view = 'campaigns';
         break;
     }
-    $status = $M->withID('')
-                ->Save();
-    COM_refresh(Config::get('admin_url') . '/index.php?campaigns');
+    $status = $M->withID('')->Save();
+    echo COM_refresh(Config::get('admin_url') . '/index.php?campaigns');
     break;
 
 case 'delete':
@@ -250,20 +248,43 @@ case 'import':
     break;
 
 case 'import_users':
-    // Set up an empty subscriber object
-    $Sub = (new Subscriber)->withStatus(Status::ACTIVE);
     $db = Database::getInstance();
-    $stmt = $db->conn->executeQuery("SELECT `email` FROM {$_TABLES['users']}");
+    $stmt = $db->conn->executeQuery(
+        "SELECT `uid`, `fullname`, `email` FROM {$_TABLES['users']} WHERE uid > 2 AND status = 3"
+    );
     $data = $stmt->fetchAll(Database::ASSOCIATIVE);
+    $existing = 0;
+    $successes = 0;
+    $failures = 0;
     foreach ($data as $A) {
+        $status = 1;
+        if ($A['uid'] == 10) {
+            continue;
+        }
+        $Sub = Subscriber::getByUid($A['uid']);
+        if ($Sub->getID() > 0) {
+            $existing++;
+        }
         if ($A['email'] != ''){
-            $Sub->withEmail($A['email'])
-                ->withRegDate()
-                ->withToken(uniqid())
-                ->subscribe(Status::ACTIVE);
+            $status = $Sub->subscribe(Status::ACTIVE);
+            if ($status == 0) {
+                $successes++;
+            } else {
+                $failures++;
+            }
         }
     }
-    $view = 'subscribers';
+    $T = new \Template(Config::get('pi_path') . '/templates/admin');
+    $T->set_file('form', 'import_status.thtml');
+    $T->set_var(array(
+        'existing' => $existing,
+        'successes' => $successes,
+        'failures' => $failures,
+    ) );
+    $T->parse('output', 'form');
+    $msg = $T->finish($T->get_var('output'));
+    COM_setMsg($msg, 'error', true);
+    echo COM_refresh(Config::get('admin_url') . '/index.php?subscribers');
     break;
 
 case 'export':
@@ -298,7 +319,7 @@ case 'mlr_save':
     if (!$status) {
         $content .= Menu::Admin('campaigns');
         $content .= Menu::adminCampaigns('edit');
-        $content .= MLR_errorMsg('<ul>' . $M->PrintErrors() . '</ul>');
+        $content .= COM_showMessageText('<ul>' . $M->PrintErrors() . '</ul>', 'Error', true, 'error');
         $content .= $M->Edit();
         $view = 'none';     // Editing it here, no other display
     } else {
@@ -373,13 +394,10 @@ case 'import_form':
 
 case 'import_users_confirm':
     // Confirm the import of all site users
-    $content .= '<form action="' . $_SERVER['PHP_SELF'] . '" method="POST">' . LB;
-    $content .= $LANG_MLR['import_users_confirm'] . '<br />' . LB;
-    $content .= '<input type="submit" name="import_users" value="' .
-            $LANG_ACCESS['yes'] . '" />' . LB;
-    $content .= '<input type="submit" name="subscribers" value="' .
-            $LANG_ACCESS['no'] . '" />' . LB;
-    $content .= '</form>';
+    $T = new \Template(Config::get('pi_path') . '/templates/admin');
+    $T->set_file('form', 'import_confirm.thtml');
+    $T->parse('output', 'form');
+    $content .= $T->finish($T->get_var('output'));
     break;
 
 case 'clear_warning':
@@ -425,4 +443,3 @@ $display .= $content;
 $display .= Menu::siteFooter();
 echo $display;
 
-?>

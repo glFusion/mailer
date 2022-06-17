@@ -1,0 +1,7 @@
+{# begin {templatelocation} #}
+<ul>
+	<li>{$LANG_MLR['existing_updated']}: {existing}</li>
+	<li>{$LANG_MLR['success']}: {successes}</li>
+	<li>{$LANG_MLR['error']}: {failures}</li>
+</ul>
+{# end {templatelocation} #}
