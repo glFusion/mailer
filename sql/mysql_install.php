@@ -3,10 +3,10 @@
  * Table definitions for the Mailer plugin.
  *
  * @author      Lee Garner <lee@leegarner.com>
- * @copyright   Copyright (c) 2010-2021 Lee Garner <lee@leegarner.com>
+ * @copyright   Copyright (c) 2010-2022 Lee Garner <lee@leegarner.com>
  * @copyright   Copyright (c) 2008 Wayne Patterson <suprsidr@gmail.com>
  * @package     mailer
- * @version     v0.1.0
+ * @version     v0.3.0
  * @license     http://opensource.org/licenses/gpl-2.0.php
  *              GNU Public License v2 or later
  * @filesource
@@ -54,7 +54,7 @@ $_SQL= array(
 'mailer_txn' => "CREATE TABLE `{$_TABLES['mailer_txn']}` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
   `provider` varchar(40) DEFAULT NULL,
-  `type` varchar(20) DEFAULT NULL,
+  `type` varchar(255) DEFAULT NULL,
   `txn_id` varchar(128) DEFAULT NULL,
   `txn_date` datetime DEFAULT NULL,
   `data` text DEFAULT NULL,
@@ -84,6 +84,9 @@ $_MLR_UPGRADE = array(
           `data` text DEFAULT 'a:0:{}',
           PRIMARY KEY (`uid`)
         ) ENGINE=MyISAM",
+    ),
+    '0.3.0' => array(
+        "ALTER TABLE {$_TABLES['mailer_txn']} CHANGE type type varchar(255)",
     ),
 );
 
