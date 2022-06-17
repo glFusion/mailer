@@ -205,22 +205,22 @@ class Subscriber
             // Do nothing if this address is blacklisted,
             // unless forced by admin.
             if ($this->status == Status::BLACKLIST) {
-                return Status::SUB_BLACKLIST;
+                return false;
             }
             $this->status = Status::PENDING;
         }
         $API = API::getInstance();
-        $result = $API->subscribe($this);
-        if ($result == Status::SUB_SUCCESS) {
+        $status = $API->subscribe($this);
+        if ($status) {
             //Log::write('system', Log::ERROR, __METHOD__ . ': ' . "subscribing " . $this->_fullname);
             if (!$this->Save()) {
-                $result = Status::SUB_ERROR;
+                $status = false;
             }
             if ($this->status == Status::PENDING) {
                 $response = $API::sendDoubleOptin($this);
             }
         }
-        return $result;
+        return $status;
     }
 
 
@@ -242,7 +242,17 @@ class Subscriber
         } catch (\Exception $e) {
             Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
         }
+        try {
+            $db->conn->delete(
+                $_TABLES['mailer_userinfo'],
+                array('uid' => $this->getUid()),
+                array(Database::INTEGER)
+            );
+        } catch (\Exception $e) {
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
+        }
         $this->id = 0;
+        $this->uid = 0;
     }
 
 
@@ -313,6 +323,9 @@ class Subscriber
         }
         if ($this->getID() == 0) {
             $this->withID($db->conn->lastInsertId());
+        }
+        if (is_array($this->_attributes)) {
+            $this->saveUserData($this->_attributes);
         }
         return true;
     }
@@ -1151,7 +1164,6 @@ class Subscriber
                     $_TABLES['mailer_userinfo'],
                     array('data' => $data),
                     array('uid' => $this->uid),
-                    array($data, $this->uid),
                     array(Database::STRING, Database::INTEGER)
                 );
             } catch (\Exception $e) {
