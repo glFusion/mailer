@@ -52,6 +52,7 @@ use Mailer\Models\Campaign;
 use Mailer\Models\Status;
 use Mailer\Models\Queue;
 use glFusion\Database\Database;
+use glFusion\Log\Log;
 Config::getInstance();
 
 /**
@@ -74,6 +75,15 @@ require_once __DIR__ . '/mailer.php';
 if (is_file(__DIR__ . '/config.php')) {
     include_once __DIR__ . '/config.php';
 }
+
+Log::config('mailer',
+    array(
+      'type'  => 'file',
+      'path'  => $_CONF['path_log'],
+      'file'  => 'mailer.log',
+      'level' => Config::get('log_level'),
+    )
+);
 
 /**
  * This will put an option for mailer in the command and control block.
@@ -168,13 +178,11 @@ function plugin_getadminoption_mailer()
  */
 function plugin_user_create_mailer($uid)
 {
-    global $_TABLES;
-
     if (isset($_POST['mailer_subscribe']) && $_POST['mailer_subscribe'] == 1) {
-        $db = Database::getInstance();
-        $email = $db->getItem($_TABLES['users'], 'email', array('uid' => $uid));
-        $Sub = Subscriber::getByUid((int)$uid);
-        $Sub->withEmail($email)->subscribe();
+        $Sub = Subscriber::getByUid((int)$uid); // Get the subscriber in case it exists
+        if ($Sub->subscribe()) {
+            $Sub->Save();
+        }
     }
 }
 
@@ -258,6 +266,10 @@ function plugin_profilesave_mailer($uid=0)
 
     $Sub = Subscriber::getByUid($uid);
     $Sub->profileUpdated($_POST);
+    if ($Sub->getID() == 0) {
+        $Sub->Save();       // make sure the record is created
+    }
+
     if (
         isset($_POST['mailer_subscribe']) &&
         (!isset($_POST['mailer_oldsub']) || empty($_POST['mailer_oldsub']))
@@ -426,36 +438,27 @@ function phpblock_mailer_small()
  */
 function plugin_templatesetvars_mailer($templatename, &$template)
 {
-    /*if ($templatename == 'header') {
-        $template->set_var('button_mailer', $LANG_MLR['mailer']);
-        $template->set_var('mailer_sm', phpblock_mailer_small());
-    }*/
     if ($templatename == 'registration') {
+        $existingPluginFields = $template->get_var('plugin_fields');
+        $pluginFields = '';
         $chk = '';
         switch (Config::get('def_register_sub')) {
         case 1:     // checked selection
             $chk = 'checked="checked"';
-
         case 2:     // unchecked
-            $existingPluginFields = $template->get_var('plugin_fields');
-
             $T = new Template(__DIR__ . '/templates/');
             $T->set_file('mailer_block', 'registration.thtml');
             $T->set_var('chk', $chk);
             $T->parse('output', 'mailer_block');
             $pluginFields = $T->finish($T->get_var('output'));
-
-            $template->set_var('plugin_fields',
-                    $existingPluginFields . $pluginFields);
             break;
-
         case 3:     // Automatic subscription, don't need a template for this
             $pluginFields =
                 '<input type="hidden" name="mailer_subscribe value="1" />' . LB;
             break;
         }
+        $template->set_var('plugin_fields', $existingPluginFields . $pluginFields);
     }
-
 }
 
 
