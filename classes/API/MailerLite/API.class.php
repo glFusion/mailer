@@ -3,9 +3,9 @@
  * MailerLite API for the Mailer plugin.
  *
  * @author      Lee Garner <lee@leegarner.com>
- * @copyright   Copyright (c) 2020 Lee Garner <lee@leegarner.com>
+ * @copyright   Copyright (c) 2022 Lee Garner <lee@leegarner.com>
  * @package     mailer
- * @version     v0.0.4
+ * @version     v0.3.0
  * @since       v0.0.4
  * @license     http://opensource.org/licenses/gpl-2.0.php
  *              GNU Public License v2 or later
@@ -443,7 +443,7 @@ class API extends \Mailer\API
      * Create the webhooks.
      * Webhooks can only be created via API for MailerLite.
      */
-    public function createWebhooks()
+    public function createWebhooks() : bool
     {
         $events = array(
             'subscriber.create',
@@ -468,6 +468,7 @@ class API extends \Mailer\API
                 Log::write('system', Log::ERROR, __METHOD__ . ': ' . $this->getLastResponse()['body']);
             }
         }
+        return $status;
     }
 
 
@@ -480,21 +481,18 @@ class API extends \Mailer\API
     {
         $status = $this->get('webhooks');
         if ($status) {
-            $body = json_decode($this->getLastResponse()['body']);
-            var_dump($body);die;
-            if (isset($body->webhooks) && is_array($body->webhooks)) {
-                foreach ($body->webhooks as $hook) {
-                    $this->delete('webhooks/' . $hook->id);
-                }
-            }
+            $hooks = json_decode($this->getLastResponse()['body'], true);
+        } else {
+            $hooks = array();
         }
+        return $hooks;
     }
 
 
     /**
      * Delete all webhooks.
      */
-    public function deleteWebhooks()
+    public function deleteWebhooks() : bool
     {
         $status = $this->get('webhooks');
         if ($status) {
@@ -505,6 +503,7 @@ class API extends \Mailer\API
                 }
             }
         }
+        return $status;
     }
 
 
@@ -520,33 +519,66 @@ class API extends \Mailer\API
 
 
     /**
-     * Show links in the admin menu to add and delete webhooks.
+     * Get links for the Maintenance page to add, delete and verify webhooks.
      *
-     * @return  string      HTML for additional header info
+     * @return  array   Array of link information
      */
-    public function getMenuHelp() : string
+    public function getMaintenanceLinks() : array
     {
-        $retval = '<a class="uk-button uk-button-success" href="' .
-            Config::get('admin_url') . '/index.php?api_action=addwebhooks">' .
-            'Add Webhooks</a>&nbsp;&nbsp;';
-        $retval .= '<a class="uk-button uk-button-danger" href="' .
-            Config::get('admin_url') . '/index.php?api_action=delwebhooks">' .
-            'Delete Webhooks</a>';
-        return '<p>' . $retval . '</p>';
+        global $LANG_MLR;
+
+        $retval = array(
+            array(
+                'action' => 'addwebhooks',
+                'text' => $LANG_MLR['add_hooks'],
+                'dscp' => $LANG_MLR['dscp_add_hooks'],
+                'style' => 'success',
+            ),
+            array(
+                'action' => 'delwebhooks',
+                'text' => $LANG_MLR['rem_hooks'],
+                'dscp' => $LANG_MLR['dscp_rem_hooks'],
+                'style' => 'danger',
+            ),
+            array(
+                'action' => 'verifywebhooks',
+                'text' => $LANG_MLR['verify_hooks'],
+                'dscp' => $LANG_MLR['dscp_verify_hooks'],
+                'style' => 'primary',
+            ),
+        );
+        return $retval;
     }
 
 
     /**
      * Handler for actions called via the admin menu.
      */
-    public function handleActions($opts) : void
+    public function handleActions(array $opts) : string
     {
-        $action = $opts['get']['api_action'];
-        if ($action == 'addwebhooks') {
-            $this->createWebhooks();
-        } elseif ($action == 'delwebhooks') {
-            $this->deleteWebhooks();
+        global $LANG_MLR;
+
+        $status = NULL;
+        $content = '';
+        $action = $opts['post']['api_action'];
+        switch ($action) {
+        case 'addwebhooks':
+            $status = $this->createWebhooks();
+            break;
+        case 'delwebhooks':
+            $status = $this->deleteWebhooks();
+            break;
+        case 'verifywebhooks':
+            $status = NULL;
+            $content = '<pre>' . var_export(self::listWebhooks(), true) . '</pre>';
+            break;
         }
+        if ($status) {
+            COM_setMsg($LANG_MLR['action_succeeded']);
+        } elseif ($status !== NULL) {
+            COM_setMsg($LANG_MLR['action_failed'], 'error', true);
+        }
+        return $content;
     }
 
 

@@ -70,20 +70,18 @@ Comparison of the free plans by provider.
     Enter these values in the plugin configuration.
   - Return to the admin page for the Mailer plugin to add webhooks.
     MailerLite does not support adding webhooks via the GUI.
-    - Click the question mark in the main menu to expand the dialog.
-    - Click the "Create Webhooks" button.
-  - There is currently no way to verify webhook creation via the plugin or MailerLite GUI.
-    - Visit https://developers.mailerlite.com/reference#get-webhooks-list
-    - Enter your API key by clicking the icon next to the "Try It" button.
-    - Click the "Try It" button. You can expand the returned values to verify the webhooks.
-    There should be six webhooks:
+    - Click the "Maintenance" option in the main menu.
+    - Under the Provider-Specific Actions, click the "Create Webhooks" button.
+    - Click the "Verify Webhooks" button to validate. There should be these webhooks:
       - subscriber.create
       - subscriber.update
       - subscriber.unsubscribe
       - subscriber.added_through_webform
+      - subscriber.add_to_group
+      - subscriber.remove_from_group
+      - subscriber.bounced
       - subscriber.complaint (not currently used)
-      - campaign.sent (not currently used)
-  - For SMTP relay visit https://mailersend.com
+  - For SMTP relay visit https://mailersend.com.
 
 ### Mailjet
   - Create an account and log in at https://mailjet.com.

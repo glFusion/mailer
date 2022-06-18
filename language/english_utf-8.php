@@ -3,10 +3,10 @@
  * English language strings for the Mailer plugin.
  *
  * @author      Lee Garner <lee@leegarner.com>
- * @copyright   Copyright (c) 2010-2021 Lee Garner <lee@leegarner.com>
+ * @copyright   Copyright (c) 2010-2022 Lee Garner <lee@leegarner.com>
  * @copyright   Copyright (c) 2008 Wayne Patterson <suprsidr@gmail.com>
  * @package     mailer
- * @version     v0.0.4
+ * @version     v0.3.0
  * @license     http://opensource.org/licenses/gpl-2.0.php 
  *              GNU Public License v2 or later
  * @filesource
@@ -195,6 +195,15 @@ $LANG_MLR = array(
     'dscp_sync_provider' => 'Synchronize your local database from your mail provider.',
     'existing_updated' => 'Existing updated',
     'test' => 'Test',
+    'add_hooks' => 'Create Webhooks',
+    'dscp_add_hooks' => 'Create webhook handlers with the mail provider.',
+    'rem_hooks' => 'Remove Webhooks',
+    'dscp_rem_hooks' => 'Delete webhook handlers with the mail provider.',
+    'verify_hooks' => 'Verify Webhooks',
+    'dscp_verify_hooks' => 'Verify that the webhooks have been set up at the mail provider.',
+    'action_succeeded' => 'The action was successful.',
+    'action_failed' => 'An error occurred. See the system log for details.',
+    'prv_maint_links' => 'Provider-Specific Actions for',
 );
 
 

@@ -5,9 +5,9 @@
  *
  * @author      Lee Garner <lee@leegarner.com>
  * @author      Drew McLellan <drew.mclellan@gmail.com>
- * @copyright   Copyright (c) 2010-2021 Lee Garner <lee@leegarner.com>
+ * @copyright   Copyright (c) 2010-2022 Lee Garner <lee@leegarner.com>
  * @package     mailer
- * @version     v0.1.0
+ * @version     v0.3.0
  * @license     http://opensource.org/licenses/MIT
  *              MIT License
  * @filesource
@@ -862,10 +862,25 @@ class API
 
 
     /**
-     * Handle API-specific actions requested through the admin page.
+     * Get links for the Maintenance page to add, delete and verify webhooks.
+     *
+     * @return  array   Array of link information
      */
-    public function handleActions($opts) : void
+    public function getMaintenanceLinks() : array
     {
+        return array();
+    }
+
+
+    /**
+     * Handle API-specific actions requested through the admin page.
+     *
+     * @param   array   $opts   Array of form options
+     * @return  string      Optional HTML output
+     */
+    public function handleActions(array $opts) : ?string
+    {
+        return '';
     }
 
 

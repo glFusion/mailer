@@ -3,10 +3,10 @@
  * Administrative entry point for the Mailer plugin.
  *
  * @author      Lee Garner <lee@leegarner.com>
- * @copyright   Copyright (c) 2010 Lee Garner <lee@leegarner.com>
+ * @copyright   Copyright (c) 2010-2022 Lee Garner <lee@leegarner.com>
  * @copyright   Copyright (c) 2008 Wayne Patterson <suprsidr@gmail.com>
  * @package     mailer
- * @version     v0.0.1
+ * @version     v0.3.0
  * @license     http://opensource.org/licenses/gpl-2.0.php
  *              GNU Public License v2 or later
  * @filesource
@@ -115,11 +115,12 @@ switch ($action) {
 case 'api_action':
     // Perform actions for the current API
     $API = Mailer\API::getInstance();
-    $content = $API->handleActions(array(
+    $action_content = $API->handleActions(array(
         'get' => $_GET,
         'post' => $_POST,
     ) );
-    COM_refresh(Config::get('admin_url') . '/index.php?campaigns');
+    $view = 'maintenance';
+    //COM_refresh(Config::get('admin_url') . '/index.php?maintenance');
     break;
 
 case 'sendtest':
@@ -428,13 +429,32 @@ case 'syncfrom_warning':
     break;
 
 case 'maintenance':
+    $API = Mailer\API::getInstance();
+    $actions = $API->getMaintenanceLinks();
     $T = new Template(Config::get('pi_path') . 'templates/admin');
     $T->set_file('funcs', 'maintenance.thtml');
     $T->set_var(array(
         'admin_url' => Config::get('admin_url'). '/index.php',
+        'provider_name' => $API->getName(),
     ) );
+    if (count($actions)) {
+        $T->set_var('has_provider_actions', true);
+        $T->set_block('funcs', 'ProviderActions', 'Actions');
+        foreach ($actions as $action) {
+            $T->set_var(array(
+                'action' => $action['action'],
+                'text' => $action['text'],
+                'dscp' => $action['dscp'],
+                'style' => $action['style'],
+            ) );
+            $T->parse('Actions', 'ProviderActions', true);
+        }
+    }
     $T->parse('output', 'funcs');
     $content .= $T->finish($T->get_var('output'));
+    if (isset($action_content)) {
+        $content .= $action_content;
+    }
     break;
 }
 
