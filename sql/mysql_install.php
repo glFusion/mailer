@@ -54,7 +54,7 @@ $_SQL= array(
 'mailer_txn' => "CREATE TABLE `{$_TABLES['mailer_txn']}` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
   `provider` varchar(40) DEFAULT NULL,
-  `type` varchar(255) DEFAULT NULL,
+  `type` varchar(40) DEFAULT NULL,
   `txn_id` varchar(128) DEFAULT NULL,
   `txn_date` datetime DEFAULT NULL,
   `data` text DEFAULT NULL,
@@ -72,7 +72,7 @@ $_SQL= array(
 
 'mailer_userinfo' => "CREATE TABLE `{$_TABLES['mailer_userinfo']}` (
   `uid` int(11) unsigned NOT NULL,
-  `data` text DEFAULT 'a:0:{}',
+  `data` text,
   PRIMARY KEY (`uid`)
 ) ENGINE=MyISAM",
 );
@@ -82,10 +82,10 @@ $_MLR_UPGRADE = array(
     '0.2.0' => array(
         "CREATE TABLE `{$_TABLES['mailer_userinfo']}` (
           `uid` int(11) unsigned NOT NULL,
-          `data` text DEFAULT 'a:0:{}',
+          `data` text,
           PRIMARY KEY (`uid`)
         ) ENGINE=MyISAM",
-        "ALTER TABLE {$_TABLES['mailer_txn']} CHANGE type type varchar(255)",
+        "ALTER TABLE {$_TABLES['mailer_txn']} CHANGE type type varchar(40)",
     ),
 );
 
