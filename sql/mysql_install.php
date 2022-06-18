@@ -6,7 +6,7 @@
  * @copyright   Copyright (c) 2010-2022 Lee Garner <lee@leegarner.com>
  * @copyright   Copyright (c) 2008 Wayne Patterson <suprsidr@gmail.com>
  * @package     mailer
- * @version     v0.3.0
+ * @version     v0.2.0
  * @license     http://opensource.org/licenses/gpl-2.0.php
  *              GNU Public License v2 or later
  * @filesource
@@ -69,6 +69,7 @@ $_SQL= array(
   `tested` tinyint(1) unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`mlr_id`,`provider`)
 ) ENGINE=MyISAM",
+
 'mailer_userinfo' => "CREATE TABLE `{$_TABLES['mailer_userinfo']}` (
   `uid` int(11) unsigned NOT NULL,
   `data` text DEFAULT 'a:0:{}',
@@ -84,8 +85,6 @@ $_MLR_UPGRADE = array(
           `data` text DEFAULT 'a:0:{}',
           PRIMARY KEY (`uid`)
         ) ENGINE=MyISAM",
-    ),
-    '0.3.0' => array(
         "ALTER TABLE {$_TABLES['mailer_txn']} CHANGE type type varchar(255)",
     ),
 );

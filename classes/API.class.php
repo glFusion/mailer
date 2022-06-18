@@ -7,7 +7,7 @@
  * @author      Drew McLellan <drew.mclellan@gmail.com>
  * @copyright   Copyright (c) 2010-2022 Lee Garner <lee@leegarner.com>
  * @package     mailer
- * @version     v0.3.0
+ * @version     v0.2.0
  * @license     http://opensource.org/licenses/MIT
  *              MIT License
  * @filesource
@@ -354,6 +354,17 @@ class API
     public function getFeatures() : array
     {
         return array('campaigns', 'subscribers');
+    }
+
+
+    /**
+     * Check if this API provider supports a specific feature.
+     *
+     * @return  boolean     True if supported, False if not
+     */
+    public function supportsFeature(string $ft_name) : bool
+    {
+        return in_array($ft_name, $this->getFeatures());
     }
 
 

@@ -5,7 +5,7 @@
  * @author      Lee Garner <lee@leegarner.com>
  * @copyright   Copyright (c) 2022 Lee Garner <lee@leegarner.com>
  * @package     mailer
- * @version     v0.3.0
+ * @version     v0.2.0
  * @since       v0.0.4
  * @license     http://opensource.org/licenses/gpl-2.0.php
  *              GNU Public License v2 or later
@@ -142,7 +142,7 @@ class API extends \Mailer\API
      * @param   array   $lists      Array of list IDs
      * @return  boolean     True on success, False on error
      */
-    public function subscribe($Sub, $lists=array())
+    public function subscribe($Sub, $lists=array()) : int
     {
         global $_CONF;
 
