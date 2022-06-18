@@ -5,7 +5,7 @@
  * @author      Lee Garner <lee@leegarner.com>
  * @copyright   Copyright (c) 2010-2021 Lee Garner <lee@leegarner.com>
  * @package     mailer
- * @version     v0.1.0
+ * @version     v0.2.0
  * @license     http://opensource.org/licenses/gpl-2.0.php
  *              GNU Public License v2 or later
  * @filesource
@@ -1106,10 +1106,57 @@ class Campaign
         $options = array();
 
         $retval .= ADMIN_list(
-            'mailer_listcampaigns',
+            'mailer_adminlistcampaigns',
             array(__CLASS__, 'getListField'),
             $header_arr, $text_arr, $query_arr, $defsort_arr,
             '', $extra, $options
+        );
+        return $retval;
+    }
+
+
+    /**
+     * List mailer archives.
+     *
+     * @return  string    HTML for the mailer archives
+     */
+    public static function userList()
+    {
+        global $_TABLES, $LANG_ADMIN, $LANG08, $LANG_MLR;
+
+        USES_lib_admin();
+
+        $retval = '';
+
+        $header_arr = array(
+            array(
+                'text' => $LANG08[32],
+                'field' => 'mlr_date',
+                'sort' => 'true',
+            ),
+            array(
+                'text' => $LANG_ADMIN['title'],
+                'field' => 'mlr_title',
+                'sort' => 'true',
+            ),
+        );
+        $defsort_arr = array('field' => 'mlr_date', 'direction' => 'DESC');
+        $text_arr = array();
+        $query_arr = array(
+            'table' => 'mailer_campaigns',
+            'sql' => "SELECT mlr_id, mlr_title,
+                        UNIX_TIMESTAMP(mlr_date) AS mlr_date
+                    FROM {$_TABLES['mailer_campaigns']} " .
+                    SEC_buildAccessSql('WHERE'),
+            'query_fields' => array('mlr_title', 'mlr_content'),
+        );
+        $options = array();
+        $extra = array();
+        $retval .= ADMIN_list(
+            'mailer_userlist',
+            array(__CLASS__, 'getListField'),
+            $header_arr, $text_arr, $query_arr, $defsort_arr,
+            '', $extra, $options,
         );
         return $retval;
     }
@@ -1125,7 +1172,7 @@ class Campaign
      * @param   array   $extra          Extra verbatim data
      * @return  string                  Display value for $fieldname
      */
-    public static function getListField($fieldname, $fieldvalue, $A, $icon_arr, $extra)
+    public static function getListField($fieldname, $fieldvalue, $A, $icon_arr, $extra=array())
     {
         global $_CONF, $LANG_ADMIN, $LANG_MLR, $_TABLES, $_IMAGE_TYPE;
 
@@ -1148,7 +1195,7 @@ class Campaign
             break;
 
         case 'tested':
-            if ($extra['supports_testing']) {
+            if (isset($extra['supports_testing']) && $extra['supports_testing']) {
                 $retval = COM_createLink(
                     FieldList::checkmark(array(
                         'active' => $fieldvalue == 1,

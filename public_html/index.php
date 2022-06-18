@@ -3,10 +3,10 @@
  * API functions for the Mailer plugin.
  *
  * @author      Lee Garner <lee@leegarner.com>
- * @copyright   Copyright (c) 2010-2021 Lee Garner <lee@leegarner.com>
+ * @copyright   Copyright (c) 2010-2022 Lee Garner <lee@leegarner.com>
  * @copyright   Copyright (c) 2008 Wayne Patterson <suprsidr@gmail.com>
  * @package     mailer
- * @version     v0.0.4
+ * @version     v0.2.0
  * @license     http://opensource.org/licenses/gpl-2.0.php
  *              GNU Public License v2 or later
  * @filesource
@@ -23,82 +23,6 @@ use Mailer\Models\Campaign;
 use Mailer\Menu;
 use Mailer\Config;
 use Mailer\Logger;
-
-
-/**
- * List mailer archives.
- *
- * @return  string    HTML for the mailer archives
- */
-function MLR_listArchives()
-{
-    global $_TABLES, $LANG_ADMIN, $LANG08, $LANG_MLR;
-
-    USES_lib_admin();
-
-    $retval = '';
-
-    $header_arr = array(
-        array('text' => $LANG08[32], 'field' => 'unixdate',
-                'sort' => 'true'),
-        array('text' => $LANG_ADMIN['title'], 'field' => 'mlr_title',
-                'sort' => 'true'),
-    );
-    $defsort_arr = array('field' => 'unixdate', 'direction' => 'DESC');
-    $text_arr = array();
-    $query_arr = array(
-        'table' => 'mailer',
-        'sql' => "SELECT mlr_id, mlr_title,
-                    UNIX_TIMESTAMP(mlr_date) AS unixdate
-                FROM {$_TABLES['mailer_campaigns']} " .
-                SEC_buildAccessSql('WHERE'),
-        'query_fields' => array('mlr_title', 'mlr_content'),
-    );
-    $options = array();
-    $retval .= ADMIN_list(
-        'mailer', 'MLR_public_getListField',
-        $header_arr, $text_arr, $query_arr, $defsort_arr,
-        '', '', $options
-    );
-    return $retval;
-}
-
-
-/**
- * Gets the output to display for each field in the mailing archive list.
- *
- * @param   string  $fieldname      Name of the field
- * @param   string  $fieldvalue     Value of the field
- * @param   array   $A              Array of all field=>value pairs
- * @param   array   $icon_arr       Array of admin icons
- * @return  string                  Display value for $fieldname
- */
-function MLR_public_getListField($fieldname, $fieldvalue, $A, $icon_arr)
-{
-    global $_CONF;
-
-    switch ($fieldname) {
-    case 'mlr_title':
-        $retval = COM_createLink(
-            $fieldvalue,
-            COM_buildUrl(
-                Config::get('url') . "/index.php?mode=view&mlr_id={$A['mlr_id']}"
-            )
-        );
-        break;
-
-    case 'unixdate':
-        $dt = new \Date($fieldvalue, $_CONF['timezone']);
-        $retval = $dt->format('Y-m-d');
-        break;
-
-    default:
-        $retval = $fieldvalue;
-        break;
-    }
-
-    return $retval;
-}
 
 
 // MAIN
@@ -195,10 +119,10 @@ case 'view':
             $content .= $N->displayPage();
         } else {
             $content .= COM_showmessageText($LANG_MLR['not_found']);
-            $content .= MLR_listArchives();
+            $content .= Campaign::userList();
         }
     } else {
-        $content .= MLR_listArchives();
+        $content .= Campaign::userList();
     }
     break;
 
@@ -206,7 +130,7 @@ case 'list':
 default:
     $content .= $header;
     $content .= COM_startBlock($LANG_MLR['list_title']);
-    $content .= MLR_listArchives();
+    $content .= Campaign::userList();
     $content .= COM_endBlock();
     break;
 }
