@@ -413,7 +413,7 @@ function plugin_initconfig_mailer()
             _addConfigItem($cfgItem);
         }
     } else {
-        COM_errorLog('initconfig error: Mailer config group already exists');
+        glFusion\Log\Log::write('system', Log::ERROR, 'initconfig error: Mailer config group already exists');
     }
     return true;
 }

@@ -17,6 +17,7 @@ if (!defined ('GVERSION')) {
 }
 use glFusion\Database\Database;
 use glFusion\Log\Log;
+use Mailer\Config;
 
 /** @global string $_DB_dbms */
 global $_DB_dbms;
@@ -27,8 +28,6 @@ $pi_path = dirname(__FILE__);
 require_once $pi_path . '/functions.inc';
 /** Include database definitions */
 require_once $pi_path . '/sql/'. $_DB_dbms. '_install.php';
-use Mailer\Config;
-
 
 /**
  * Plugin installation options
@@ -125,7 +124,7 @@ function plugin_install_mailer()
 {
     global $INSTALL_plugin;
 
-    COM_errorLog("Attempting to install the " . Config::get('pi_display_name') . " plugin", 1);
+    Log::write('system', Log::ERROR, "Attempting to install the " . Config::get('pi_display_name') . " plugin");
 
     $ret = INSTALLER_install($INSTALL_plugin[Config::PI_NAME]);
     if ($ret > 0) {
