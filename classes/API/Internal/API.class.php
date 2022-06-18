@@ -193,7 +193,7 @@ class API extends \Mailer\API
      */
     public function getFeatures() : array
     {
-        return array('campaigns', 'subscribers', 'queue');
+        return array('campaigns', 'subscribers', 'queue', 'archive');
     }
 
 
@@ -416,7 +416,7 @@ class API extends \Mailer\API
      * @param   string  $token      Token string
      * @return  boolean     Status from sending
      */
-    public function sendCampaign($Mlr, ?array $emails=NULL, ?string $token=NULL)
+    public function sendCampaign(Campaign $Mlr, ?array $emails=NULL, ?string $token=NULL) : bool
     {
         return $this->queueEmail($Mlr, $emails);
     }
