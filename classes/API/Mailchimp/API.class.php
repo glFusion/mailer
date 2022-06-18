@@ -280,6 +280,7 @@ class API extends \Mailer\API
         if ($status) {
             return Status::SUB_SUCCESS;
         } else {
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . $this->getLastResponse()['body']);
             return Status::SUB_ERROR;
         }
     }
