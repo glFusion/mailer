@@ -6,7 +6,7 @@
  * @copyright   Copyright (c) 2010-2022 Lee Garner <lee@leegarner.com>
  * @copyright   Copyright (c) 2008 Wayne Patterson <suprsidr@gmail.com>
  * @package     mailer
- * @version     v0.3.0
+ * @version     v0.2.0
  * @license     http://opensource.org/licenses/gpl-2.0.php 
  *              GNU Public License v2 or later
  * @filesource
@@ -158,13 +158,12 @@ $LANG_MLR = array(
     'user_menu_unsubscribe' => 'Unsubscribe from Announcements',
     'import_current_users' => 'Import Site Users',
     'import_file' => 'Import from File',
-    'import_users_confirm' => 'Are you sure that you want to import ALL site users?',
     'conf_clearsub' => 'Are you sure you want to clear your subscribers?',
     'dscp_clearsub' => 'This will *not* update the mailing list provider.',
     'dscp_import_current_users' => 'Import all users from the site user table.',
     'dscp_import_file' => 'Import users from a comma-separated file.',
     'sync_from_provider' => 'Sync From Provider',
-    'dscp_syncfrom' => 'Synchronize all subscribed users at the mail provider into the local database.',
+    'dscp_syncfrom' => 'Synchronize all subscribed users at the mail provider into the local database.<br />Useful to get your data in sync after switching providers.',
     'conf_syncfrom' => 'Are you sure you want to synchronize from the list provider?',
     'truncate_complete' => 'Subscribers cleared',
     'blacklisted_emails' => 'Blacklisted Emails: ',
@@ -184,15 +183,17 @@ $LANG_MLR = array(
     'site_user' => 'Site User',
     'conf_black' => 'Are you sure you want to blacklist these subscribers?',
     'conf_white' => 'Are you sure you want to activate these subscribers?',
+    'to_process' => 'Total to Process',
+    'imported' => 'Imported',
     'success' => 'Success',
     'error' => 'Error',
     'invalid' => 'Invalid Address',
     'duplicate' => 'Duplicate Address',
+    'failures' => 'Failed Importes',
     'never' => 'Never',
     'tbd' => 'To Be Determined',
     'not_supported' => 'Not supported',
-    'dscp_clear_subs' => 'Remove all subscriber data from your local database.',
-    'dscp_sync_provider' => 'Synchronize your local database from your mail provider.',
+    'dscp_clear_subs' => 'Remove all subscriber data from your local database.<br />Typically done to clear testing data, or to empty the database prior to changing mail providers.',
     'existing_updated' => 'Existing updated',
     'test' => 'Test',
     'add_hooks' => 'Create Webhooks',
@@ -204,6 +205,10 @@ $LANG_MLR = array(
     'action_succeeded' => 'The action was successful.',
     'action_failed' => 'An error occurred. See the system log for details.',
     'prv_maint_links' => 'Provider-Specific Actions for',
+    'glf_groups' => 'glFusion Groups',
+    'csv_file' => 'CSV File Content',
+    'import_from' => 'Import From',
+    'hlp_import_form' => 'Subscribers can be imported from a CSV file containing email addresses, or from an existing glFusion group.',
 );
 
 

@@ -6,7 +6,7 @@
  * @copyright   Copyright (c) 2010-2022 Lee Garner <lee@leegarner.com>
  * @copyright   Copyright (c) 2008 Wayne Patterson <suprsidr@gmail.com>
  * @package     mailer
- * @version     v0.3.0
+ * @version     v0.2.0
  * @license     http://opensource.org/licenses/gpl-2.0.php
  *              GNU Public License v2 or later
  * @filesource
@@ -38,39 +38,6 @@ if (!SEC_hasRights('mailer.admin,mailer.edit', 'OR')) {
     exit;
 }
 
-USES_lib_admin();
-
-
-/**
- * Display the form for importing a comma-separated list of users.
- *
- * @return  string      HTML for import form
- */
-function MLR_display_import_form()
-{
-    global $LANG_MLR, $LANG_ADMIN, $_CONF;
-
-    $retval = COM_startBlock($LANG_MLR['importer']);
-    $menu_arr = array(
-        array('url'=>$_CONF['site_admin_url'],
-                'text'=>$LANG_ADMIN['admin_home']),
-        array('url'=>'javascript:back()', 'text'=>'Back'),
-    );
-    $retval .= ADMIN_createMenu($menu_arr, '', plugin_geticon_mailer());
-
-    $T = new Template(Config::get('pi_path') . '/templates/admin');
-    $T->set_file('form', 'import.thtml');
-    $T->set_var(array(
-        //'lang_import'       => $LANG_MLR['import'],
-        'lang_import_temp_text' => $LANG_MLR['import_temp_text'],
-        'lang_delimiter'    => $LANG_MLR['delimiter'],
-        'lang_blacklist'    => $LANG_MLR['import_checkbox'],
-        //'lang_cancel'       => $LANG_ADMIN['cancel'],
-        'gltoken_name'      => CSRF_TOKEN,
-        'gltoken'           => SEC_createToken(),
-    ) );
-    return $T->parse('output','form');
-}
 
 // MAIN
 $expected = array(
@@ -83,7 +50,7 @@ $expected = array(
     'deletequeue', 'purgequeue', 'resetqueue', 'flushqueue',
     'clear_warning', 'clearsub', 'api_action',
     'syncfrom_warning', 'syncfrom',
-    'import_form', 'import_users', 'import_users_confirm', 'import', 'export',
+    'import', 'export',
     // views
     'campaigns', 'subscribers', 'queue', 'maintenance',
 );
@@ -202,109 +169,6 @@ case 'delete':
     COM_refresh(Config::get('admin_url') . '/index.php?campaigns');
     break;
 
-case 'import':
-    $list = explode($_POST['delimiter'], $_POST['import_list']);
-    $status = isset($_POST['blacklist']) && $_POST['blacklist'] == 1 ?
-            Status::BLACKLIST : Status::ACTIVE;
-    if (is_array($list)) {
-        $results = array(
-            'success' => 0,
-            'error' => 0,
-            'invalid' => 0,
-            'duplicate' => 0,
-        );
-        foreach($list as $email){
-            if (!empty($email)) {
-                $Sub = new Subscriber;
-                $response = $Sub->withEmail(trim($email))
-                    ->withStatus($status)
-                    ->subscribe();
-
-                //$status = MLR_addEmail(trim($email), $status);
-                switch ($response) {
-                case Status::SUB_SUCCESS:
-                    $results['success']++;
-                    break;
-                case Status::SUB_INVALID:
-                    $results['invalid']++;
-                    break;
-                case Status::SUB_EXISTS:
-                    $results['duplicate']++;
-                    break;
-                case Status::SUB__ERROR:
-                    $results['error']++;
-                break;
-                }
-            }
-        }
-        $msg = '';
-        foreach ($results as $key => $value) {
-            if ($value > 0) {
-                $msg .= '<li>' . $LANG_MLR[$key] . ': ' . $value . '</li>' . LB;
-            }
-        }
-        if (!empty($msg)) $msg = '<ul>' . $msg . '</ul>' . LB;
-    }
-    COM_refresh(Config::get('admin_url') . '/index.php?subscribers');
-    break;
-
-case 'import_users':
-    $db = Database::getInstance();
-    $stmt = $db->conn->executeQuery(
-        "SELECT `uid`, `fullname`, `email` FROM {$_TABLES['users']} WHERE uid > 2 AND status = 3"
-    );
-    $data = $stmt->fetchAll(Database::ASSOCIATIVE);
-    $existing = 0;
-    $successes = 0;
-    $failures = 0;
-    foreach ($data as $A) {
-        $status = 1;
-        if ($A['uid'] == 10) {
-            continue;
-        }
-        $Sub = Subscriber::getByUid($A['uid']);
-        if ($Sub->getID() > 0) {
-            $existing++;
-        }
-        if ($A['email'] != ''){
-            $status = $Sub->subscribe(Status::ACTIVE);
-            if ($status == 0) {
-                $successes++;
-            } else {
-                $failures++;
-            }
-        }
-    }
-    $T = new \Template(Config::get('pi_path') . '/templates/admin');
-    $T->set_file('form', 'import_status.thtml');
-    $T->set_var(array(
-        'existing' => $existing,
-        'successes' => $successes,
-        'failures' => $failures,
-    ) );
-    $T->parse('output', 'form');
-    $msg = $T->finish($T->get_var('output'));
-    COM_setMsg($msg, 'error', true);
-    echo COM_refresh(Config::get('admin_url') . '/index.php?subscribers');
-    break;
-
-case 'export':
-    $db = Database::getInstance();
-    $list = array();
-    $stmt = $db->conn->executeQuery("SELECT email FROM {$_TABLES['mailer_subscribers']}");
-    $data = $stmt->fetchAll(Database::ASSOCIATIVE);
-    foreach ($data as $A) {
-        $list[] = strtolower($A['email']);
-    }
-    $export_list = implode(",", $list);
-
-    //echo header('Content-type: text/csv');
-    echo header("Content-type: text/plain");
-    echo header('Content-Disposition: attachment; filename="mailer_email_export.txt"');
-    echo $export_list;
-    exit;
-    break;
-
 case 'syncfrom':
     if (SEC_checkToken()) {
         Mailer\Models\Subscriber::syncFromProvider();
@@ -387,18 +251,6 @@ case 'subscribers':
 case 'queue':
     $content .= Menu::adminQueue($view);
     $content .= Queue::adminList();
-    break;
-
-case 'import_form':
-    $content .= MLR_display_import_form();
-    break;
-
-case 'import_users_confirm':
-    // Confirm the import of all site users
-    $T = new \Template(Config::get('pi_path') . '/templates/admin');
-    $T->set_file('form', 'import_confirm.thtml');
-    $T->parse('output', 'form');
-    $content .= $T->finish($T->get_var('output'));
     break;
 
 case 'clear_warning':

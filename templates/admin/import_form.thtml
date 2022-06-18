@@ -1,16 +1,58 @@
 {# begin {templatelocation} #}
+<script>
+function upd_imp_type(rad)
+{
+	if (rad.value == "subscription") {
+		$("#sel_glfusion").hide();
+		$("#sel_file").show();
+        $('#from_glfusion').attr('required', false);
+        $('#from_csv').attr('required', true);
+	} else {
+		$("#sel_glfusion").show();
+		$("#sel_file").hide();
+        $('#from_glfusion').attr('required', true);
+        $('#from_csv').attr('required', false);
+	}
+}
+</script>
+<div class="uk-alert">{$LANG_MLR['hlp_import_form']}</div>
 <form uk-form class="uk-form uk-form-horizontal"
-	action="{site_admin_url}/plugins/mailer/index.php" method="post">
+	action="{site_admin_url}/plugins/mailer/import.php" method="post">
+
+	<div class="uk-form-row uk-margin">
+		<label class="uk-form-label tooltipsterd">{$LANG_MLR['import_from']}
+			<span id="hlp_import_from" class="tooltip_cfg tooltipstered"></span>
+		</label>
+		<div class="uk-form-controls" id="sel_imp_type">
+			<input type="radio" class="uk-radio imp_type_sel" name="import_type" value="glfusion" checked="checked" onclick="upd_imp_type(this);" />&nbsp;{$LANG_MLR['glf_groups']}&nbsp;&nbsp;&nbsp;	
+			<input type="radio" class="uk-radio imp_type_sel" name="import_type" value="subscription" onclick="upd_imp_type(this);" />&nbsp;{$LANG_MLR['csv_file']}
+		</div>
+	</div>
+
+
+	<div class="uk-form-row uk-margin" id="sel_glfusion">
+		<label class="uk-form-label">{$LANG_MEMBERSHIP['import_grp']}
+			<span id="hlp_import_grp" class="tooltip_cfg tooltipstered"></span>
+		</label>
+		<div class="uk-form-controls">
+			<select class="uk-select" required id="from_glfusion" name="from_glfusion">
+				<option value="">-- Select --</option>
+				{glfusion_opts}
+			</select>
+		</div>
+	</div>
+
+	<div id="sel_file" style="display:none;">
 	<div class="uk-form-row uk-margin">
 		<label class="uk-form-label">File Contents</label>
 		<div class="uk-form-controls">
-			<textarea required class="uk-textarea uk-width-1-1" name="import_list" rows="10"
-				placeholder="{lang_import_temp_text}"></textarea>
+			<textarea class="uk-textarea uk-width-1-1" name="import_list" rows="10" id="from_csv"
+				placeholder="{$LANG_MLR['import_temp_text']}"></textarea>
 		</div>
 	</div>
 
 	<div class="uk-form-row uk-margin">
-		<label class="uk-form-label">{lang_delimiter}</label>
+		<label class="uk-form-label">{$LANG_MLR['delimiter']}</label>
 		<div class="uk-form-controls">
 			<input class="uk-input uk-form-width-small" type="text" maxlength="2" size="2" name="delimiter" 
 			    id="delimiter" value="," />
@@ -18,18 +60,22 @@
 	</div>
 
 	<div class="uk-form-row uk-margin">
-		<label class="uk-form-label">{lang_blacklist}</label>
+		<label class="uk-form-label">{$LANG_MLR['import_checkbox']}</label>
 		<div class="uk-form-controls">
 			<input class="uk-checkbox" type="checkbox" name="blacklist" id="blacklist" value="1" />
 		</div>
 	</div>
+	</div>
 
 	<div class="uk-form-row uk-margin">
 		<div class="uk-form-controls">
-			<button class="uk-button uk-button-success" type="submit" value="x" name="import">{$LANG_MLR['import']}</button>
-			<a class="uk-button" href="{site_admin_url}/plugins/mailer/index.php?maintenance">{$LANG_ADMIN['cancel']}</a>
+			<button class="uk-button uk-button-success" type="submit" value="x" name="do_import">{$LANG_MLR['import']}</button>
+			<a class="uk-button" href="{site_admin_url}/plugins/mailer/index.php?subscribers">{$LANG_ADMIN['cancel']}</a>
 		</div>
 	</div>
   <input type="hidden" name="{gltoken_name}" value="{gltoken}" />
 </form>
+{!if output_text}
+<div>{output_text}</div>
+{!endif}
 {# end {templatelocation} #}

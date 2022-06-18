@@ -3,9 +3,9 @@
  * Class to provide admin and user-facing menus.
  *
  * @author      Lee Garner <lee@leegarner.com>
- * @copyright   Copyright (c) 2021 Lee Garner <lee@leegarner.com>
+ * @copyright   Copyright (c) 2021-2022 Lee Garner <lee@leegarner.com>
  * @package     mailer
- * @version     v0.0.4
+ * @version     v0.2.0
  * @since       v0.0.4
  * @license     http://opensource.org/licenses/gpl-2.0.php
  *              GNU Public License v2 or later
@@ -100,7 +100,7 @@ class Menu
         $T = new \Template(__DIR__ . '/../templates');
         $T->set_file('title', 'mailer_title.thtml');
         $T->set_var(array(
-            'title' => _('Mailer Administration'),
+            'title' => _('Mailer Administration') . ' v' . Config::get('pi_version'),
         ) );
         $hlp_text = _('Mail Handler') . ': ' . $API->getName();
         if (!$API->isConfigured()) {
@@ -135,17 +135,12 @@ class Menu
                 'active' => $view == 'subscribers' ? true : false,
             ),
             array(
-                'url' => $admin_url . '/index.php?import_form=x',
-                'text' => $LANG_MLR['import_file'],
-                'active' => $view == 'import' ? true : false,
-            ),
-            array(
-                'url' => $admin_url . '/index.php?import_users_confirm=x',
-                'text' => $LANG_MLR['import_current_users'],
+                'url' => $admin_url . '/import.php?import',
+                'text' => $LANG_MLR['import'],
                 'active' => $view == 'do_import' ? true : false,
             ),
             array(
-                'url' => $admin_url . '/index.php?export=x',
+                'url' => $admin_url . '/import.php?export=x',
                 'text' => $LANG_MLR['export'],
                 'active' => $view == 'export' ? true : false,
             ),

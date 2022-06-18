@@ -1,7 +1,0 @@
-{# begin {templatelocation} #}
-<form uk-form class="uk-form uk-form-horizontal" action="{site_admin_url}/plugins/mailer/index.php" method="post">
-	<div class="uk-alert uk-alert-danger">{$LANG_MLR['import_users_confirm']}</div>
-	<button  class="uk-button uk-button-success" type="submit" name="import_users" value="x">{$LANG_ACCESS['yes']}</button>
-	<a class="uk-button" href="{site_admin_url}/plugins/mailer/index.php?subscribers">{$LANG_ACCESS['no']}</a>
-</form>
-{# end {templatelocation} #}
