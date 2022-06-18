@@ -745,13 +745,12 @@ class Subscriber
         $this->_attributes = self::getPluginAttributes($this->uid);
 
         // Add in the first and last name, if possible.
-        $rc = LGLIB_invokeService('lglib', 'parseName',
-            array('name' => $this->_fullname),
-            $parts, $svc_msg
-        );
-        if ($rc == PLG_RET_OK) {
+        $parts = self::parseName($this->_fullname);
+        if (is_array($parts)) {
             $this->_attributes['FIRSTNAME'] = $parts['fname'];
-            $this->_attributes['LASTNAME'] = $parts['lname'];
+            if (isset($parts['lname'])) {
+                $this->_attributes['LASTNAME'] = $parts['lname'];
+            }
         }
 
         // Update that attribute field names to match the API requirement.
@@ -1267,6 +1266,42 @@ class Subscriber
         $retval .= FieldList::circle($icon3);
         $retval .= FieldList::delete($icon4);
         $retval .= '</div>';
+        return $retval;
+    }
+
+
+    /**
+     * Parse a fullname string into component parts.
+     *
+     * @param   string  $name       Full name to parse
+     * @return  mixed       Array of parts, or specified format
+     */
+    public static function parseName(string $name, ?string $format=NULL)
+    {
+        $args = array(1 => $name);
+        if ($format !== NULL) {
+            $args[2] = $format;
+        }
+        $retval = PLG_callFunctionForOnePlugin(
+            'plugin_parseName_lglib',
+            $args,
+        );
+        if (empty($retval)) {
+            // Function not found or failed, just split the name.
+            $p = explode(' ', $name);
+            $parts = array();
+            $parts['fname'] = $p[0];
+            $parts['lname'] = isset($p[1]) ? $p[1] : '';
+            if ($format == 'LCF') {
+                if (!empty($parts['lname'])) {
+                    $retval = $parts['lname'] . ', ' . $parts['fname'];
+                } else {
+                    $retval = $parts['fname'];
+                }
+            } else {
+                $retval = $parts;
+            }
+        }
         return $retval;
     }
 
