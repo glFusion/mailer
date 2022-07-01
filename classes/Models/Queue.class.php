@@ -248,9 +248,10 @@ class Queue
 
         // Get the queued entries. Order by mlr_id so we can minimize DB calls.
         try {
-            $stmt = $qb->select('q.q_id', 'q.mlr_id', 'q.name', 'q.email', 'e.token')
+            $stmt = $qb->select('q.q_id', 'q.mlr_id', 'u.fullname', 'q.email', 'e.token')
                ->from($_TABLES['mailer_queue'], 'q')
                ->leftJoin('q', $_TABLES['mailer_subscribers'], 'e', 'q.email=e.email')
+               ->leftJoin('e', $_TABLES['users'], 'u', 'e.uid=u.uid')
                ->orderBy('q.mlr_id', 'ASC')
                ->execute();
             $data = $stmt->fetchAllAssociative();
@@ -296,7 +297,7 @@ class Queue
                 $Email->setMessage($N->getContent(), true)
                       ->setSubject($N->getTitle());
             }
-            $Email->addBcc(0, $A['name'], $A['email']);
+            $Email->addBcc(0, (string)$A['fullname'], $A['email']);
             $recipients[] = $A['q_id'];
         }
 
