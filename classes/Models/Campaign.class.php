@@ -971,7 +971,12 @@ class Campaign
 
         $db = Database::getInstance();
         if (
-            $db->getCount($_TABLES['mailer_campaigns'], 'owner_id', $old_uid) == 0
+            $db->getCount(
+                $_TABLES['mailer_campaigns'],
+                'owner_id',
+                $old_uid,
+                Database::INTEGER
+            ) == 0
         ) {
             // No mailings owned by this user, nothing to do.
             return;
@@ -979,30 +984,38 @@ class Campaign
 
         if ($new_uid == 0) {
             // assign ownership to a user from the Root group
-            $stmt = $db->conn->executeQuery(
-                "SELECT DISTINCT ug_uid
-                FROM {$_TABLES['group_assignments']}
-                WHERE ug_main_grp_id = 1
-                    AND ug_uid IS NOT NULL
-                    AND ug_uid <> ?
-                ORDER BY ug_uid ASC LIMIT 1",
-                array($old_uid),
-                array(Database::INTEGER)
-            );
-            $rows = $stmt->fetchAll(Database::ASSOCIATIVE);
-            if (count($rows) == 1) {
+            try {
+                $stmt = $db->conn->executeQuery(
+                    "SELECT DISTINCT ug_uid
+                    FROM {$_TABLES['group_assignments']}
+                    WHERE ug_main_grp_id = 1
+                        AND ug_uid IS NOT NULL
+                        AND ug_uid <> ?
+                    ORDER BY ug_uid ASC LIMIT 1",
+                    array($old_uid),
+                    array(Database::INTEGER)
+                );
+                $rows = $stmt->fetchAllAssociative();
+            } catch(\Exception $e) {
+                Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
+                $rows = false;
+            }
+            if (is_array($rows) && count($rows) == 1) {
                 $A = $rows[0];
                 $new_uid = (int)$A['ug_uid'];
             }
         }
         if ($new_uid > 0) {
-            $db->conn->executeQuery(
-                "UPDATE {$_TABLES['mailer_campaigns']} SET
-                    owner_id = ?
-                WHERE owner_id = ?",
-                array($rootuser, $uid),
-                array(Database::INTEGER, Database::INTEGER)
-            );
+            try {
+                $db->conn->update(
+                    $_TABLES['mailer_campaigns'],
+                    array('owner_id' => $rootuser),
+                    array('owner_id' => $uid),
+                    array(Database::INTEGER, Database::INTEGER)
+                );
+            } catch(\Exception $e) {
+                Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
+            }
         } else {
             Log::write('system', Log::ERROR, __METHOD__ . ': Error finding root user');
         }
