@@ -2,8 +2,10 @@
 
 ## 0.2.0
 Release TBD
+- glFusion 2.x required
 - Save user profile data to avoid unnecessary API calls.
 - Disable test email link in campaign list if API doesn't support testing.
+- Smarter saving of user profiles, check if pertinent fields are changed.
 
 ## 0.1.0
 Release 2021-02-20

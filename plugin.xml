@@ -2,7 +2,7 @@
     <id>mailer</id>
     <name>Mailer</name>
     <description>Provides visitors the ability to subscribe to site announcements and other mailings. Use as a standalone mailer or integrate with list services.</description>
-    <version>0.1.0.2</version>
+    <version>0.1.1</version>
     <glfusionversion>2.0.0</glfusionversion>
     <phpversion>7.4.0</phpversion>
     <url>http://www.leegarner.com</url>

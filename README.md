@@ -27,13 +27,14 @@ and unsubscription requests are received via webhooks to update the user profile
   - LGLib plugin version 1.0.12 or later
 
 ## Provider Setup
-Comparison of the free plans by provider.
+Comparison of the free plans by provider. In most cases, all features are avilable
+to paid premium subscribers.
 | Provider | Subscribers | Sending Limit | SMTP Relay| Multiple Users | Multiple Lists | Segments |
 | --- | --- | --- | :---: | :---: | :---: | :---: |
 | Mailchimp | 2000 | 10000/mo | :x: | :x: | :x: | :heavy_check_mark: |
 | Sendinblue | No Limit | 300/day | :heavy_check_mark: | :x: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
 | MailerLite | 1000 | 12000/mo | :heavy_check_mark: | :x: | :heavy_check_mark: | :heavy_check_mark: |
-| Mailjet (not supported)| No Limit | 200/day, 6000/mo | :heavy_check_mark: | :x: | :heavy_check_mark: | :x: | :x: |
+| Mailjet | No Limit | 200/day, 6000/mo | :heavy_check_mark: | :x: | :heavy_check_mark: | :x: | :x: |
 
 ### Mailchimp
   - Create an account and log in at https://mailchimp.com.
