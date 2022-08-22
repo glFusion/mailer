@@ -1,7 +1,7 @@
 # Changelog - Mailer plugin for glFusion
 
 ## 0.2.0
-Release TBD
+Release 2022-08-22
 - glFusion 2.x required
 - Save user profile data to avoid unnecessary API calls.
 - Disable test email link in campaign list if API doesn't support testing.
