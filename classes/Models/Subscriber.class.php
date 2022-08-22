@@ -679,11 +679,13 @@ class Subscriber
             isset($post['email']) &&
             $post['mailer_old_email'] != $post['email']
         ) {
+            // Update the main subscriber record.
             $this->withEmail($post['email'])->Save();
             $update = true;
         }
 
         if ($this->getUserData() != $new_attr) {
+            // Update the userinfo table.
             $this->saveUserData($new_attr);
             $update = true;
         }
@@ -1194,15 +1196,25 @@ class Subscriber
                 array(Database::INTEGER)
             );
             if ($data) {
-                $retval = @json_decode($data, true);
+                $retval = json_decode($data, true);
             }
         } catch (\Exception $e) {
             Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
+        }
+        if (!is_array($retval)) {
+            $retval = array();
         }
         return $retval;
     }
 
 
+    /**
+     * Helper function to get the status icons for the admin field.
+     *
+     * @param   integer $id         Subscriber ID, not the user ID
+     * @param   integer $fieldvalue Field content value
+     * @return  string      Icon HTML
+     */
     public static function getStatusIcons(int $id, int $fieldvalue) : string
     {
         global $LANG_MLR;
