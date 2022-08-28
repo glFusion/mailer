@@ -161,12 +161,14 @@ function _MLR_rmdir($dir)
                     _MLR_rmdir($dir . '/' . $object);
                 } else {
                     @unlink($dir . '/' . $object);
+                    Log::write('system', Log::ERROR, "removed $dir/$object");
                 }
             }
         }
         @rmdir($dir);
     } elseif (is_file($dir)) {
         @unlink($dir);
+        Log::write('system', Log::ERROR, "removed $dir");
     }
 }
 
@@ -198,7 +200,6 @@ function _MLR_remove_old_files()
 
     foreach ($paths as $path=>$files) {
         foreach ($files as $file) {
-            Log::write('system', Log::ERROR, "removing $path/$file");
             _MLR_rmdir("$path/$file");
         }
     }
