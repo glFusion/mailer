@@ -2,7 +2,7 @@
 <script>
 function upd_imp_type(rad)
 {
-	if (rad.value == "subscription") {
+	if (rad.value == "csv") {
 		$("#sel_glfusion").hide();
 		$("#sel_file").show();
         $('#from_glfusion').attr('required', false);
@@ -25,7 +25,7 @@ function upd_imp_type(rad)
 		</label>
 		<div class="uk-form-controls" id="sel_imp_type">
 			<input type="radio" class="uk-radio imp_type_sel" name="import_type" value="glfusion" checked="checked" onclick="upd_imp_type(this);" />&nbsp;{$LANG_MLR['glf_groups']}&nbsp;&nbsp;&nbsp;	
-			<input type="radio" class="uk-radio imp_type_sel" name="import_type" value="subscription" onclick="upd_imp_type(this);" />&nbsp;{$LANG_MLR['csv_file']}
+			<input type="radio" class="uk-radio imp_type_sel" name="import_type" value="csv" onclick="upd_imp_type(this);" />&nbsp;{$LANG_MLR['csv_file']}
 		</div>
 	</div>
 
