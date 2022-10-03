@@ -15,6 +15,7 @@ namespace Mailer\Util\Importers;
 use glFusion\Database\Database;
 use glFusion\Log\Log;
 use Mailer\Models\Subscriber;
+use Mailer\Models\Status;
 use Mailer\Config;
 
 
@@ -32,8 +33,8 @@ class CSV extends \Mailer\Util\Importer
                     $Sub = new Subscriber;
                     $response = $Sub->withEmail(trim($email))
                                     ->withStatus($status)
+                                    ->withToken()
                                     ->subscribe();
-
                     //$status = MLR_addEmail(trim($email), $status);
                     switch ($response) {
                     case Status::SUB_SUCCESS:
@@ -61,7 +62,7 @@ class CSV extends \Mailer\Util\Importer
      *
      * @return  string      CSV string, NULL on error
      */
-    public function do_export() : ?string
+    public static function do_export() : ?string
     {
         global $_TABLES;
 
