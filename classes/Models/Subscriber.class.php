@@ -197,7 +197,7 @@ class Subscriber
      *
      * @return  integer Status
      */
-    public function subscribe($status = NULL) : int
+    public function subscribe(?int $status = NULL) : int
     {
         if ($status !== NULL) {
             $this->status = (int)$status;
@@ -209,15 +209,16 @@ class Subscriber
             }
             $this->status = Status::PENDING;
         }
-        $API = API::getInstance();
-        $status = $API->subscribe($this);
+        $status = $this->Save();
         if ($status) {
-            //Log::write('system', Log::ERROR, __METHOD__ . ': ' . "subscribing " . $this->_fullname);
-            if (!$this->Save()) {
+            $API = API::getInstance();
+            $api_status = $API->subscribe($this);
+            if ($api_status == Status::SUB_SUCCESS) {
+                //Log::write('system', Log::ERROR, __METHOD__ . ': ' . "subscribing " . $this->_fullname);
                 $status = false;
-            }
-            if ($this->status == Status::PENDING) {
-                $response = $API::sendDoubleOptin($this);
+                if ($this->status == Status::PENDING) {
+                    $response = $API::sendDoubleOptin($this);
+                }
             }
         }
         return $status;
@@ -285,8 +286,11 @@ class Subscriber
      */
     public function Save()
     {
-        global $_TABLES;
+        global $_TABLES, $_CONF;
 
+        if (empty($this->dt_reg)) {
+            $this->dt_reg = $_CONF['_now']->toMySQL(true);
+        }
         $db = Database::getInstance();
         $qb = $db->conn->createQueryBuilder();
         $qb->setParameter('email', $this->email_address, Database::STRING)
