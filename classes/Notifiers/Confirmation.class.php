@@ -14,9 +14,10 @@
 namespace Mailer\Notifiers;
 use Mailer\Models\Campaign;
 use Mailer\Models\Queue;
+use Mailer\Config;
 // This will be used with glFusion 2.1.0+
-// use glFusion\Notifier;
 // Until then, use our own email notifier
+use glFusion\Notifier;
 
 
 /**
@@ -29,9 +30,10 @@ class Confirmation
      * Send an opt-in confirmation to the subscriber
      *
      * @param   string  $email  Subscriber's email address
-     * @param   string  $token  Token included to validate unsubscribe requests.
+     * @param   string  $token  Token included to validate unsubscribe requests
+     * @return  boolean     True on success (always), False may be added later
      */
-    public static function send(string $email, string $token)
+    public static function send(string $email, string $token) : bool
     {
         global $_CONF, $LANG_MLR;
 
@@ -53,24 +55,28 @@ class Confirmation
         $T->parse('output', 'message');
         $body = $T->finish($T->get_var('output'));
 
-        $Emailer = Notifier::getProvider('Email');
-        $Emailer->setMessage($body, true)
-              ->setSubject($_CONF['site_name'] . ' ' . $LANG_MLR['confirm_title'])
-              ->addRecipient(0, '', $email)
-              ->setFromEmail(Config::senderEmail())
-              ->setFromName(Config::senderName())
-              ->send();
-        /*$msgData = array(
-            'to' => $email,
-            'bcc' => '',
-            'from' => array(
-                'email' => Config::senderEmail(),
-                'name' => Config::senderName(),
-            ),
-            'htmlmessage' => $body
-            'subject' => $_CONF['site_name'] . ' ' . $LANG_MLR['confirm_title'],
-        );
-        COM_emailNotification($msgData);*/
+        if (GVERSION > '2.0.1') {
+            $Emailer = Notifier::getProvider('Email');
+            $Emailer->setMessage($body, true)
+                  ->setSubject($_CONF['site_name'] . ' ' . $LANG_MLR['confirm_title'])
+                  ->addRecipient(0, '', $email)
+                  ->setFromEmail(Config::senderEmail())
+                  ->setFromName(Config::senderName())
+                  ->send();
+        } else {
+            $msgData = array(
+                'to' => $email,
+                'bcc' => '',
+                'from' => array(
+                    'email' => Config::senderEmail(),
+                    'name' => Config::senderName(),
+                ),
+                'htmlmessage' => $body,
+                'subject' => $_CONF['site_name'] . ' ' . $LANG_MLR['confirm_title'],
+            );
+            COM_emailNotification($msgData);
+        }
+        return true;
     }
 
 }
