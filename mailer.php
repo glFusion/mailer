@@ -30,8 +30,9 @@ $_TABLES['mailer_subscribers']   = $_DB_table_prefix . 'mailer_subscribers';
 $_TABLES['mailer_queue'] = $_DB_table_prefix . 'mailer_queue';
 $_TABLES['mailer_txn']  = $_DB_table_prefix . 'mailer_txn';
 $_TABLES['mailer_provider_campaigns'] = $_DB_table_prefix . 'mailer_provider_campaigns';
+$_TABLES['mailer_provider_subs'] = $_DB_table_prefix . 'mailer_provider_subs';
 $_TABLES['mailer_userinfo'] = $_DB_table_prefix . 'mailer_userinfo';
 
-Mailer\Config::set('pi_version', '0.2.0');
+Mailer\Config::set('pi_version', '0.2.1');
 Mailer\Config::set('gl_version', '2.0.0');
 

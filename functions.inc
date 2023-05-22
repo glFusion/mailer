@@ -51,6 +51,8 @@ use Mailer\Models\Subscriber;
 use Mailer\Models\Campaign;
 use Mailer\Models\Status;
 use Mailer\Models\Queue;
+use Mailer\Models\Request;
+use Mailer\Models\DataArray;
 use glFusion\Database\Database;
 use glFusion\Log\Log;
 Config::getInstance();
@@ -201,8 +203,48 @@ function plugin_user_delete_mailer($uid)
         $Sub = Subscriber::getByUid($uid);
         $Sub->unsubscribe();
     }
-
+    try {
+        $db->conn->delete(
+            $_TABLES['mailer_userinfo'],
+            array('uid' => $uid),
+            array(Database::INTEGER)
+        );
+    } catch (\Exception $e) {
+        Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
+    }
     Campaign::changeOwner($uid);
+}
+
+
+/**
+ * Support merging local accounts into remote accounts.
+ *
+ * @param   integer $origUID    Original (remote) user ID
+ * @param   integer $destUID    Merged (local) user ID
+ */
+function plugin_user_move_mailer($origUID, $destUID)
+{
+    global $_TABLES;
+
+    $db = Database::getInstance();
+    foreach (array('mailer_userinfo', 'mailer_subscribers') as $table) {
+        try {
+            // Delete the target in case it exists to avoid a key conflict.
+            $db->conn->delete(
+                $_TABLES[$table],
+                array('uid' => $newuid),
+                array(Database::INTEGER)
+            );
+            $db->conn->update(
+                $_TABLES[$table],
+                array('uid' => $newuid),
+                array('uid' => $olduid),
+                array(Database::INTEGER, Database::INTEGER)
+            );
+        } catch (\Exception $e) {
+            Log::write('system', Log::ERROR, __METHOD__ . ': ' . $e->getMessage());
+        }
+    }
 }
 
 
@@ -264,16 +306,16 @@ function plugin_profilesave_mailer($uid=0)
         $uid = (int)$uid;
     }
 
+    $Request = Request::getInstance();
     $Sub = Subscriber::getByUid($uid);
-    $Sub->profileUpdated($_POST);
+    $Sub->profileUpdated($Request);
     if ($Sub->getID() == 0) {
         $Sub->Save();       // make sure the record is created
     }
 
-    if (
-        isset($_POST['mailer_subscribe']) &&
-        (!isset($_POST['mailer_oldsub']) || empty($_POST['mailer_oldsub']))
-    ) {
+    $new_sub = $Request->getBool('mailer_subscribe');
+    $old_sub = $Request->getBool('mailer_oldsub');
+    if ($new_sub && !$old_sub) {
         // User requesting addition, double opt-in not needed
         if (Config::get('dbl_optin_members')) {
             $Sub->subscribe();
@@ -281,10 +323,7 @@ function plugin_profilesave_mailer($uid=0)
             // Not requiring double-optin for members
             $Sub->subscribe(Status::ACTIVE);
         }
-    } elseif (
-        !isset($_POST['mailer_subscribe']) &&
-        (isset($_POST['mailer_oldsub']) && !empty($_POST['mailer_oldsub']))
-    ) {
+    } elseif ($old_sub && !$new_sub) {
         // subscription checkbox not checked but was previously
         $Sub->unsubscribe();
     }
@@ -302,6 +341,8 @@ function plugin_profilesave_mailer($uid=0)
  */
 function plugin_itemsaved_mailer($id, $type, $old_id = '')
 {
+    return;
+
     $contentInfo = PLG_getItemInfo(
         $type,
         $id,
@@ -327,7 +368,7 @@ function plugin_itemsaved_mailer($id, $type, $old_id = '')
  *
  * @param   boolean $enable true = we're being enabled, false = disabled
  */
-function plugin_enablestatechange_mailer ($enable)
+function plugin_enablestatechange_mailer($enable)
 {
     global $_TABLES;
 
@@ -388,13 +429,17 @@ function phpblock_mailer()
 {
     global $_CONF, $LANG_MLR, $_USER, $_TABLES;
 
-    if (!Config::get('blk_show_subs') && !COM_isAnonUser()) {
-        // Anon always sees the block, no way to know if they're subscribed
+    if (!Config::get('blk_show_subs')) {
+        return '';
+    } elseif (!COM_isAnonUser()) {
+        // Hide the block from subscribed members.
+        // Anon always sees the block, no way to know if they're subscribed.
         $db = Database::getInstance();
-        $c = $db->getCount($_TABLES['mailer_subscribers'], 'email', $_USER['email']);
+        $c = $db->getCount($_TABLES['mailer_subscribers'], 'uid', $_USER['uid'], Database::INTEGER);
         if ($c > 0) return '';
     }
 
+    // If anonymous, or an unsubscribed site member, show the block
     $T = new Template(__DIR__ . '/templates/');
     $T->set_file('mailer_block', 'block.thtml');
     $T->set_var(array(
@@ -604,6 +649,29 @@ require_once __DIR__ . '/services.inc.php';
 function plugin_wsEnabled_mailer()
 {
     return false;
+}
+
+
+/**
+ * Update a subscriber record with one or more merge field values.
+ *
+ * @param   array   $args   Subscriber data to set
+ * @return  boolean     True on success, False on error
+ */
+function plugin_updatesubscriber_mailer(array $args) : bool
+{
+    $args = new DataArray($args);
+    if ($args->getString('email') != '') {
+        $Sub = Subscriber::getByEmail($args->getString('email'));
+        $Sub->getAttributes();
+        var_dumP($args);die;
+        foreach ($args->getArray('tags') as $key=>$val) {
+            $Sub->setAttribute($key, $val);
+        }
+        $Sub->update();
+    }
+//    var_dump($Sub);die;
+//var_dump($args);die;
 }
 
 //glFusion\Notifier::Register('mailer', 'Mailer\\Notifiers\Mailer', $LANG_MLR['pi_dscp']);

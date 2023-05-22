@@ -1,5 +1,9 @@
 # Changelog - Mailer plugin for glFusion
 
+## 0.2.1
+Release 2023-05-22
+- Fix missing DB parameter in `phpblock_mailer`.
+
 ## 0.2.0
 Release 2022-08-22
 - glFusion 2.x required
